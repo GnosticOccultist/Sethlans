@@ -21,6 +21,7 @@ import org.lwjgl.vulkan.VkLayerProperties;
 import fr.alchemy.utilities.collections.array.Array;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
+import fr.sethlans.core.vk.device.PhysicalDevice;
 import fr.sethlans.core.vk.util.VkUtil;
 
 public class VulkanInstance {
@@ -32,6 +33,8 @@ public class VulkanInstance {
     private VkDebugUtilsMessengerCallbackEXT debugMessengerCallback;
 
     private long vkDebugHandle;
+
+    private PhysicalDevice physicalDevice;
 
     public VulkanInstance(boolean debug) {
         try (var stack = MemoryStack.stackPush()) {
@@ -75,6 +78,27 @@ public class VulkanInstance {
                 err = EXTDebugUtils.vkCreateDebugUtilsMessengerEXT(handle, messengerCreateInfo, null, pMessenger);
                 VkUtil.throwOnFailure(err, "create debug utils");
                 vkDebugHandle = pMessenger.get(0);
+            }
+            
+            var pDevices = getPhysicalDevices(stack);
+            var numDevices = pDevices.capacity();
+            if (numDevices <= 0) {
+                throw new RuntimeException("Didn't find a single physical device with Vulkan support!");
+            }
+
+            // Select the most suitable device.
+            physicalDevice = null;
+            var bestScore = Float.NEGATIVE_INFINITY;
+            for (var i = 0; i < numDevices; ++i) {
+                var handle = pDevices.get(i);
+                var pd = new PhysicalDevice(handle, this);
+
+                var score = pd.evaluate();
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    physicalDevice = pd;
+                }
             }
         }
     }
@@ -175,6 +199,27 @@ public class VulkanInstance {
         return result;
     }
     
+    private PointerBuffer getPhysicalDevices(MemoryStack stack) {
+        // Count the number of available devices.
+        var pCount = stack.mallocInt(1);
+        var err = VK10.vkEnumeratePhysicalDevices(handle, pCount, null);
+        VkUtil.throwOnFailure(err, "count physical devices");
+        var numDevices = pCount.get(0);
+
+        logger.info("Found " + numDevices + " physical devices.");
+
+        // Enumerate the available devices.
+        var pPointers = stack.mallocPointer(numDevices);
+        err = VK10.vkEnumeratePhysicalDevices(handle, pCount, pPointers);
+        VkUtil.throwOnFailure(err, "enumerate physical devices");
+
+        return pPointers;
+    }
+
+    public VkInstance handle() {
+        return handle;
+    }
+
     public void destroy() {
         logger.info("Destroying Vulkan instance");
 
