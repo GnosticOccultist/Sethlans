@@ -8,7 +8,7 @@ public class SethlansTest {
 
         var window = new Window(800, 600);
 
-        var instance = new VulkanInstance(true);
+        var instance = new VulkanInstance(window, true);
 
         window.mainLoop();
 

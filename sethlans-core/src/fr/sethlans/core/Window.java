@@ -38,6 +38,10 @@ public class Window {
         }
     }
 
+    public long handle() {
+        return windowHandle;
+    }
+
     public void destroy() {
         if (windowHandle != MemoryUtil.NULL) {
             glfwDestroyWindow(windowHandle);

@@ -21,6 +21,7 @@ import org.lwjgl.vulkan.VkLayerProperties;
 import fr.alchemy.utilities.collections.array.Array;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
+import fr.sethlans.core.Window;
 import fr.sethlans.core.vk.device.LogicalDevice;
 import fr.sethlans.core.vk.device.PhysicalDevice;
 import fr.sethlans.core.vk.util.VkUtil;
@@ -39,7 +40,9 @@ public class VulkanInstance {
 
     private LogicalDevice logicalDevice;
 
-    public VulkanInstance(boolean debug) {
+    private Surface surface;
+
+    public VulkanInstance(Window window, boolean debug) {
         try (var stack = MemoryStack.stackPush()) {
 
             // Create the application info.
@@ -82,6 +85,8 @@ public class VulkanInstance {
                 VkUtil.throwOnFailure(err, "create debug utils");
                 vkDebugHandle = pMessenger.get(0);
             }
+            
+            this.surface = new Surface(this, window.handle());
 
             var pDevices = getPhysicalDevices(stack);
             var numDevices = pDevices.capacity();
@@ -238,6 +243,10 @@ public class VulkanInstance {
         if (logicalDevice != null) {
             logicalDevice.destroy();
             logicalDevice = null;
+        }
+
+        if (surface != null) {
+            surface.destroy();
         }
 
         if (vkDebugHandle != VK10.VK_NULL_HANDLE) {
