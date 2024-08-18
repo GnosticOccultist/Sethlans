@@ -21,6 +21,7 @@ import org.lwjgl.vulkan.VkLayerProperties;
 import fr.alchemy.utilities.collections.array.Array;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
+import fr.sethlans.core.vk.device.LogicalDevice;
 import fr.sethlans.core.vk.device.PhysicalDevice;
 import fr.sethlans.core.vk.util.VkUtil;
 
@@ -35,6 +36,8 @@ public class VulkanInstance {
     private long vkDebugHandle;
 
     private PhysicalDevice physicalDevice;
+
+    private LogicalDevice logicalDevice;
 
     public VulkanInstance(boolean debug) {
         try (var stack = MemoryStack.stackPush()) {
@@ -79,7 +82,7 @@ public class VulkanInstance {
                 VkUtil.throwOnFailure(err, "create debug utils");
                 vkDebugHandle = pMessenger.get(0);
             }
-            
+
             var pDevices = getPhysicalDevices(stack);
             var numDevices = pDevices.capacity();
             if (numDevices <= 0) {
@@ -100,11 +103,20 @@ public class VulkanInstance {
                     physicalDevice = pd;
                 }
             }
+
+            if (physicalDevice == null) {
+                throw new RuntimeException("Failed to find a suitable physical device!");
+            }
+
+            logger.info("Choosing " + physicalDevice + " with suitability score: " + bestScore);
+
+            this.logicalDevice = new LogicalDevice(this, physicalDevice, debug);
         }
+
     }
-    
-    private VkDebugUtilsMessengerCreateInfoEXT addDebugMessengerCreateInfo(
-            VkInstanceCreateInfo createInfo, MemoryStack stack) {
+
+    private VkDebugUtilsMessengerCreateInfoEXT addDebugMessengerCreateInfo(VkInstanceCreateInfo createInfo,
+            MemoryStack stack) {
         // Create the debug-messenger creation info.
         var messengerCreateInfo = VkDebugUtilsMessengerCreateInfoEXT.calloc(stack)
                 .sType(EXTDebugUtils.VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT)
@@ -122,7 +134,7 @@ public class VulkanInstance {
 
         var address = messengerCreateInfo.address();
         createInfo.pNext(address);
-        
+
         return messengerCreateInfo;
     }
     
@@ -155,20 +167,20 @@ public class VulkanInstance {
         return result;
     }
 
-    private PointerBuffer getRequiredLayers(Collection<String> desiredLayers, MemoryStack stack) {
+    public PointerBuffer getRequiredLayers(Collection<String> desiredLayers, MemoryStack stack) {
         var availableLayers = getAvailableLayers(stack);
 
         var overlap = desiredLayers.stream().filter(availableLayers::contains).toList();
         var result = stack.mallocPointer(overlap.size());
-        
+
         for (var i = 0; i < overlap.size(); ++i) {
             var name = overlap.get(i);
             var utf8Name = stack.UTF8Safe(name);
             result.put(utf8Name);
         }
-        
+
         logger.info("Using validation layers: " + overlap);
-        
+
         result.flip();
         return result;
     }
@@ -198,7 +210,7 @@ public class VulkanInstance {
         logger.info("Supported layers: " + result);
         return result;
     }
-    
+
     private PointerBuffer getPhysicalDevices(MemoryStack stack) {
         // Count the number of available devices.
         var pCount = stack.mallocInt(1);
@@ -222,6 +234,11 @@ public class VulkanInstance {
 
     public void destroy() {
         logger.info("Destroying Vulkan instance");
+
+        if (logicalDevice != null) {
+            logicalDevice.destroy();
+            logicalDevice = null;
+        }
 
         if (vkDebugHandle != VK10.VK_NULL_HANDLE) {
             EXTDebugUtils.vkDestroyDebugUtilsMessengerEXT(handle, vkDebugHandle, null);

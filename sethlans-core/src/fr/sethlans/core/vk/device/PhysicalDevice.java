@@ -6,10 +6,16 @@ import java.util.TreeSet;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
+import org.lwjgl.vulkan.VkDevice;
+import org.lwjgl.vulkan.VkDeviceCreateInfo;
+import org.lwjgl.vulkan.VkDeviceQueueCreateInfo;
 import org.lwjgl.vulkan.VkExtensionProperties;
 import org.lwjgl.vulkan.VkPhysicalDevice;
+import org.lwjgl.vulkan.VkPhysicalDeviceFeatures;
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
+import org.lwjgl.vulkan.VkQueueFamilyProperties;
 
+import fr.alchemy.utilities.collections.array.Array;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.vk.context.VulkanInstance;
@@ -23,6 +29,8 @@ public class PhysicalDevice {
 
     private String name;
 
+    private int type = -1;
+
     private Set<String> availableExtensions;
 
     public PhysicalDevice(long handle, VulkanInstance instance) {
@@ -31,11 +39,71 @@ public class PhysicalDevice {
 
     public float evaluate() {
 
+        var score = 0f;
+
         if (!hasExtension(KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
             return 0f;
         }
 
-        return 0f;
+        try (var stack = MemoryStack.stackPush()) {
+            var properties = gatherQueueFamilyProperties(stack);
+            if (!properties.hasGraphics()) {
+                return 0f;
+            }
+        }
+
+        // Discrete GPUs have a significant performance advantage over integrated GPUs.
+        if (type == VK10.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+            score += 100f;
+        }
+
+        return score;
+    }
+
+    VkDevice createLogicalDevice(VulkanInstance instance, boolean debug) {
+        try (var stack = MemoryStack.stackPush()) {
+            // Create the logical device creation info.
+            var createInfo = VkDeviceCreateInfo.calloc(stack).sType(VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
+
+            // Set up required features.
+            var features = VkPhysicalDeviceFeatures.calloc(stack);
+            createInfo.pEnabledFeatures(features);
+
+            // Enable all available queue families.
+            var properties = gatherQueueFamilyProperties(stack);
+            var familiesBuff = properties.listFamilies(stack);
+            var familyCount = familiesBuff.capacity();
+            var priorities = stack.floats(0.5f);
+
+            var queueCreationInfo = VkDeviceQueueCreateInfo.calloc(familyCount, stack);
+            for (var i = 0; i < familyCount; ++i) {
+                var info = queueCreationInfo.get(i);
+                info.sType(VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO).queueFamilyIndex(familiesBuff.get(i))
+                        .pQueuePriorities(priorities);
+            }
+            createInfo.pQueueCreateInfos(queueCreationInfo);
+
+            var requiredExtensions = stack.mallocPointer(1);
+            requiredExtensions.put(stack.ASCII(KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME));
+            createInfo.ppEnabledExtensionNames(requiredExtensions);
+
+            if (debug) {
+                /*
+                 * Ensure compatibility with older implementations that distinguish
+                 * device-specific layers from instance layers.
+                 */
+                var layerNames = instance.getRequiredLayers(Array.of("VK_LAYER_KHRONOS_validation"), stack);
+                createInfo.ppEnabledLayerNames(layerNames);
+            }
+
+            var pPointer = stack.mallocPointer(1);
+            var err = VK10.vkCreateDevice(handle, createInfo, null, pPointer);
+            VkUtil.throwOnFailure(err, "create logical device");
+            var deviceHandle = pPointer.get(0);
+            var result = new VkDevice(deviceHandle, handle, createInfo);
+
+            return result;
+        }
     }
 
     private boolean hasExtension(String extensionName) {
@@ -76,6 +144,36 @@ public class PhysicalDevice {
         VK10.vkGetPhysicalDeviceProperties(handle, properties);
 
         this.name = properties.deviceNameString();
+
+        this.type = properties.deviceType();
+    }
+
+    private QueueFamilyProperties gatherQueueFamilyProperties(MemoryStack stack) {
+
+        var properties = new QueueFamilyProperties();
+
+        // Count the number of queue families.
+        var pCount = stack.mallocInt(1);
+        VK10.vkGetPhysicalDeviceQueueFamilyProperties(handle, pCount, null);
+        var numFamilies = pCount.get(0);
+
+        logger.info("Found " + numFamilies + " queue families for " + this);
+
+        // Enumerate the available queue families.
+        var pProperties = VkQueueFamilyProperties.malloc(numFamilies, stack);
+        VK10.vkGetPhysicalDeviceQueueFamilyProperties(handle, pCount, pProperties);
+
+        for (var i = 0; i < numFamilies; ++i) {
+            var family = pProperties.get(i);
+
+            // Check for a graphics command queue.
+            var flags = family.queueFlags();
+            if ((flags & VK10.VK_QUEUE_GRAPHICS_BIT) != 0x0) {
+                properties.setGraphics(i);
+            }
+        }
+
+        return properties;
     }
 
     public String name() {
@@ -94,12 +192,6 @@ public class PhysicalDevice {
 
     @Override
     public String toString() {
-        if (availableExtensions == null) {
-            try (var stack = MemoryStack.stackPush()) {
-                gatherExtensionProperties(stack);
-            }
-        }
-
-        return "'" + name() + "' [extensions= " + availableExtensions + "]";
+        return "'" + name() + "'";
     }
 }
