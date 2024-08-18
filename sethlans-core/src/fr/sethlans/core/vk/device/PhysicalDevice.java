@@ -4,6 +4,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkDevice;
@@ -37,7 +38,7 @@ public class PhysicalDevice {
         this.handle = new VkPhysicalDevice(handle, instance.handle());
     }
 
-    public float evaluate() {
+    public float evaluate(long surfaceHandle) {
 
         var score = 0f;
 
@@ -46,8 +47,8 @@ public class PhysicalDevice {
         }
 
         try (var stack = MemoryStack.stackPush()) {
-            var properties = gatherQueueFamilyProperties(stack);
-            if (!properties.hasGraphics()) {
+            var properties = gatherQueueFamilyProperties(stack, surfaceHandle);
+            if (!properties.hasGraphics() || !properties.hasPresentation()) {
                 return 0f;
             }
         }
@@ -60,17 +61,18 @@ public class PhysicalDevice {
         return score;
     }
 
-    VkDevice createLogicalDevice(VulkanInstance instance, boolean debug) {
+    VkDevice createLogicalDevice(VulkanInstance instance, long surfaceHandle, boolean debug) {
         try (var stack = MemoryStack.stackPush()) {
             // Create the logical device creation info.
-            var createInfo = VkDeviceCreateInfo.calloc(stack).sType(VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
+            var createInfo = VkDeviceCreateInfo.calloc(stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
 
             // Set up required features.
             var features = VkPhysicalDeviceFeatures.calloc(stack);
             createInfo.pEnabledFeatures(features);
 
             // Enable all available queue families.
-            var properties = gatherQueueFamilyProperties(stack);
+            var properties = gatherQueueFamilyProperties(stack, surfaceHandle);
             var familiesBuff = properties.listFamilies(stack);
             var familyCount = familiesBuff.capacity();
             var priorities = stack.floats(0.5f);
@@ -78,7 +80,8 @@ public class PhysicalDevice {
             var queueCreationInfo = VkDeviceQueueCreateInfo.calloc(familyCount, stack);
             for (var i = 0; i < familyCount; ++i) {
                 var info = queueCreationInfo.get(i);
-                info.sType(VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO).queueFamilyIndex(familiesBuff.get(i))
+                info.sType(VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
+                        .queueFamilyIndex(familiesBuff.get(i))
                         .pQueuePriorities(priorities);
             }
             createInfo.pQueueCreateInfos(queueCreationInfo);
@@ -148,7 +151,7 @@ public class PhysicalDevice {
         this.type = properties.deviceType();
     }
 
-    private QueueFamilyProperties gatherQueueFamilyProperties(MemoryStack stack) {
+    QueueFamilyProperties gatherQueueFamilyProperties(MemoryStack stack, long surfaceHandle) {
 
         var properties = new QueueFamilyProperties();
 
@@ -170,6 +173,14 @@ public class PhysicalDevice {
             var flags = family.queueFlags();
             if ((flags & VK10.VK_QUEUE_GRAPHICS_BIT) != 0x0) {
                 properties.setGraphics(i);
+            }
+
+            // Check that presentation is supported for the surface.
+            var err = KHRSurface.vkGetPhysicalDeviceSurfaceSupportKHR(handle, i, surfaceHandle, pCount);
+            VkUtil.throwOnFailure(err, "test for presentation support");
+            var supported = pCount.get(0);
+            if (supported == VK10.VK_TRUE) {
+                properties.setPresentation(i);
             }
         }
 

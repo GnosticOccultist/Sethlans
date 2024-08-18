@@ -85,7 +85,7 @@ public class VulkanInstance {
                 VkUtil.throwOnFailure(err, "create debug utils");
                 vkDebugHandle = pMessenger.get(0);
             }
-            
+
             this.surface = new Surface(this, window.handle());
 
             var pDevices = getPhysicalDevices(stack);
@@ -101,7 +101,7 @@ public class VulkanInstance {
                 var handle = pDevices.get(i);
                 var pd = new PhysicalDevice(handle, this);
 
-                var score = pd.evaluate();
+                var score = pd.evaluate(surface.handle());
 
                 if (score > bestScore) {
                     bestScore = score;
@@ -115,7 +115,7 @@ public class VulkanInstance {
 
             logger.info("Choosing " + physicalDevice + " with suitability score: " + bestScore);
 
-            this.logicalDevice = new LogicalDevice(this, physicalDevice, debug);
+            this.logicalDevice = new LogicalDevice(this, physicalDevice, surface.handle(), debug);
         }
 
     }

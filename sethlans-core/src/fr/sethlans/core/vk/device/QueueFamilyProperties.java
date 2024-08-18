@@ -7,12 +7,24 @@ import org.lwjgl.system.MemoryStack;
 public class QueueFamilyProperties {
 
     private Integer graphics;
-    
+
+    private Integer presentation;
+
     IntBuffer listFamilies(MemoryStack stack) {
         assert hasGraphics();
 
-        var result = stack.ints(graphics);
+        IntBuffer result;
+        if (graphics == presentation) {
+            result = stack.ints(graphics);
+        } else {
+            result = stack.ints(graphics, presentation);
+        }
+
         return result;
+    }
+
+    public int graphics() {
+        return graphics;
     }
 
     public boolean hasGraphics() {
@@ -21,5 +33,17 @@ public class QueueFamilyProperties {
 
     void setGraphics(int index) {
         this.graphics = index;
+    }
+
+    public int presentation() {
+        return presentation;
+    }
+
+    public boolean hasPresentation() {
+        return presentation != null;
+    }
+
+    void setPresentation(int index) {
+        this.presentation = index;
     }
 }
