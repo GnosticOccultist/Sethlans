@@ -19,6 +19,7 @@ import org.lwjgl.vulkan.VkQueueFamilyProperties;
 import fr.alchemy.utilities.collections.array.Array;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
+import fr.sethlans.core.vk.context.SurfaceProperties;
 import fr.sethlans.core.vk.context.VulkanInstance;
 import fr.sethlans.core.vk.util.VkUtil;
 
@@ -42,7 +43,15 @@ public class PhysicalDevice {
 
         var score = 0f;
 
+        // Check that the device support the swap-chain extension.
         if (!hasExtension(KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
+            logger.error("Swapchain extension isn't supported by " + this);
+            return 0f;
+        }
+
+        // Check that the device has adequate swap-chain support for the surface.
+        if (!hasAdequateSwapChainSupport(surfaceHandle)) {
+            logger.error("Swapchain support isn't adequate for " + this);
             return 0f;
         }
 
@@ -59,6 +68,13 @@ public class PhysicalDevice {
         }
 
         return score;
+    }
+
+    private boolean hasAdequateSwapChainSupport(long surfaceHandle) {
+        var surfaceProperties = new SurfaceProperties(this, surfaceHandle);
+
+        var adequate = surfaceProperties.hasFormat() || surfaceProperties.hasPresentationMode();
+        return adequate;
     }
 
     VkDevice createLogicalDevice(VulkanInstance instance, long surfaceHandle, boolean debug) {

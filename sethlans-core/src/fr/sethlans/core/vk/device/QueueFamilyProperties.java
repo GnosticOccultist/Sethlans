@@ -10,6 +10,10 @@ public class QueueFamilyProperties {
 
     private Integer presentation;
 
+    QueueFamilyProperties() {
+
+    }
+
     IntBuffer listFamilies(MemoryStack stack) {
         assert hasGraphics();
 

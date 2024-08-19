@@ -7,7 +7,7 @@ import org.lwjgl.vulkan.VK10;
 
 import fr.sethlans.core.vk.util.VkUtil;
 
-class Surface {
+public class Surface {
 
     private final VulkanInstance instance;
 
