@@ -47,6 +47,10 @@ public class LogicalDevice {
         return result;
     }
 
+    public VkDevice handle() {
+        return handle;
+    }
+
     public void destroy() {
         if (handle != null) {
             VK10.vkDestroyDevice(handle, null);

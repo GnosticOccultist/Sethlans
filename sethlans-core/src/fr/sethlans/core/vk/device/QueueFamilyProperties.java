@@ -14,7 +14,7 @@ public class QueueFamilyProperties {
 
     }
 
-    IntBuffer listFamilies(MemoryStack stack) {
+    public IntBuffer listFamilies(MemoryStack stack) {
         assert hasGraphics();
 
         IntBuffer result;

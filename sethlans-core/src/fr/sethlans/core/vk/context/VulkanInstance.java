@@ -24,6 +24,7 @@ import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.Window;
 import fr.sethlans.core.vk.device.LogicalDevice;
 import fr.sethlans.core.vk.device.PhysicalDevice;
+import fr.sethlans.core.vk.swapchain.SwapChain;
 import fr.sethlans.core.vk.util.VkUtil;
 
 public class VulkanInstance {
@@ -116,8 +117,11 @@ public class VulkanInstance {
             logger.info("Choosing " + physicalDevice + " with suitability score: " + bestScore);
 
             this.logicalDevice = new LogicalDevice(this, physicalDevice, surface.handle(), debug);
-        }
 
+            var swapChain = new SwapChain(logicalDevice, physicalDevice.getSurfaceProperties(surface.handle()),
+                    physicalDevice.gatherQueueFamilyProperties(stack, surface.handle()), surface.handle(),
+                    window.getWidth(), window.getHeight());
+        }
     }
 
     private VkDebugUtilsMessengerCreateInfoEXT addDebugMessengerCreateInfo(VkInstanceCreateInfo createInfo,

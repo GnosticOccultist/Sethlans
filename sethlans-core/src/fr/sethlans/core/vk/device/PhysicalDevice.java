@@ -35,6 +35,8 @@ public class PhysicalDevice {
 
     private Set<String> availableExtensions;
 
+    private SurfaceProperties surfaceProperties;
+
     public PhysicalDevice(long handle, VulkanInstance instance) {
         this.handle = new VkPhysicalDevice(handle, instance.handle());
     }
@@ -71,17 +73,31 @@ public class PhysicalDevice {
     }
 
     private boolean hasAdequateSwapChainSupport(long surfaceHandle) {
-        var surfaceProperties = new SurfaceProperties(this, surfaceHandle);
+        if (surfaceProperties == null) {
+            surfaceProperties = gatherSurfaceProperties(surfaceHandle);
+        }
 
         var adequate = surfaceProperties.hasFormat() || surfaceProperties.hasPresentationMode();
         return adequate;
     }
 
+    public SurfaceProperties getSurfaceProperties(long surfaceHandle) {
+        if (surfaceProperties == null) {
+            surfaceProperties = gatherSurfaceProperties(surfaceHandle);
+        }
+
+        return surfaceProperties;
+    }
+
+    private SurfaceProperties gatherSurfaceProperties(long surfaceHandle) {
+        var surfaceProperties = new SurfaceProperties(this, surfaceHandle);
+        return surfaceProperties;
+    }
+
     VkDevice createLogicalDevice(VulkanInstance instance, long surfaceHandle, boolean debug) {
         try (var stack = MemoryStack.stackPush()) {
             // Create the logical device creation info.
-            var createInfo = VkDeviceCreateInfo.calloc(stack)
-                    .sType(VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
+            var createInfo = VkDeviceCreateInfo.calloc(stack).sType(VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
 
             // Set up required features.
             var features = VkPhysicalDeviceFeatures.calloc(stack);
@@ -96,14 +112,15 @@ public class PhysicalDevice {
             var queueCreationInfo = VkDeviceQueueCreateInfo.calloc(familyCount, stack);
             for (var i = 0; i < familyCount; ++i) {
                 var info = queueCreationInfo.get(i);
-                info.sType(VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
-                        .queueFamilyIndex(familiesBuff.get(i))
+                info.sType(VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO).queueFamilyIndex(familiesBuff.get(i))
                         .pQueuePriorities(priorities);
             }
             createInfo.pQueueCreateInfos(queueCreationInfo);
 
             var requiredExtensions = stack.mallocPointer(1);
             requiredExtensions.put(stack.ASCII(KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME));
+            requiredExtensions.rewind();
+
             createInfo.ppEnabledExtensionNames(requiredExtensions);
 
             if (debug) {
@@ -167,7 +184,7 @@ public class PhysicalDevice {
         this.type = properties.deviceType();
     }
 
-    QueueFamilyProperties gatherQueueFamilyProperties(MemoryStack stack, long surfaceHandle) {
+    public QueueFamilyProperties gatherQueueFamilyProperties(MemoryStack stack, long surfaceHandle) {
 
         var properties = new QueueFamilyProperties();
 

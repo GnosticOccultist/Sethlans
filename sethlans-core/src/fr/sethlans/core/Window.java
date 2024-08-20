@@ -8,9 +8,17 @@ import org.lwjgl.system.MemoryUtil;
 
 public class Window {
 
+    private int width;
+
+    private int height;
+
     private long windowHandle = MemoryUtil.NULL;
 
     public Window(int width, int height) {
+
+        this.width = width;
+        this.height = height;
+
         // Print GLFW errors to err print stream.
         GLFWErrorCallback.createPrint(System.err).set();
 
@@ -40,6 +48,14 @@ public class Window {
 
     public long handle() {
         return windowHandle;
+    }
+
+    public int getWidth() {
+        return width;
+    }
+
+    public int getHeight() {
+        return height;
     }
 
     public void destroy() {
