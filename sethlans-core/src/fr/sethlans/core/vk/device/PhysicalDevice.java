@@ -97,7 +97,8 @@ public class PhysicalDevice {
     VkDevice createLogicalDevice(VulkanInstance instance, long surfaceHandle, boolean debug) {
         try (var stack = MemoryStack.stackPush()) {
             // Create the logical device creation info.
-            var createInfo = VkDeviceCreateInfo.calloc(stack).sType(VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
+            var createInfo = VkDeviceCreateInfo.calloc(stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
 
             // Set up required features.
             var features = VkPhysicalDeviceFeatures.calloc(stack);
@@ -112,13 +113,14 @@ public class PhysicalDevice {
             var queueCreationInfo = VkDeviceQueueCreateInfo.calloc(familyCount, stack);
             for (var i = 0; i < familyCount; ++i) {
                 var info = queueCreationInfo.get(i);
-                info.sType(VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO).queueFamilyIndex(familiesBuff.get(i))
+                info.sType(VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
+                        .queueFamilyIndex(familiesBuff.get(i))
                         .pQueuePriorities(priorities);
             }
             createInfo.pQueueCreateInfos(queueCreationInfo);
 
             var requiredExtensions = stack.mallocPointer(1);
-            requiredExtensions.put(stack.ASCII(KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME));
+            requiredExtensions.put(stack.UTF8Safe(KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME));
             requiredExtensions.rewind();
 
             createInfo.ppEnabledExtensionNames(requiredExtensions);
@@ -204,7 +206,7 @@ public class PhysicalDevice {
 
             // Check for a graphics command queue.
             var flags = family.queueFlags();
-            if ((flags & VK10.VK_QUEUE_GRAPHICS_BIT) != 0x0) {
+            if ((flags & VK10.VK_QUEUE_GRAPHICS_BIT) != 0x0) {;
                 properties.setGraphics(i);
             }
 
@@ -214,6 +216,7 @@ public class PhysicalDevice {
             var supported = pCount.get(0);
             if (supported == VK10.VK_TRUE) {
                 properties.setPresentation(i);
+                break;
             }
         }
 

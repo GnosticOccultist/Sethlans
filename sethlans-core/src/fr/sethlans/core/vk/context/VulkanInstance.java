@@ -165,7 +165,7 @@ public class VulkanInstance {
 
     private PointerBuffer getRequiredExtensions(boolean debug, MemoryStack stack) {
         var result = GLFWVulkan.glfwGetRequiredInstanceExtensions();
-
+        
         if (debug) {
             // Vulkan debug utils messenger require an extra extension.
             result = VkUtil.appendStringPointer(result, EXTDebugUtils.VK_EXT_DEBUG_UTILS_EXTENSION_NAME, stack);
