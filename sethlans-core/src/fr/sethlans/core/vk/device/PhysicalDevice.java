@@ -35,8 +35,6 @@ public class PhysicalDevice {
 
     private Set<String> availableExtensions;
 
-    private SurfaceProperties surfaceProperties;
-
     public PhysicalDevice(long handle, VulkanInstance instance) {
         this.handle = new VkPhysicalDevice(handle, instance.handle());
     }
@@ -73,24 +71,15 @@ public class PhysicalDevice {
     }
 
     private boolean hasAdequateSwapChainSupport(long surfaceHandle) {
-        if (surfaceProperties == null) {
-            surfaceProperties = gatherSurfaceProperties(surfaceHandle);
+        try (var stack = MemoryStack.stackPush()) {
+            var surfaceProperties = gatherSurfaceProperties(surfaceHandle, stack);
+            var adequate = surfaceProperties.hasFormat() || surfaceProperties.hasPresentationMode();
+            return adequate;
         }
-
-        var adequate = surfaceProperties.hasFormat() || surfaceProperties.hasPresentationMode();
-        return adequate;
     }
 
-    public SurfaceProperties getSurfaceProperties(long surfaceHandle) {
-        if (surfaceProperties == null) {
-            surfaceProperties = gatherSurfaceProperties(surfaceHandle);
-        }
-
-        return surfaceProperties;
-    }
-
-    private SurfaceProperties gatherSurfaceProperties(long surfaceHandle) {
-        var surfaceProperties = new SurfaceProperties(this, surfaceHandle);
+    public SurfaceProperties gatherSurfaceProperties(long surfaceHandle, MemoryStack stack) {
+        var surfaceProperties = new SurfaceProperties(this, surfaceHandle, stack);
         return surfaceProperties;
     }
 

@@ -22,42 +22,40 @@ public class SurfaceProperties {
     private final VkSurfaceFormatKHR.Buffer formats;
     private final IntBuffer presentationModes;
 
-    public SurfaceProperties(PhysicalDevice physicalDevice, long surfaceHandle) {
-        try (var stack = MemoryStack.stackPush()) {
+    public SurfaceProperties(PhysicalDevice physicalDevice, long surfaceHandle, MemoryStack stack) {
+        // Obtain the capabilities of the VkSurfaceKHR:
+        this.capabilities = VkSurfaceCapabilitiesKHR.malloc(stack);
+        int retCode = KHRSurface.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice.handle(), surfaceHandle,
+                capabilities);
+        VkUtil.throwOnFailure(retCode, "obtain surface capabilities");
 
-            // Retrieve the surface capabilities.
-            this.capabilities = VkSurfaceCapabilitiesKHR.malloc(stack);
-            var err = KHRSurface.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice.handle(), surfaceHandle,
-                    capabilities);
-            VkUtil.throwOnFailure(err, "retrieve surface capabilities");
+        // Count the available surface formats:
+        IntBuffer storeInt = stack.mallocInt(1);
+        retCode = KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice.handle(), surfaceHandle, storeInt,
+                null);
+        VkUtil.throwOnFailure(retCode, "count surface formats");
+        int numFormats = storeInt.get(0);
 
-            // Count the available surface formats.
-            var pCount = stack.mallocInt(1);
-            err = KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice.handle(), surfaceHandle, pCount, null);
-            VkUtil.throwOnFailure(err, "count surface formats");
-            var formatCount = pCount.get(0);
+        // Enumerate the available surface formats:
+        this.formats = VkSurfaceFormatKHR.malloc(numFormats, stack);
+        if (numFormats > 0) {
+            retCode = KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice.handle(), surfaceHandle, storeInt,
+                    formats);
+            VkUtil.throwOnFailure(retCode, "enumerate surface formats");
+        }
 
-            // Enumerate the available surface formats.
-            this.formats = VkSurfaceFormatKHR.malloc(formatCount, stack);
-            if (formatCount > 0) {
-                err = KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice.handle(), surfaceHandle, pCount,
-                        formats);
-                VkUtil.throwOnFailure(err, "enumerate surface formats");
-            }
+        // Count the available surface-presentation modes:
+        retCode = KHRSurface.vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice.handle(), surfaceHandle, storeInt,
+                null);
+        VkUtil.throwOnFailure(retCode, "count presentation modes");
+        int numModes = storeInt.get(0);
 
-            // Count the available surface-presentation modes.
-            err = KHRSurface.vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice.handle(), surfaceHandle, pCount,
-                    null);
-            VkUtil.throwOnFailure(err, "count presentation modes");
-            var modesCount = pCount.get(0);
-
-            // Enumerate the available surface-presentation modes.
-            this.presentationModes = stack.mallocInt(modesCount);
-            if (modesCount > 0) {
-                err = KHRSurface.vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice.handle(), surfaceHandle,
-                        pCount, presentationModes);
-                VkUtil.throwOnFailure(err, "enumerate presentation modes");
-            }
+        // Enumerate the available surface-presentation modes:
+        this.presentationModes = stack.mallocInt(numModes);
+        if (numModes > 0) {
+            retCode = KHRSurface.vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice.handle(), surfaceHandle,
+                    storeInt, presentationModes);
+            VkUtil.throwOnFailure(retCode, "enumerate presentation modes");
         }
     }
 
@@ -110,7 +108,6 @@ public class SurfaceProperties {
         // Find the matching surface format.
         for (var i = 0; i < formats.capacity(); ++i) {
             var f = formats.get(i);
-            logger.info("found format " + f.colorSpace());
             if (f.format() == format && f.colorSpace() == colorSpace) {
                 return Optional.of(f);
             }

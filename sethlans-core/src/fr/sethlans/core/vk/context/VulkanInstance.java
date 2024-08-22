@@ -117,8 +117,10 @@ public class VulkanInstance {
             logger.info("Choosing " + physicalDevice + " with suitability score: " + bestScore);
 
             this.logicalDevice = new LogicalDevice(this, physicalDevice, surface.handle(), debug);
+            
+            var surfaceProperties = physicalDevice.gatherSurfaceProperties(surface.handle(), stack);
 
-            var swapChain = new SwapChain(logicalDevice, physicalDevice.getSurfaceProperties(surface.handle()),
+            var swapChain = new SwapChain(logicalDevice, surfaceProperties,
                     physicalDevice.gatherQueueFamilyProperties(stack, surface.handle()), surface.handle(),
                     window.getWidth(), window.getHeight());
         }

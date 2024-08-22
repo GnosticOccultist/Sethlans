@@ -28,12 +28,13 @@ public class SwapChain {
         this.logicalDevice = logicalDevice;
         
         try (var stack = MemoryStack.stackPush()) {
+            var imageCount = computeNumImages(surfaceProperties);
+            
             var surfaceFormat = surfaceProperties
                     .getSurfaceFormat(VK10.VK_FORMAT_B8G8R8A8_SRGB, KHRSurface.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
                     .orElseGet(() -> surfaceProperties.getFirstSurfaceFormat());
 
             surfaceProperties.getFramebufferExtent(desiredWidth, desiredHeight, framebufferExtent);
-            var imageCount = computeNumImages(surfaceProperties);
 
             var presentationMode = surfaceProperties.getPresentationMode(KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR); // TODO
                                                                                                                   // vsync
@@ -47,13 +48,13 @@ public class SwapChain {
                     .compositeAlpha(KHRSurface.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) // Ignore the alpha component when compositing with other windows.
                     .imageArrayLayers(1)
                     .imageExtent(framebufferExtent)
-                    .imageFormat(VK10.VK_FORMAT_B8G8R8A8_SRGB)
+                    .imageFormat(surfaceFormat.format())
                     .minImageCount(imageCount)
                     .oldSwapchain(VK10.VK_NULL_HANDLE)
                     .imageUsage(VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) // Render the images to the surface.
                     .preTransform(surfaceProperties.currentTransform()) // Use the current transformation mode.
                     .surface(surfaceHandle)
-                    .imageColorSpace(KHRSurface.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+                    .imageColorSpace(surfaceFormat.colorSpace())
                     .imageSharingMode(familyCount == 2 ? VK10.VK_SHARING_MODE_CONCURRENT : VK10.VK_SHARING_MODE_EXCLUSIVE) // Does the presentation and graphics family are different?
                     .presentMode(presentationMode);
             
