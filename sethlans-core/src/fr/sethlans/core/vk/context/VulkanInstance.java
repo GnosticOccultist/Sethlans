@@ -43,6 +43,8 @@ public class VulkanInstance {
 
     private Surface surface;
 
+    private SwapChain swapChain;
+
     public VulkanInstance(Window window, boolean debug) {
         try (var stack = MemoryStack.stackPush()) {
 
@@ -117,10 +119,10 @@ public class VulkanInstance {
             logger.info("Choosing " + physicalDevice + " with suitability score: " + bestScore);
 
             this.logicalDevice = new LogicalDevice(this, physicalDevice, surface.handle(), debug);
-            
+
             var surfaceProperties = physicalDevice.gatherSurfaceProperties(surface.handle(), stack);
 
-            var swapChain = new SwapChain(logicalDevice, surfaceProperties,
+            this.swapChain = new SwapChain(logicalDevice, surfaceProperties,
                     physicalDevice.gatherQueueFamilyProperties(stack, surface.handle()), surface.handle(),
                     window.getWidth(), window.getHeight());
         }
@@ -245,6 +247,11 @@ public class VulkanInstance {
 
     public void destroy() {
         logger.info("Destroying Vulkan instance");
+
+        if (swapChain != null) {
+            swapChain.destroy();
+            swapChain = null;
+        }
 
         if (logicalDevice != null) {
             logicalDevice.destroy();

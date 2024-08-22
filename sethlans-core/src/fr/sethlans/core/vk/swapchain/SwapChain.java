@@ -12,6 +12,7 @@ import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.vk.context.SurfaceProperties;
 import fr.sethlans.core.vk.device.LogicalDevice;
 import fr.sethlans.core.vk.device.QueueFamilyProperties;
+import fr.sethlans.core.vk.image.ImageView;
 import fr.sethlans.core.vk.util.VkUtil;
 
 public class SwapChain {
@@ -22,7 +23,9 @@ public class SwapChain {
 
     private long handle = VK10.VK_NULL_HANDLE;
 
-    private LogicalDevice logicalDevice;
+    private final LogicalDevice logicalDevice;
+    
+    private final ImageView[] imageViews;
 
     public SwapChain(LogicalDevice logicalDevice, SurfaceProperties surfaceProperties, QueueFamilyProperties queueFamilyProperties, long surfaceHandle, int desiredWidth, int desiredHeight) {
         this.logicalDevice = logicalDevice;
@@ -66,7 +69,40 @@ public class SwapChain {
             var err = KHRSwapchain.vkCreateSwapchainKHR(logicalDevice.handle(), createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create a swapchain");
             this.handle = pHandle.get(0);
+            
+            var imageHandles = getImages(stack);
+            this.imageViews = new ImageView[imageHandles.length];
+            for (var i = 0; i < imageHandles.length; ++i) {
+                imageViews[i] = new ImageView(logicalDevice, imageHandles[i], surfaceFormat.format(),
+                        VK10.VK_IMAGE_ASPECT_COLOR_BIT);
+            }
         }
+    }
+    
+    private long[] getImages(MemoryStack stack) {
+        // Count the number of created images (might be different than what was
+        // requested).
+        var vkDevice = logicalDevice.handle();
+        var pCount = stack.mallocInt(1);
+        VkUtil.throwOnFailure(KHRSwapchain.vkGetSwapchainImagesKHR(vkDevice, handle, pCount, null),
+                "count swap-chain images");
+        var numImages = pCount.get(0);
+
+        // Enumerate the swap-chain images.
+        var pHandles = stack.mallocLong(numImages);
+        VkUtil.throwOnFailure(KHRSwapchain.vkGetSwapchainImagesKHR(vkDevice, handle, pCount, pHandles),
+                "enumerate swap-chain images");
+
+        // Collect the image handles in an array.
+        var result = new long[numImages];
+        for (var i = 0; i < numImages; ++i) {
+            var handle = pHandles.get(i);
+            assert handle != VK10.VK_NULL_HANDLE;
+
+            result[i] = handle;
+        }
+
+        return result;
     }
 
     private int computeNumImages(SurfaceProperties surfaceProperties) {
@@ -90,6 +126,15 @@ public class SwapChain {
     }
     
     public void destroy() {
+
+        for (var view : imageViews) {
+            view.destroy();
+        }
+
+        if (framebufferExtent != null) {
+            framebufferExtent.free();
+        }
+
         if (handle != VK10.VK_NULL_HANDLE) {
             KHRSwapchain.vkDestroySwapchainKHR(logicalDevice.handle(), handle, null);
             this.handle = VK10.VK_NULL_HANDLE;
