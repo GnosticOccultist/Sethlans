@@ -5,6 +5,7 @@ import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkExtent2D;
+import org.lwjgl.vulkan.VkSurfaceFormatKHR;
 import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 
 import fr.alchemy.utilities.logging.FactoryLogger;
@@ -24,16 +25,19 @@ public class SwapChain {
     private long handle = VK10.VK_NULL_HANDLE;
 
     private final LogicalDevice logicalDevice;
-    
+
     private final ImageView[] imageViews;
 
-    public SwapChain(LogicalDevice logicalDevice, SurfaceProperties surfaceProperties, QueueFamilyProperties queueFamilyProperties, long surfaceHandle, int desiredWidth, int desiredHeight) {
+    private final VkSurfaceFormatKHR surfaceFormat;
+
+    public SwapChain(LogicalDevice logicalDevice, SurfaceProperties surfaceProperties,
+            QueueFamilyProperties queueFamilyProperties, long surfaceHandle, int desiredWidth, int desiredHeight) {
         this.logicalDevice = logicalDevice;
-        
+
         try (var stack = MemoryStack.stackPush()) {
             var imageCount = computeNumImages(surfaceProperties);
-            
-            var surfaceFormat = surfaceProperties
+
+            this.surfaceFormat = surfaceProperties
                     .getSurfaceFormat(VK10.VK_FORMAT_B8G8R8A8_SRGB, KHRSurface.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
                     .orElseGet(() -> surfaceProperties.getFirstSurfaceFormat());
 
@@ -69,6 +73,8 @@ public class SwapChain {
             var err = KHRSwapchain.vkCreateSwapchainKHR(logicalDevice.handle(), createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create a swapchain");
             this.handle = pHandle.get(0);
+            
+            var renderPass = new RenderPass(this);
             
             var imageHandles = getImages(stack);
             this.imageViews = new ImageView[imageHandles.length];
@@ -124,7 +130,15 @@ public class SwapChain {
         logger.info("Requested " + numImages + " images for the swapchain.");
         return numImages;
     }
-    
+
+    int imageFormat() {
+        return surfaceFormat.format();
+    }
+
+    LogicalDevice logicalDevice() {
+        return logicalDevice;
+    }
+
     public void destroy() {
 
         for (var view : imageViews) {
