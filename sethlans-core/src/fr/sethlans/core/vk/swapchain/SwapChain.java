@@ -5,15 +5,18 @@ import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkExtent2D;
+import org.lwjgl.vulkan.VkPresentInfoKHR;
 import org.lwjgl.vulkan.VkSurfaceFormatKHR;
 import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
+import fr.sethlans.core.vk.command.CommandBuffer;
 import fr.sethlans.core.vk.context.SurfaceProperties;
 import fr.sethlans.core.vk.device.LogicalDevice;
 import fr.sethlans.core.vk.device.QueueFamilyProperties;
 import fr.sethlans.core.vk.image.ImageView;
+import fr.sethlans.core.vk.sync.Fence;
 import fr.sethlans.core.vk.util.VkUtil;
 
 public class SwapChain {
@@ -27,8 +30,18 @@ public class SwapChain {
     private final LogicalDevice logicalDevice;
 
     private final ImageView[] imageViews;
+    
+    private final SyncFrame[] syncFrames;
+    
+    private int currentFrame;
 
     private final VkSurfaceFormatKHR surfaceFormat;
+
+    private CommandBuffer[] commandBuffers;
+
+    private RenderPass renderPass;
+
+    private FrameBuffer[] frameBuffers;
 
     public SwapChain(LogicalDevice logicalDevice, SurfaceProperties surfaceProperties,
             QueueFamilyProperties queueFamilyProperties, long surfaceHandle, int desiredWidth, int desiredHeight) {
@@ -74,14 +87,73 @@ public class SwapChain {
             VkUtil.throwOnFailure(err, "create a swapchain");
             this.handle = pHandle.get(0);
             
-            var renderPass = new RenderPass(this);
+            this.setRenderPass(new RenderPass(this));
             
             var imageHandles = getImages(stack);
             this.imageViews = new ImageView[imageHandles.length];
+            this.syncFrames = new SyncFrame[imageHandles.length];
+            this.commandBuffers = new CommandBuffer[imageHandles.length];
+            this.frameBuffers = new FrameBuffer[imageHandles.length];
+            
+            var pAttachments = stack.mallocLong(1);
+
             for (var i = 0; i < imageHandles.length; ++i) {
                 imageViews[i] = new ImageView(logicalDevice, imageHandles[i], surfaceFormat.format(),
                         VK10.VK_IMAGE_ASPECT_COLOR_BIT);
+                syncFrames[i] = new SyncFrame(logicalDevice);
+                commandBuffers[i] = logicalDevice.commandPool().createCommandBuffer();
+                pAttachments.put(0, imageViews[i].handle());
+                frameBuffers[i] = new FrameBuffer(logicalDevice, renderPass(), framebufferExtent, pAttachments);
             }
+        }
+    }
+    
+    public int acquireNextImage() {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            var pImageIndex = stack.mallocInt(1);
+            var err = KHRSwapchain.vkAcquireNextImageKHR(logicalDevice.handle(), handle, ~0L,
+                    syncFrames[currentFrame].imageAvailableSemaphore().handle(), VK10.VK_NULL_HANDLE, pImageIndex);
+            if (err == KHRSwapchain.VK_ERROR_OUT_OF_DATE_KHR) {
+                logger.warning("Swapchain is outdated while acquiring next image!");
+                return -1;
+            } else if (err == KHRSwapchain.VK_SUBOPTIMAL_KHR) {
+                logger.warning("Swapchain is suboptimal while acquiring next image!");
+                return -1;
+            } else if (err != VK10.VK_SUCCESS) {
+                VkUtil.throwOnFailure(err, "acquire next image");
+                return -1;
+            }
+
+            var result = pImageIndex.get(0);
+            assert result >= 0 : result;
+            assert result < imageViews.length : result;
+            return result;
+        }
+    }
+
+    public boolean presentImage(int imageIndex) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            var presentInfo = VkPresentInfoKHR.calloc(stack)
+                    .sType(KHRSwapchain.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR)
+                    .pImageIndices(stack.ints(imageIndex))
+                    .swapchainCount(1)
+                    .pSwapchains(stack.longs(handle))
+                    .pWaitSemaphores(stack.longs(syncFrames[currentFrame].renderCompleteSemaphore().handle()));
+
+            var err = KHRSwapchain.vkQueuePresentKHR(logicalDevice.presentationQueue(), presentInfo);
+            if (err == KHRSwapchain.VK_ERROR_OUT_OF_DATE_KHR) {
+                logger.warning("Swapchain is outdated while presenting image!");
+                return false;
+            } else if (err == KHRSwapchain.VK_SUBOPTIMAL_KHR) {
+                logger.warning("Swapchain is suboptimal while presenting image!");
+                return false;
+            } else if (err != VK10.VK_SUCCESS) {
+                VkUtil.throwOnFailure(err, "present image");
+                return false;
+            }
+
+            this.currentFrame = (currentFrame + 1) % imageViews.length;
+            return true;
         }
     }
     
@@ -131,6 +203,39 @@ public class SwapChain {
         return numImages;
     }
 
+    public VkExtent2D framebufferExtent(MemoryStack stack) {
+        var result = VkExtent2D.malloc(stack);
+        result.set(framebufferExtent);
+
+        return result;
+    }
+
+    public void fenceWait() {
+        var frame = syncFrames[currentFrame];
+        frame.fence().fenceWait();
+    }
+
+    public void fenceReset() {
+        var frame = syncFrames[currentFrame];
+        frame.fence().reset();
+    }
+
+    public CommandBuffer commandBuffer() {
+        return commandBuffers[currentFrame];
+    }
+
+    public FrameBuffer frameBuffer() {
+        return frameBuffers[currentFrame];
+    }
+
+    public Fence fence() {
+        return syncFrames[currentFrame].fence();
+    }
+
+    public SyncFrame syncFrame() {
+        return syncFrames[currentFrame];
+    }
+
     int imageFormat() {
         return surfaceFormat.format();
     }
@@ -141,8 +246,25 @@ public class SwapChain {
 
     public void destroy() {
 
+        for (var frameBuffer : frameBuffers) {
+            frameBuffer.destroy();
+        }
+
+        for (var commandBuff : commandBuffers) {
+            commandBuff.destroy();
+        }
+
+        for (var frame : syncFrames) {
+            frame.destroy();
+        }
+
         for (var view : imageViews) {
             view.destroy();
+        }
+
+        if (renderPass() != null) {
+            renderPass().destroy();
+            this.setRenderPass(null);
         }
 
         if (framebufferExtent != null) {
@@ -153,5 +275,13 @@ public class SwapChain {
             KHRSwapchain.vkDestroySwapchainKHR(logicalDevice.handle(), handle, null);
             this.handle = VK10.VK_NULL_HANDLE;
         }
+    }
+
+    public RenderPass renderPass() {
+        return renderPass;
+    }
+
+    public void setRenderPass(RenderPass renderPass) {
+        this.renderPass = renderPass;
     }
 }

@@ -28,7 +28,7 @@ public class Semaphore {
         }
     }
 
-    long handle() {
+    public long handle() {
         return handle;
     }
 

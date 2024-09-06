@@ -40,6 +40,10 @@ public class FrameBuffer {
         }
     }
 
+    public long handle() {
+        return handle;
+    }
+
     public void destroy() {
         if (handle != VK10.VK_NULL_HANDLE) {
             VK10.vkDestroyFramebuffer(logicalDevice.handle(), handle, null);

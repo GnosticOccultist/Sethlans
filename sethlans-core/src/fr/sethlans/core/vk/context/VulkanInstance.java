@@ -241,12 +241,25 @@ public class VulkanInstance {
         return pPointers;
     }
 
+    public LogicalDevice getLogicalDevice() {
+        return logicalDevice;
+    }
+
+    public SwapChain getSwapChain() {
+        return swapChain;
+    }
+
     public VkInstance handle() {
         return handle;
     }
 
     public void destroy() {
         logger.info("Destroying Vulkan instance");
+        
+        if (logicalDevice != null) {
+            // Await termination of all pending commands.
+            logicalDevice.waitIdle();
+        }
 
         if (swapChain != null) {
             swapChain.destroy();

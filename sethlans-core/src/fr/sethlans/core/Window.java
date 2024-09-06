@@ -40,10 +40,12 @@ public class Window {
         }
     }
 
-    public void mainLoop() {
-        while (!glfwWindowShouldClose(windowHandle)) {
-            glfwPollEvents();
-        }
+    public void update() {
+        glfwPollEvents();
+    }
+    
+    public boolean shouldClose() {
+        return glfwWindowShouldClose(windowHandle);
     }
 
     public long handle() {

@@ -29,6 +29,10 @@ public class CommandPool {
         }
     }
 
+    public CommandBuffer createCommandBuffer() {
+        return new CommandBuffer(this);
+    }
+
     LogicalDevice getLogicalDevice() {
         return logicalDevice;
     }

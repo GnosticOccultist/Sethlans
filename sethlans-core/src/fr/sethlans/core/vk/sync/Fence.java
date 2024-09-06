@@ -38,7 +38,7 @@ public class Fence {
         VkUtil.throwOnFailure(err, "reset a fence");
     }
 
-    long handle() {
+    public long handle() {
         return handle;
     }
 

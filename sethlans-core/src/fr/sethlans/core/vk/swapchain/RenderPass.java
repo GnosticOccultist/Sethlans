@@ -58,7 +58,8 @@ public class RenderPass {
             var createInfo = VkRenderPassCreateInfo.calloc(stack);
             createInfo.sType(VK10.VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO)
                     .pAttachments(pDescription)
-                    .pDependencies(pDependency).pSubpasses(subpass);
+                    .pDependencies(pDependency)
+                    .pSubpasses(subpass);
             
             var pHandle = stack.mallocLong(1);
             var err = VK10.vkCreateRenderPass(swapChain.logicalDevice().handle(), createInfo, null, pHandle);
