@@ -13,6 +13,7 @@ import org.lwjgl.vulkan.VkDeviceQueueCreateInfo;
 import org.lwjgl.vulkan.VkExtensionProperties;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures;
+import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties;
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
 import org.lwjgl.vulkan.VkQueueFamilyProperties;
 
@@ -86,8 +87,7 @@ public class PhysicalDevice {
     VkDevice createLogicalDevice(VulkanInstance instance, long surfaceHandle, boolean debug) {
         try (var stack = MemoryStack.stackPush()) {
             // Create the logical device creation info.
-            var createInfo = VkDeviceCreateInfo.calloc(stack)
-                    .sType(VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
+            var createInfo = VkDeviceCreateInfo.calloc(stack).sType(VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
 
             // Set up required features.
             var features = VkPhysicalDeviceFeatures.calloc(stack);
@@ -102,8 +102,7 @@ public class PhysicalDevice {
             var queueCreationInfo = VkDeviceQueueCreateInfo.calloc(familyCount, stack);
             for (var i = 0; i < familyCount; ++i) {
                 var info = queueCreationInfo.get(i);
-                info.sType(VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
-                        .queueFamilyIndex(familiesBuff.get(i))
+                info.sType(VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO).queueFamilyIndex(familiesBuff.get(i))
                         .pQueuePriorities(priorities);
             }
             createInfo.pQueueCreateInfos(queueCreationInfo);
@@ -175,6 +174,28 @@ public class PhysicalDevice {
         this.type = properties.deviceType();
     }
 
+    public Integer gatherMemoryType(int typeFilter, int requiredProperties) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            // Gather the available memory types.
+            var memProperties = VkPhysicalDeviceMemoryProperties.malloc(stack);
+            VK10.vkGetPhysicalDeviceMemoryProperties(handle, memProperties);
+
+            var numTypes = memProperties.memoryTypeCount();
+            for (var typeIndex = 0; typeIndex < numTypes; ++typeIndex) {
+                var bitPosition = 0x1 << typeIndex;
+                if ((typeFilter & bitPosition) != 0x0) {
+                    var memType = memProperties.memoryTypes(typeIndex);
+                    var props = memType.propertyFlags();
+                    if ((props & requiredProperties) == requiredProperties) {
+                        return typeIndex;
+                    }
+                }
+            }
+
+            return null;
+        }
+    }
+
     public QueueFamilyProperties gatherQueueFamilyProperties(MemoryStack stack, long surfaceHandle) {
 
         var properties = new QueueFamilyProperties();
@@ -195,7 +216,8 @@ public class PhysicalDevice {
 
             // Check for a graphics command queue.
             var flags = family.queueFlags();
-            if ((flags & VK10.VK_QUEUE_GRAPHICS_BIT) != 0x0) {;
+            if ((flags & VK10.VK_QUEUE_GRAPHICS_BIT) != 0x0) {
+                ;
                 properties.setGraphics(i);
             }
 

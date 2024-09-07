@@ -44,7 +44,7 @@ public class VulkanInstance {
     private Surface surface;
 
     private SwapChain swapChain;
-
+    
     public VulkanInstance(Window window, boolean debug) {
         try (var stack = MemoryStack.stackPush()) {
 

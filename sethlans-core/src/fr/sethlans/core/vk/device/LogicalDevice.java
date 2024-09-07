@@ -53,6 +53,10 @@ public class LogicalDevice {
         return result;
     }
 
+    public PhysicalDevice physicalDevice() {
+        return physicalDevice;
+    }
+
     public CommandPool commandPool() {
         return commandPool;
     }

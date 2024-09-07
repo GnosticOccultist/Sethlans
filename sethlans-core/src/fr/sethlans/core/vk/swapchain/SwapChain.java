@@ -1,6 +1,9 @@
 package fr.sethlans.core.vk.swapchain;
 
+import java.io.IOException;
+
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.util.shaderc.Shaderc;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
@@ -16,6 +19,9 @@ import fr.sethlans.core.vk.context.SurfaceProperties;
 import fr.sethlans.core.vk.device.LogicalDevice;
 import fr.sethlans.core.vk.device.QueueFamilyProperties;
 import fr.sethlans.core.vk.image.ImageView;
+import fr.sethlans.core.vk.pipeline.Pipeline;
+import fr.sethlans.core.vk.pipeline.PipelineCache;
+import fr.sethlans.core.vk.shader.ShaderProgram;
 import fr.sethlans.core.vk.sync.Fence;
 import fr.sethlans.core.vk.util.VkUtil;
 
@@ -42,6 +48,12 @@ public class SwapChain {
     private RenderPass renderPass;
 
     private FrameBuffer[] frameBuffers;
+
+    private PipelineCache pipelineCache;
+
+    private Pipeline pipeline;
+
+    private ShaderProgram program;
 
     public SwapChain(LogicalDevice logicalDevice, SurfaceProperties surfaceProperties,
             QueueFamilyProperties queueFamilyProperties, long surfaceHandle, int desiredWidth, int desiredHeight) {
@@ -87,7 +99,7 @@ public class SwapChain {
             VkUtil.throwOnFailure(err, "create a swapchain");
             this.handle = pHandle.get(0);
             
-            this.setRenderPass(new RenderPass(this));
+            this.renderPass = new RenderPass(this);
             
             var imageHandles = getImages(stack);
             this.imageViews = new ImageView[imageHandles.length];
@@ -96,6 +108,19 @@ public class SwapChain {
             this.frameBuffers = new FrameBuffer[imageHandles.length];
             
             var pAttachments = stack.mallocLong(1);
+
+            this.program = new ShaderProgram(logicalDevice);
+            try {
+                program.addVertexModule(
+                        ShaderProgram.compileShader("resources/shaders/base.vert", Shaderc.shaderc_glsl_vertex_shader));
+                program.addFragmentModule(
+                        ShaderProgram.compileShader("resources/shaders/base.frag", Shaderc.shaderc_glsl_fragment_shader));
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+
+            this.pipelineCache = new PipelineCache(logicalDevice);
+            this.pipeline = new Pipeline(logicalDevice, pipelineCache, this, program);
 
             for (var i = 0; i < imageHandles.length; ++i) {
                 imageViews[i] = new ImageView(logicalDevice, imageHandles[i], surfaceFormat.format(),
@@ -243,6 +268,10 @@ public class SwapChain {
     LogicalDevice logicalDevice() {
         return logicalDevice;
     }
+    
+    public RenderPass renderPass() {
+        return renderPass;
+    }
 
     public void destroy() {
 
@@ -261,10 +290,22 @@ public class SwapChain {
         for (var view : imageViews) {
             view.destroy();
         }
+        
+        if (pipeline != null) {
+            pipeline.destroy();
+        }
+        
+        if (pipelineCache != null) {
+            pipelineCache.destroy();
+        }
+        
+        if (program != null) {
+            program.destroy();
+        }
 
-        if (renderPass() != null) {
-            renderPass().destroy();
-            this.setRenderPass(null);
+        if (renderPass != null) {
+            renderPass.destroy();
+            this.renderPass = null;
         }
 
         if (framebufferExtent != null) {
@@ -277,11 +318,7 @@ public class SwapChain {
         }
     }
 
-    public RenderPass renderPass() {
-        return renderPass;
-    }
-
-    public void setRenderPass(RenderPass renderPass) {
-        this.renderPass = renderPass;
+    public Pipeline pipeline() {
+        return pipeline;
     }
 }

@@ -2,6 +2,7 @@ package fr.sethlans.core.vk.command;
 
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
+import org.lwjgl.vulkan.VkBufferCopy;
 import org.lwjgl.vulkan.VkClearValue;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkCommandBufferAllocateInfo;
@@ -12,10 +13,13 @@ import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkRenderPassBeginInfo;
 import org.lwjgl.vulkan.VkSubmitInfo;
 
+import fr.sethlans.core.vk.memory.DeviceBuffer;
+import fr.sethlans.core.vk.memory.VulkanBuffer;
 import fr.sethlans.core.vk.swapchain.FrameBuffer;
 import fr.sethlans.core.vk.swapchain.RenderPass;
 import fr.sethlans.core.vk.swapchain.SwapChain;
 import fr.sethlans.core.vk.swapchain.SyncFrame;
+import fr.sethlans.core.vk.sync.Fence;
 import fr.sethlans.core.vk.util.VkUtil;
 
 public class CommandBuffer {
@@ -61,6 +65,48 @@ public class CommandBuffer {
         }
     }
     
+    public CommandBuffer copyBuffer(VulkanBuffer source, VulkanBuffer destination) {
+        assert source.size() == destination.size();
+        
+        try (var stack = MemoryStack.stackPush()) {
+            var pRegion = VkBufferCopy.calloc(1, stack)
+                    .srcOffset(0)
+                    .dstOffset(0)
+                    .size(source.size());
+
+            VK10.vkCmdCopyBuffer(handle, source.handle(), destination.handle(), pRegion);
+        }
+
+        return this;
+    }
+    
+    public CommandBuffer bindVertexBuffer(DeviceBuffer buffer) {
+        try (var stack = MemoryStack.stackPush()) {
+            var pBufferHandles = stack.mallocLong(1);
+            pBufferHandles.put(0, buffer.handle());
+
+            var pOffsets = stack.callocLong(1);
+            VK10.vkCmdBindVertexBuffers(handle, 0, pBufferHandles, pOffsets);
+        }
+
+        return this;
+    }
+
+    public CommandBuffer bindIndexBuffer(DeviceBuffer buffer) {
+        VK10.vkCmdBindIndexBuffer(handle, buffer.handle(), 0, VK10.VK_INDEX_TYPE_UINT32);
+        return this;
+    }
+
+    public CommandBuffer bindPipeline(long pipelineHandle) {
+        VK10.vkCmdBindPipeline(handle, VK10.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineHandle);
+        return this;
+    }
+
+    public CommandBuffer drawIndexed(int indicesCount) {
+        VK10.vkCmdDrawIndexed(handle, indicesCount, 1, 0, 0, 0);
+        return this;
+    }
+    
     public CommandBuffer beginRenderPass(SwapChain swapChain, FrameBuffer frameBuffer, RenderPass renderPass) {
         try (var stack = MemoryStack.stackPush()) {
             var clearValues = VkClearValue.calloc(1, stack);
@@ -71,12 +117,30 @@ public class CommandBuffer {
             renderArea.extent(swapChain.framebufferExtent(stack));
 
             var renderPassInfo = VkRenderPassBeginInfo.calloc(stack)
-                    .sType(VK10.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO).framebuffer(frameBuffer.handle())
-                    .pClearValues(clearValues).renderArea(renderArea).renderPass(renderPass.handle());
+                    .sType(VK10.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO)
+                    .framebuffer(frameBuffer.handle())
+                    .pClearValues(clearValues)
+                    .renderArea(renderArea)
+                    .renderPass(renderPass.handle());
 
             VK10.vkCmdBeginRenderPass(handle, renderPassInfo, VK10.VK_SUBPASS_CONTENTS_INLINE);
             return this;
         }
+    }
+    
+    public CommandBuffer submit(VkQueue queue, Fence fence) {
+        try (var stack = MemoryStack.stackPush()) {
+            // Create submit info.
+            var submitInfo = VkSubmitInfo.calloc(stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_SUBMIT_INFO)
+                    .pCommandBuffers(stack.pointers(handle));
+
+            var fenceHandle = fence == null ? VK10.VK_NULL_HANDLE : fence.handle();
+            var err = VK10.vkQueueSubmit(queue, submitInfo, fenceHandle);
+            VkUtil.throwOnFailure(err, "submit a command-buffer");
+        }
+
+        return this;
     }
     
     public CommandBuffer submit(VkQueue queue, SyncFrame frame) {
@@ -92,7 +156,7 @@ public class CommandBuffer {
 
             var fenceHandle = frame.fence().handle();
             var err = VK10.vkQueueSubmit(queue, submitInfo, fenceHandle);
-            VkUtil.throwOnFailure(err, "begin recording a command-buffer");
+            VkUtil.throwOnFailure(err, "submit a command-buffer");
         }
 
         return this;
