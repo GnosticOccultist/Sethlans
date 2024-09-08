@@ -1,5 +1,7 @@
 package fr.sethlans.core.vk.command;
 
+import java.nio.ByteBuffer;
+
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkBufferCopy;
@@ -101,6 +103,11 @@ public class CommandBuffer {
         VK10.vkCmdBindPipeline(handle, VK10.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineHandle);
         return this;
     }
+    
+    public CommandBuffer pushConstants(long pipelineLayoutHandle, int stageFlags, ByteBuffer constantBuffer) {
+        VK10.vkCmdPushConstants(handle, pipelineLayoutHandle, stageFlags, 0, constantBuffer);
+        return this;
+    }
 
     public CommandBuffer drawIndexed(int indicesCount) {
         VK10.vkCmdDrawIndexed(handle, indicesCount, 1, 0, 0, 0);
@@ -109,8 +116,9 @@ public class CommandBuffer {
     
     public CommandBuffer beginRenderPass(SwapChain swapChain, FrameBuffer frameBuffer, RenderPass renderPass) {
         try (var stack = MemoryStack.stackPush()) {
-            var clearValues = VkClearValue.calloc(1, stack);
+            var clearValues = VkClearValue.calloc(2, stack);
             clearValues.apply(0, v -> v.color().float32(0, 0.5f).float32(1, 0.7f).float32(2, 0.9f).float32(3, 1));
+            clearValues.apply(1, v -> v.depthStencil().depth(1.0f));
 
             var renderArea = VkRect2D.calloc(stack);
             renderArea.offset(VkOffset2D.calloc(stack).set(0, 0));

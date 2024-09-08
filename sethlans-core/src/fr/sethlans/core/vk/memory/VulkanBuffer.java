@@ -103,14 +103,14 @@ public class VulkanBuffer {
     }
 
     public void destroy() {
-        if (handle != VK10.VK_NULL_HANDLE) {
-            VK10.vkDestroyBuffer(device.handle(), handle, null);
-            this.handle = VK10.VK_NULL_HANDLE;
-        }
-
         if (memoryHandle != VK10.VK_NULL_HANDLE) {
             VK10.vkFreeMemory(device.handle(), memoryHandle, null);
             this.memoryHandle = VK10.VK_NULL_HANDLE;
+        }
+        
+        if (handle != VK10.VK_NULL_HANDLE) {
+            VK10.vkDestroyBuffer(device.handle(), handle, null);
+            this.handle = VK10.VK_NULL_HANDLE;
         }
     }
 }

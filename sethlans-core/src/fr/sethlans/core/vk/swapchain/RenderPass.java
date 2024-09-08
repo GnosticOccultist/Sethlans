@@ -17,12 +17,12 @@ public class RenderPass {
     
     private long handle = VK10.VK_NULL_HANDLE;
 
-    RenderPass(SwapChain swapChain) {
+    RenderPass(SwapChain swapChain, int depthFormat) {
         this.swapChain = swapChain;
 
         try (var stack = MemoryStack.stackPush()) {
-            var pDescription = VkAttachmentDescription.calloc(1, stack);
-            var pReference = VkAttachmentReference.calloc(1, stack);
+            var pDescription = VkAttachmentDescription.calloc(2, stack);
+            var pReferences = VkAttachmentReference.calloc(2, stack);
             
             // Describe color attachment for presentation.
             pDescription.format(swapChain.imageFormat())
@@ -34,24 +34,40 @@ public class RenderPass {
                     .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
                     .finalLayout(KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
             
-            pReference.attachment(0)
+            var colorAttachmentRef = pReferences.get(0);
+            colorAttachmentRef.attachment(0)
                     .layout(VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
             
+            var pColorRefs = VkAttachmentReference.calloc(1, stack);
+            pColorRefs.put(0, colorAttachmentRef);
+            
+            pDescription.get(1)
+                .format(depthFormat)
+                .samples(VK10.VK_SAMPLE_COUNT_1_BIT)
+                .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR)
+                .storeOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE)
+                .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
+                .finalLayout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+            
+            var depthAttachmentRef = pReferences.get(1);
+            depthAttachmentRef.attachment(1)
+                    .layout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
             // Describe main sub-pass.
             var subpass = VkSubpassDescription.calloc(1, stack)
                     .pipelineBindPoint(VK10.VK_PIPELINE_BIND_POINT_GRAPHICS)
-                    .colorAttachmentCount(1)
-                    .pColorAttachments(pReference);
+                    .colorAttachmentCount(pColorRefs.remaining())
+                    .pColorAttachments(pColorRefs)
+                    .pDepthStencilAttachment(depthAttachmentRef);
             
             // Create sub-pass dependency.
             var pDependency = VkSubpassDependency.calloc(1, stack);
             pDependency
-                    .dstAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
-                    .dstStageMask(VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+                    .dstAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK10.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
+                    .dstStageMask(VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK10.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
                     .dstSubpass(0)
                     .srcAccessMask(0x0)
-                    .srcStageMask(VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+                    .srcStageMask(VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK10.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
                     .srcSubpass(VK10.VK_SUBPASS_EXTERNAL);
             
             // Create render pass infos.

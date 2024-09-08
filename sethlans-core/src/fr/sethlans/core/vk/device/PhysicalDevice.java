@@ -11,6 +11,7 @@ import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkDeviceCreateInfo;
 import org.lwjgl.vulkan.VkDeviceQueueCreateInfo;
 import org.lwjgl.vulkan.VkExtensionProperties;
+import org.lwjgl.vulkan.VkFormatProperties;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures;
 import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties;
@@ -172,6 +173,34 @@ public class PhysicalDevice {
         this.name = properties.deviceNameString();
 
         this.type = properties.deviceType();
+    }
+    
+    public int findSupportedFormat(int imageTiling, int requiredFeatures, int... formats) {
+        try (var stack = MemoryStack.stackPush()) {
+            var pFormatProperties = VkFormatProperties.calloc(stack);
+
+            for (var format : formats) {
+                VK10.vkGetPhysicalDeviceFormatProperties(handle, format, pFormatProperties);
+
+                int features;
+                switch (imageTiling) {
+                    case VK10.VK_IMAGE_TILING_LINEAR:
+                        features = pFormatProperties.linearTilingFeatures();
+                        break;
+                    case VK10.VK_IMAGE_TILING_OPTIMAL:
+                        features = pFormatProperties.optimalTilingFeatures();
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unsupported image tiling: " + imageTiling);
+                }
+
+                if ((features & requiredFeatures) == requiredFeatures) {
+                    return format;
+                }
+            }
+        }
+        
+        throw new RuntimeException("Failed to find a supported format!");
     }
 
     public Integer gatherMemoryType(int typeFilter, int requiredProperties) {

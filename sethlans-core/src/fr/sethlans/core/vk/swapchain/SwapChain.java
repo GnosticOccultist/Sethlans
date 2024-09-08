@@ -46,6 +46,8 @@ public class SwapChain {
     private CommandBuffer[] commandBuffers;
 
     private RenderPass renderPass;
+    
+    private Attachment[] depthAttachments;
 
     private FrameBuffer[] frameBuffers;
 
@@ -99,15 +101,20 @@ public class SwapChain {
             VkUtil.throwOnFailure(err, "create a swapchain");
             this.handle = pHandle.get(0);
             
-            this.renderPass = new RenderPass(this);
+            var depthFormat = logicalDevice.physicalDevice().findSupportedFormat(
+                    VK10.VK_IMAGE_TILING_OPTIMAL, VK10.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                    VK10.VK_FORMAT_D32_SFLOAT, VK10.VK_FORMAT_D32_SFLOAT_S8_UINT, VK10.VK_FORMAT_D24_UNORM_S8_UINT);
+            
+            this.renderPass = new RenderPass(this, depthFormat);
             
             var imageHandles = getImages(stack);
             this.imageViews = new ImageView[imageHandles.length];
             this.syncFrames = new SyncFrame[imageHandles.length];
             this.commandBuffers = new CommandBuffer[imageHandles.length];
+            this.depthAttachments = new Attachment[imageHandles.length];
             this.frameBuffers = new FrameBuffer[imageHandles.length];
             
-            var pAttachments = stack.mallocLong(1);
+            var pAttachments = stack.mallocLong(2);
 
             this.program = new ShaderProgram(logicalDevice);
             try {
@@ -127,7 +134,10 @@ public class SwapChain {
                         VK10.VK_IMAGE_ASPECT_COLOR_BIT);
                 syncFrames[i] = new SyncFrame(logicalDevice);
                 commandBuffers[i] = logicalDevice.commandPool().createCommandBuffer();
+                depthAttachments[i] = new Attachment(logicalDevice, framebufferExtent, depthFormat, VK10.VK_IMAGE_ASPECT_DEPTH_BIT);
+                
                 pAttachments.put(0, imageViews[i].handle());
+                pAttachments.put(1, depthAttachments[i].imageView.handle());
                 frameBuffers[i] = new FrameBuffer(logicalDevice, renderPass(), framebufferExtent, pAttachments);
             }
         }
@@ -274,6 +284,10 @@ public class SwapChain {
     }
 
     public void destroy() {
+        
+        for (var attachment : depthAttachments) {
+            attachment.destroy();
+        }
 
         for (var frameBuffer : frameBuffers) {
             frameBuffer.destroy();

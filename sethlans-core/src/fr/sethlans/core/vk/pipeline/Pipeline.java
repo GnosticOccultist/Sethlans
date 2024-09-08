@@ -6,12 +6,14 @@ import org.lwjgl.vulkan.VkGraphicsPipelineCreateInfo;
 import org.lwjgl.vulkan.VkOffset2D;
 import org.lwjgl.vulkan.VkPipelineColorBlendAttachmentState;
 import org.lwjgl.vulkan.VkPipelineColorBlendStateCreateInfo;
+import org.lwjgl.vulkan.VkPipelineDepthStencilStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineInputAssemblyStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineLayoutCreateInfo;
 import org.lwjgl.vulkan.VkPipelineMultisampleStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineRasterizationStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineVertexInputStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineViewportStateCreateInfo;
+import org.lwjgl.vulkan.VkPushConstantRange;
 import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkVertexInputAttributeDescription;
 import org.lwjgl.vulkan.VkVertexInputBindingDescription;
@@ -35,11 +37,12 @@ public class Pipeline {
 
         try (var stack = MemoryStack.stackPush()) {
             
-            var pAttribs = VkVertexInputAttributeDescription.calloc(1, stack);
+            var pAttribs = VkVertexInputAttributeDescription.calloc(2, stack);
             pAttribs.get(0).binding(0).location(0).format(VK10.VK_FORMAT_R32G32B32_SFLOAT).offset(0);
+            pAttribs.get(1).binding(0).location(1).format(VK10.VK_FORMAT_R32G32B32_SFLOAT).offset(3 * Float.BYTES);
 
             var pBindings = VkVertexInputBindingDescription.calloc(1, stack);
-            pBindings.get(0).binding(0).stride(3 * Float.BYTES).inputRate(VK10.VK_VERTEX_INPUT_RATE_VERTEX);
+            pBindings.get(0).binding(0).stride(3 * Float.BYTES + 2 * Float.BYTES).inputRate(VK10.VK_VERTEX_INPUT_RATE_VERTEX);
             
             var visCreateInfo = VkPipelineVertexInputStateCreateInfo.calloc()
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO)
@@ -73,6 +76,15 @@ public class Pipeline {
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO)
                     .pViewports(viewport)
                     .pScissors(scissor);
+            
+            // Define depth/stencil state info
+            var dssCreateInfo = VkPipelineDepthStencilStateCreateInfo.calloc(stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO)
+                    .depthTestEnable(true)
+                    .depthWriteEnable(true)
+                    .depthCompareOp(VK10.VK_COMPARE_OP_LESS_OR_EQUAL)
+                    .depthBoundsTestEnable(false)
+                    .stencilTestEnable(false);
 
             // Define rasterization state info.
             var rsCreateInfo = VkPipelineRasterizationStateCreateInfo.calloc(stack)
@@ -98,9 +110,16 @@ public class Pipeline {
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO)
                     .pAttachments(cbaState);
             
+            // Create a push constant state.
+            var vpcr = VkPushConstantRange.calloc(1, stack)
+                    .stageFlags(VK10.VK_SHADER_STAGE_VERTEX_BIT)
+                    .offset(0)
+                    .size(2 * 16 * Float.BYTES); // 2 4x4 floating point matrices.
+            
             // Define pipeline layout info.
             var layoutCreateInfo = VkPipelineLayoutCreateInfo.calloc(stack)
-                    .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
+                    .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO)
+                    .pPushConstantRanges(vpcr);
             
             var pHandle = stack.mallocLong(1);
             var err = VK10.vkCreatePipelineLayout(device.handle(), layoutCreateInfo, null, pHandle);
@@ -113,6 +132,7 @@ public class Pipeline {
                     .pVertexInputState(visCreateInfo)
                     .pInputAssemblyState(iasCreateInfo)
                     .pViewportState(vsCreateInfo)
+                    .pDepthStencilState(dssCreateInfo)
                     .pRasterizationState(rsCreateInfo)
                     .pMultisampleState(msCreateInfo)
                     .pColorBlendState(cbsCreateInfo)
@@ -127,6 +147,10 @@ public class Pipeline {
 
     public long handle() {
         return handle;
+    }
+
+    public long layoutHandle() {
+        return pipelineLayoutHandle;
     }
 
     public void destroy() {
