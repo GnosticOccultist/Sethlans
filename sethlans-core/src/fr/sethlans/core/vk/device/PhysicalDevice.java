@@ -88,10 +88,13 @@ public class PhysicalDevice {
     VkDevice createLogicalDevice(VulkanInstance instance, long surfaceHandle, boolean debug) {
         try (var stack = MemoryStack.stackPush()) {
             // Create the logical device creation info.
-            var createInfo = VkDeviceCreateInfo.calloc(stack).sType(VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
+            var createInfo = VkDeviceCreateInfo.calloc(stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
 
             // Set up required features.
             var features = VkPhysicalDeviceFeatures.calloc(stack);
+            features.samplerAnisotropy(true);
+            
             createInfo.pEnabledFeatures(features);
 
             // Enable all available queue families.
@@ -103,7 +106,8 @@ public class PhysicalDevice {
             var queueCreationInfo = VkDeviceQueueCreateInfo.calloc(familyCount, stack);
             for (var i = 0; i < familyCount; ++i) {
                 var info = queueCreationInfo.get(i);
-                info.sType(VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO).queueFamilyIndex(familiesBuff.get(i))
+                info.sType(VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
+                        .queueFamilyIndex(familiesBuff.get(i))
                         .pQueuePriorities(priorities);
             }
             createInfo.pQueueCreateInfos(queueCreationInfo);
