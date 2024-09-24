@@ -19,6 +19,7 @@ import org.lwjgl.vulkan.VkVertexInputAttributeDescription;
 import org.lwjgl.vulkan.VkVertexInputBindingDescription;
 import org.lwjgl.vulkan.VkViewport;
 
+import fr.sethlans.core.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.vk.device.LogicalDevice;
 import fr.sethlans.core.vk.shader.ShaderProgram;
 import fr.sethlans.core.vk.swapchain.SwapChain;
@@ -32,7 +33,7 @@ public class Pipeline {
 
     private long pipelineLayoutHandle = VK10.VK_NULL_HANDLE;
 
-    public Pipeline(LogicalDevice device, PipelineCache pipelineCache, SwapChain swapChain, ShaderProgram shaderProgram) {
+    public Pipeline(LogicalDevice device, PipelineCache pipelineCache, SwapChain swapChain, ShaderProgram shaderProgram, DescriptorSetLayout[] descriptorSetLayouts) {
         this.device = device;
 
         try (var stack = MemoryStack.stackPush()) {
@@ -116,9 +117,17 @@ public class Pipeline {
                     .offset(0)
                     .size(2 * 16 * Float.BYTES); // 2 4x4 floating point matrices.
             
+            // Define descriptor-set layouts.
+            var numLayouts = descriptorSetLayouts != null ? descriptorSetLayouts.length : 0;
+            var pSetLayouts = stack.mallocLong(numLayouts);
+            for (var i = 0; i < numLayouts; ++i) {
+                pSetLayouts.put(i, descriptorSetLayouts[i].handle());
+            }
+            
             // Define pipeline layout info.
             var layoutCreateInfo = VkPipelineLayoutCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO)
+                    .pSetLayouts(pSetLayouts)
                     .pPushConstantRanges(vpcr);
             
             var pHandle = stack.mallocLong(1);

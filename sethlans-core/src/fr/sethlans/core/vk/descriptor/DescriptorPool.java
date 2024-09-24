@@ -19,6 +19,10 @@ public class DescriptorPool {
 
         try (var stack = MemoryStack.stackPush()) {
             var pPoolSizes = VkDescriptorPoolSize.calloc(2, stack);
+            // The UBO descriptor pool will contain poolSize descriptors.
+            pPoolSizes.get(0).type(VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER).descriptorCount(poolSize);
+            // The sampler descriptor pool will contain poolSize descriptors.
+            pPoolSizes.get(1).type(VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).descriptorCount(poolSize);
 
             var createInfo = VkDescriptorPoolCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO)
@@ -42,6 +46,10 @@ public class DescriptorPool {
             var err = VK10.vkFreeDescriptorSets(device.handle(), handle, pDescriptorSet);
             VkUtil.throwOnFailure(err, "free descriptor-set");
         }
+    }
+    
+    long handle() {
+        return handle;
     }
 
     public void destroy() {

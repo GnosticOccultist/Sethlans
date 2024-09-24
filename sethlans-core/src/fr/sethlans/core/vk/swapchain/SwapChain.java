@@ -16,9 +16,13 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.vk.command.CommandBuffer;
 import fr.sethlans.core.vk.context.SurfaceProperties;
+import fr.sethlans.core.vk.descriptor.DescriptorPool;
+import fr.sethlans.core.vk.descriptor.DescriptorSet;
+import fr.sethlans.core.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.vk.device.LogicalDevice;
 import fr.sethlans.core.vk.device.QueueFamilyProperties;
 import fr.sethlans.core.vk.image.ImageView;
+import fr.sethlans.core.vk.memory.VulkanBuffer;
 import fr.sethlans.core.vk.pipeline.Pipeline;
 import fr.sethlans.core.vk.pipeline.PipelineCache;
 import fr.sethlans.core.vk.shader.ShaderProgram;
@@ -56,6 +60,16 @@ public class SwapChain {
     private Pipeline pipeline;
 
     private ShaderProgram program;
+
+    private DescriptorSetLayout uniformDescriptorSetLayout;
+    
+    private DescriptorSetLayout samplerDescriptorSetLayout;
+
+    private VulkanBuffer projMatrixUniform;
+
+    private DescriptorSet projMatrixDescriptorSet;
+
+    private DescriptorPool descriptorPool;
 
     public SwapChain(LogicalDevice logicalDevice, SurfaceProperties surfaceProperties,
             QueueFamilyProperties queueFamilyProperties, long surfaceHandle, int desiredWidth, int desiredHeight) {
@@ -125,9 +139,14 @@ public class SwapChain {
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
-
+            
+            this.uniformDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0, VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK10.VK_SHADER_STAGE_VERTEX_BIT);
+            this.samplerDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0, VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK10.VK_SHADER_STAGE_FRAGMENT_BIT);
+            
+            this.descriptorPool = new DescriptorPool(logicalDevice, 16);
+            
             this.pipelineCache = new PipelineCache(logicalDevice);
-            this.pipeline = new Pipeline(logicalDevice, pipelineCache, this, program);
+            this.pipeline = new Pipeline(logicalDevice, pipelineCache, this, program, new DescriptorSetLayout[] { uniformDescriptorSetLayout, samplerDescriptorSetLayout });
 
             for (var i = 0; i < imageHandles.length; ++i) {
                 imageViews[i] = new ImageView(logicalDevice, imageHandles[i], surfaceFormat.format(),
@@ -275,6 +294,18 @@ public class SwapChain {
         return surfaceFormat.format();
     }
 
+    public DescriptorSetLayout uniformDescriptorSetLayout() {
+        return uniformDescriptorSetLayout;
+    }
+    
+    public DescriptorSetLayout samplerDescriptorSetLayout() {
+        return samplerDescriptorSetLayout;
+    }
+
+    public DescriptorPool descriptorPool() {
+        return descriptorPool;
+    }
+
     LogicalDevice logicalDevice() {
         return logicalDevice;
     }
@@ -312,7 +343,27 @@ public class SwapChain {
         if (pipelineCache != null) {
             pipelineCache.destroy();
         }
-        
+
+        if (projMatrixDescriptorSet != null) {
+            projMatrixDescriptorSet.destroy();
+        }
+
+        if (projMatrixUniform != null) {
+            projMatrixUniform.destroy();
+        }
+
+        if (uniformDescriptorSetLayout != null) {
+            uniformDescriptorSetLayout.destroy();
+        }
+
+        if (samplerDescriptorSetLayout != null) {
+            samplerDescriptorSetLayout.destroy();
+        }
+
+        if (descriptorPool != null) {
+            descriptorPool.destroy();
+        }
+
         if (program != null) {
             program.destroy();
         }
