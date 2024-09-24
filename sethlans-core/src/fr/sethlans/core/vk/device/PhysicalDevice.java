@@ -179,6 +179,31 @@ public class PhysicalDevice {
         this.type = properties.deviceType();
     }
     
+    public boolean supportFormatFeature(int imageTiling, int format, int requiredFeatures) {
+        try (var stack = MemoryStack.stackPush()) {
+            var pFormatProperties = VkFormatProperties.calloc(stack);
+            VK10.vkGetPhysicalDeviceFormatProperties(handle, format, pFormatProperties);
+
+            int features;
+            switch (imageTiling) {
+            case VK10.VK_IMAGE_TILING_LINEAR:
+                features = pFormatProperties.linearTilingFeatures();
+                break;
+            case VK10.VK_IMAGE_TILING_OPTIMAL:
+                features = pFormatProperties.optimalTilingFeatures();
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported image tiling: " + imageTiling);
+            }
+
+            if ((features & requiredFeatures) == requiredFeatures) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+    
     public int findSupportedFormat(int imageTiling, int requiredFeatures, int... formats) {
         try (var stack = MemoryStack.stackPush()) {
             var pFormatProperties = VkFormatProperties.calloc(stack);

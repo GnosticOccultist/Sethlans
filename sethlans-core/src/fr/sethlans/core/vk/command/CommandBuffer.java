@@ -11,6 +11,7 @@ import org.lwjgl.vulkan.VkClearValue;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkCommandBufferAllocateInfo;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
+import org.lwjgl.vulkan.VkImageBlit;
 import org.lwjgl.vulkan.VkImageMemoryBarrier;
 import org.lwjgl.vulkan.VkOffset2D;
 import org.lwjgl.vulkan.VkQueue;
@@ -73,6 +74,13 @@ public class CommandBuffer {
 
     public CommandBuffer addBarrier(int srcStage, int dstStage, VkImageMemoryBarrier.Buffer pBarriers) {
         VK10.vkCmdPipelineBarrier(handle, srcStage, dstStage, 0x0, null, null, pBarriers);
+        return this;
+    }
+    
+    public CommandBuffer addBlit(Image image, VkImageBlit.Buffer pBlits) {
+        var imageHandle = image.handle();
+        VK10.vkCmdBlitImage(handle, imageHandle, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, imageHandle,
+                VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pBlits, VK10.VK_FILTER_LINEAR);
         return this;
     }
 

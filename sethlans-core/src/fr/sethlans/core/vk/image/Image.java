@@ -30,6 +30,10 @@ public class Image {
     public Image(LogicalDevice device, int width, int height, int format, int usage) {
         this(device, width, height, format, 1, 1, usage);
     }
+    
+     public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int usage) {
+        this(device, width, height, format, mipLevels, 1, usage);
+    }
 
     public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int sampleCount, int usage) {
         this.device = device;
