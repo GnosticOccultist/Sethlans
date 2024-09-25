@@ -32,6 +32,8 @@ import fr.sethlans.core.vk.util.VkUtil;
 public class SwapChain {
 
     private static final Logger logger = FactoryLogger.getLogger("sethlans-core.vk.swapchain");
+    
+    private static final long NO_TIMEOUT = 0xFFFFFFFFFFFFFFFFL;
 
     private final VkExtent2D framebufferExtent = VkExtent2D.create();
 
@@ -165,7 +167,7 @@ public class SwapChain {
     public int acquireNextImage() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             var pImageIndex = stack.mallocInt(1);
-            var err = KHRSwapchain.vkAcquireNextImageKHR(logicalDevice.handle(), handle, ~0L,
+            var err = KHRSwapchain.vkAcquireNextImageKHR(logicalDevice.handle(), handle, NO_TIMEOUT,
                     syncFrames[currentFrame].imageAvailableSemaphore().handle(), VK10.VK_NULL_HANDLE, pImageIndex);
             if (err == KHRSwapchain.VK_ERROR_OUT_OF_DATE_KHR) {
                 logger.warning("Swapchain is outdated while acquiring next image!");
