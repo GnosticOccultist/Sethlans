@@ -9,6 +9,8 @@ import org.lwjgl.glfw.GLFWVulkan;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.EXTDebugUtils;
 import org.lwjgl.vulkan.VK10;
+import org.lwjgl.vulkan.VK11;
+import org.lwjgl.vulkan.VK12;
 import org.lwjgl.vulkan.VK13;
 import org.lwjgl.vulkan.VkApplicationInfo;
 import org.lwjgl.vulkan.VkDebugUtilsMessengerCallbackDataEXT;
@@ -22,6 +24,8 @@ import fr.alchemy.utilities.collections.array.Array;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.Window;
+import fr.sethlans.core.app.ConfigFile;
+import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.vk.device.LogicalDevice;
 import fr.sethlans.core.vk.device.PhysicalDevice;
 import fr.sethlans.core.vk.swapchain.SwapChain;
@@ -45,17 +49,25 @@ public class VulkanInstance {
 
     private SwapChain swapChain;
     
-    public VulkanInstance(Window window, boolean debug) {
+    public VulkanInstance(ConfigFile config, Window window, boolean debug) {
         try (var stack = MemoryStack.stackPush()) {
+            
+            var appName = config.getString(SethlansApplication.APP_NAME_PROP, SethlansApplication.DEFAULT_APP_NAME);
+            var appVariant = config.getInteger(SethlansApplication.APP_VARIANT_PROP, SethlansApplication.DEFAULT_APP_VARIANT);
+            var appMajor = config.getInteger(SethlansApplication.APP_MAJOR_PROP, SethlansApplication.DEFAULT_APP_MAJOR);
+            var appMinor = config.getInteger(SethlansApplication.APP_MINOR_PROP, SethlansApplication.DEFAULT_APP_MINOR);
+            var appPatch = config.getInteger(SethlansApplication.APP_PATCH_PROP, SethlansApplication.DEFAULT_APP_PATCH);
+            
+            var apiVersion = getVulkanVersion(config);
 
             // Create the application info.
             var appInfo = VkApplicationInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_APPLICATION_INFO)
-                    .pApplicationName(stack.UTF8("Sethlans Demo"))
-                    .applicationVersion(VK10.VK_MAKE_API_VERSION(0, 0, 1, 0))
+                    .pApplicationName(stack.UTF8(appName))
+                    .applicationVersion(VK10.VK_MAKE_API_VERSION(appVariant, appMajor, appMinor, appPatch))
                     .pEngineName(stack.UTF8("Sethlans"))
                     .engineVersion(VK10.VK_MAKE_API_VERSION(0, 0, 1, 0))
-                    .apiVersion(VK13.VK_API_VERSION_1_3);
+                    .apiVersion(apiVersion);
             
             var ppEnabledExtensionNames = getRequiredExtensions(debug, stack);
             
@@ -125,6 +137,23 @@ public class VulkanInstance {
             this.swapChain = new SwapChain(logicalDevice, surfaceProperties,
                     physicalDevice.gatherQueueFamilyProperties(stack, surface.handle()), surface.handle(),
                     window.getWidth(), window.getHeight());
+        }
+    }
+
+    private int getVulkanVersion(ConfigFile config) {
+        var version = config.getString(SethlansApplication.GRAPHICS_API_PROP, SethlansApplication.DEFAULT_GRAPHICS_API);
+        switch (version) {
+        case SethlansApplication.VK_1_0_GRAPHICS_API:
+            return VK10.VK_API_VERSION_1_0;
+        case SethlansApplication.VK_1_1_GRAPHICS_API:
+            return VK11.VK_API_VERSION_1_1;
+        case SethlansApplication.VK_1_2_GRAPHICS_API:
+            return VK12.VK_API_VERSION_1_2;
+        case SethlansApplication.VK_1_3_GRAPHICS_API:
+            return VK13.VK_API_VERSION_1_3;
+        default:
+            logger.warning("Unrecognized Vulkan version '" + version + "', defaulting to VK_API_VERSION_1_0");
+            return VK10.VK_API_VERSION_1_0;
         }
     }
 

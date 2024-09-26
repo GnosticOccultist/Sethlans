@@ -14,6 +14,7 @@ import org.joml.Vector3f;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VK10;
 
+import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.vk.Projection;
 import fr.sethlans.core.vk.descriptor.DescriptorSet;
@@ -38,6 +39,17 @@ public class SethlansTest extends SethlansApplication {
     private double angle;
     private Texture texture;
     private VulkanBuffer projMatrixUniform;
+
+    @Override
+    protected void prepare(ConfigFile appConfig) {
+        appConfig.addString(APP_NAME_PROP, "Sethlans Demo")
+                .addInteger(APP_MAJOR_PROP, 1)
+                .addInteger(APP_MINOR_PROP, 0)
+                .addInteger(APP_PATCH_PROP, 0)
+                .addString(WINDOW_TITLE_PROP, "Sethlans Demo")
+                .addInteger(WINDOW_WIDTH_PROP, 800)
+                .addInteger(WINDOW_HEIGHT_PROP, 600);
+    }
 
     @Override
     protected void initialize() {
@@ -191,7 +203,6 @@ public class SethlansTest extends SethlansApplication {
         swapChain.presentImage(imageIndex);
 
         window.update();
-
     }
 
     @Override
