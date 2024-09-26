@@ -3,8 +3,9 @@ package fr.sethlans.core.app;
 import fr.alchemy.utilities.Instantiator;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
-import fr.sethlans.core.Window;
-import fr.sethlans.core.vk.context.VulkanInstance;
+import fr.sethlans.core.render.RenderEngine;
+import fr.sethlans.core.render.Window;
+import fr.sethlans.core.render.vk.context.VulkanRenderEngine;
 
 public abstract class SethlansApplication {
 
@@ -16,6 +17,7 @@ public abstract class SethlansApplication {
     public static final String APP_MINOR_PROP = "ApplicationVersionMinor";
     public static final String APP_PATCH_PROP = "ApplicationVersionPatch";
     public static final String GRAPHICS_API_PROP = "GraphicsApi";
+    public static final String GRAPHICS_DEBUG_PROP = "GraphicsDebug";
     public static final String WINDOW_WIDTH_PROP = "WindowWidth";
     public static final String WINDOW_HEIGHT_PROP = "WindowHeight";
     public static final String WINDOW_TITLE_PROP = "WindowTitle";
@@ -31,6 +33,7 @@ public abstract class SethlansApplication {
     public static final String VK_1_2_GRAPHICS_API = "Vulkan12";
     public static final String VK_1_3_GRAPHICS_API = "Vulkan13";
     public static final String DEFAULT_GRAPHICS_API = VK_1_3_GRAPHICS_API;
+    public static final boolean DEFAULT_GRAPHICS_DEBUG = false;
 
     private static SethlansApplication application;
 
@@ -42,14 +45,17 @@ public abstract class SethlansApplication {
             var config = new ConfigFile();
             application.prepare(config);
 
-            application.window = new Window(config);
-            application.vulkanInstance = new VulkanInstance(config, application.window, true);
+            application.renderEngine = new VulkanRenderEngine();
+
+            application.renderEngine.initialize(config);
 
             application.initialize();
 
-            while (!application.window.shouldClose()) {
+            while (!application.renderEngine.getWindow().shouldClose()) {
 
                 application.update();
+
+                application.renderEngine.swapFrames();
             }
 
         } catch (Exception ex) {
@@ -60,9 +66,7 @@ public abstract class SethlansApplication {
         }
     }
 
-    private Window window;
-
-    private VulkanInstance vulkanInstance;
+    private RenderEngine renderEngine;
 
     protected SethlansApplication() {
 
@@ -76,20 +80,22 @@ public abstract class SethlansApplication {
 
     protected abstract void cleanup();
 
-    public Window getWindow() {
-        return window;
+    public RenderEngine getRenderEngine() {
+        return renderEngine;
     }
 
-    public VulkanInstance getVulkanInstance() {
-        return vulkanInstance;
+    public Window getWindow() {
+        return renderEngine.getWindow();
     }
 
     protected void terminate() {
         logger.info("Terminating " + getClass().getSimpleName() + "...");
-        getVulkanInstance().getLogicalDevice().waitIdle();
-        application.cleanup();
 
-        vulkanInstance.destroy();
-        window.destroy();
+        logger.info("Awaiting termination of pending requests");
+        renderEngine.waitIdle();
+
+        cleanup();
+
+        renderEngine.terminate();
     }
 }

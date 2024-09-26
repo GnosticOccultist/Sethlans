@@ -20,6 +20,11 @@ public class ConfigFile {
         return root.getOptional(name).filter(JSONValue::isTrue).map(JSONValue::isTrue).orElse(defValue);
     }
 
+    public ConfigFile addBoolean(String name, Boolean value) {
+        root.add(name, AlchemyJSON.value(value));
+        return this;
+    }
+
     public Integer getInteger(String name, Integer defValue) {
         return root.getOptional(name).filter(JSONValue::isNumber).map(JSONValue::asInt).orElse(defValue);
     }
