@@ -48,6 +48,7 @@ public class SethlansTest extends SethlansApplication {
                 .addInteger(APP_MINOR_PROP, 0)
                 .addInteger(APP_PATCH_PROP, 0)
                 .addBoolean(GRAPHICS_DEBUG_PROP, true)
+                .addBoolean(VSYNC_PROP, true)
                 .addString(WINDOW_TITLE_PROP, "Sethlans Demo")
                 .addInteger(WINDOW_WIDTH_PROP, 800)
                 .addInteger(WINDOW_HEIGHT_PROP, 600);
@@ -55,8 +56,8 @@ public class SethlansTest extends SethlansApplication {
 
     @Override
     protected void initialize() {
-        var logicalDevice = ((VulkanRenderEngine) getRenderEngine()).getLogicalDevice();
-        var swapChain = ((VulkanRenderEngine) getRenderEngine()).getSwapChain();
+        var renderEngine = ((VulkanRenderEngine) getRenderEngine());
+        var logicalDevice = renderEngine.getLogicalDevice();
         var window = getWindow();
 
         vertexBuffer = new DeviceBuffer(logicalDevice, 40 * Float.BYTES,
@@ -147,12 +148,12 @@ public class SethlansTest extends SethlansApplication {
         projection.store(0, matrixBuffer);
         projMatrixUniform.unmap();
 
-        projMatrixDescriptorSet = new DescriptorSet(logicalDevice, swapChain.descriptorPool(),
-                swapChain.uniformDescriptorSetLayout());
+        projMatrixDescriptorSet = new DescriptorSet(logicalDevice, renderEngine.descriptorPool(),
+                renderEngine.uniformDescriptorSetLayout());
         projMatrixDescriptorSet.updateBufferDescriptorSet(projMatrixUniform, 16 * Float.BYTES, 0);
 
-        samplerDescriptorSet = new DescriptorSet(logicalDevice, swapChain.descriptorPool(),
-                swapChain.samplerDescriptorSetLayout());
+        samplerDescriptorSet = new DescriptorSet(logicalDevice, renderEngine.descriptorPool(),
+                renderEngine.samplerDescriptorSetLayout());
         samplerDescriptorSet.updateTextureDescriptorSet(texture, 0);
 
         buffer = MemoryUtil.memAlloc(16 * Float.BYTES);
@@ -163,20 +164,9 @@ public class SethlansTest extends SethlansApplication {
     }
 
     @Override
-    protected void update() {
+    protected void render() {
         var swapChain = ((VulkanRenderEngine) getRenderEngine()).getSwapChain();
         var logicalDevice = ((VulkanRenderEngine) getRenderEngine()).getLogicalDevice();
-        var window = getWindow();
-
-        // Wait for completion of the previous frame.
-        swapChain.fenceWait();
-
-        // Acquire the next presentation image from the swap-chain.
-        var imageIndex = swapChain.acquireNextImage();
-        if (imageIndex < 0) {
-            // TODO: Recreate the swapchain.
-            return;
-        }
 
         angle += 0.1f;
         angle %= 360;
@@ -201,10 +191,6 @@ public class SethlansTest extends SethlansApplication {
         swapChain.fenceReset();
 
         swapChain.commandBuffer().submit(logicalDevice.graphicsQueue(), swapChain.syncFrame());
-
-        swapChain.presentImage(imageIndex);
-
-        window.update();
     }
 
     @Override

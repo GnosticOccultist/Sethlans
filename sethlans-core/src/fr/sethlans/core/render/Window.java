@@ -1,7 +1,10 @@
 package fr.sethlans.core.render;
 
 import static org.lwjgl.glfw.GLFW.*;
+
+import org.lwjgl.glfw.Callbacks;
 import org.lwjgl.system.MemoryUtil;
+import org.lwjgl.vulkan.VkExtent2D;
 
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
@@ -27,17 +30,17 @@ public class Window {
 
     private long windowHandle = MemoryUtil.NULL;
 
-    public Window() {
-        this(DEFAULT_TITLE, DEFAULT_WIDTH, DEFAULT_HEIGHT);
+    public Window(RenderEngine renderEngine) {
+        this(renderEngine, DEFAULT_TITLE, DEFAULT_WIDTH, DEFAULT_HEIGHT);
     }
 
-    public Window(ConfigFile config) {
-        this(config.getString(SethlansApplication.WINDOW_TITLE_PROP, DEFAULT_TITLE),
+    public Window(RenderEngine renderEngine, ConfigFile config) {
+        this(renderEngine, config.getString(SethlansApplication.WINDOW_TITLE_PROP, DEFAULT_TITLE),
                 config.getInteger(SethlansApplication.WINDOW_WIDTH_PROP, DEFAULT_WIDTH),
                 config.getInteger(SethlansApplication.WINDOW_HEIGHT_PROP, DEFAULT_HEIGHT));
     }
 
-    public Window(String title, int width, int height) {
+    public Window(RenderEngine renderEngine, String title, int width, int height) {
         this.width = width;
         this.height = height;
 
@@ -47,6 +50,9 @@ public class Window {
         if (windowHandle == MemoryUtil.NULL) {
             throw new RuntimeException("Failed to create a GLFW window!");
         }
+
+        // Setup a callback when window framebuffer is resized.
+        glfwSetFramebufferSizeCallback(windowHandle, (handle, w, h) -> renderEngine.resize());
     }
 
     public void update() {
@@ -69,8 +75,15 @@ public class Window {
         return height;
     }
 
+    public void setSize(VkExtent2D framebufferExtent) {
+        this.width = framebufferExtent.width();
+        this.height = framebufferExtent.height();
+    }
+
     public void destroy() {
         if (windowHandle != MemoryUtil.NULL) {
+            Callbacks.glfwFreeCallbacks(windowHandle);
+
             glfwDestroyWindow(windowHandle);
             this.windowHandle = MemoryUtil.NULL;
         }

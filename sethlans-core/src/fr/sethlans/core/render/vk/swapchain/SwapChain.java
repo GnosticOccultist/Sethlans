@@ -14,15 +14,14 @@ import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
+import fr.sethlans.core.app.ConfigFile;
+import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
-import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
-import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.device.QueueFamilyProperties;
 import fr.sethlans.core.render.vk.image.ImageView;
-import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineCache;
 import fr.sethlans.core.render.vk.shader.ShaderProgram;
@@ -62,19 +61,11 @@ public class SwapChain {
     private Pipeline pipeline;
 
     private ShaderProgram program;
-
-    private DescriptorSetLayout uniformDescriptorSetLayout;
     
-    private DescriptorSetLayout samplerDescriptorSetLayout;
+    private boolean needsRecreation = false;
 
-    private VulkanBuffer projMatrixUniform;
-
-    private DescriptorSet projMatrixDescriptorSet;
-
-    private DescriptorPool descriptorPool;
-
-    public SwapChain(LogicalDevice logicalDevice, SurfaceProperties surfaceProperties,
-            QueueFamilyProperties queueFamilyProperties, long surfaceHandle, int desiredWidth, int desiredHeight) {
+    public SwapChain(LogicalDevice logicalDevice, ConfigFile config, SurfaceProperties surfaceProperties,
+            QueueFamilyProperties queueFamilyProperties, DescriptorSetLayout[] layouts, long surfaceHandle, int desiredWidth, int desiredHeight) {
         this.logicalDevice = logicalDevice;
 
         try (var stack = MemoryStack.stackPush()) {
@@ -86,8 +77,9 @@ public class SwapChain {
 
             surfaceProperties.getFramebufferExtent(desiredWidth, desiredHeight, framebufferExtent);
 
-            var presentationMode = surfaceProperties.getPresentationMode(KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR); // TODO
-                                                                                                                  // vsync
+            var vSync = config.getBoolean(SethlansApplication.VSYNC_PROP, SethlansApplication.DEFAULT_VSYNC);
+            var preferredMode = vSync ? KHRSurface.VK_PRESENT_MODE_FIFO_KHR : KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
+            var presentationMode = surfaceProperties.getPresentationMode(preferredMode);
 
             var families = queueFamilyProperties.listFamilies(stack);
             var familyCount = families.capacity();
@@ -142,13 +134,8 @@ public class SwapChain {
                 ex.printStackTrace();
             }
             
-            this.uniformDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0, VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK10.VK_SHADER_STAGE_VERTEX_BIT);
-            this.samplerDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0, VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK10.VK_SHADER_STAGE_FRAGMENT_BIT);
-            
-            this.descriptorPool = new DescriptorPool(logicalDevice, 16);
-            
             this.pipelineCache = new PipelineCache(logicalDevice);
-            this.pipeline = new Pipeline(logicalDevice, pipelineCache, this, program, new DescriptorSetLayout[] { uniformDescriptorSetLayout, samplerDescriptorSetLayout });
+            this.pipeline = new Pipeline(logicalDevice, pipelineCache, this, program, layouts);
 
             for (var i = 0; i < imageHandles.length; ++i) {
                 imageViews[i] = new ImageView(logicalDevice, imageHandles[i], surfaceFormat.format(),
@@ -207,6 +194,11 @@ public class SwapChain {
                 VkUtil.throwOnFailure(err, "present image");
                 return false;
             }
+            
+            if (needsRecreation) {
+                this.needsRecreation = false;
+                return false;
+            }
 
             this.currentFrame = (currentFrame + 1) % imageViews.length;
             return true;
@@ -258,6 +250,10 @@ public class SwapChain {
         logger.info("Requested " + numImages + " images for the swapchain.");
         return numImages;
     }
+    
+    public void invalidate() {
+        this.needsRecreation = true;
+    }
 
     public VkExtent2D framebufferExtent(MemoryStack stack) {
         var result = VkExtent2D.malloc(stack);
@@ -296,18 +292,6 @@ public class SwapChain {
         return surfaceFormat.format();
     }
 
-    public DescriptorSetLayout uniformDescriptorSetLayout() {
-        return uniformDescriptorSetLayout;
-    }
-    
-    public DescriptorSetLayout samplerDescriptorSetLayout() {
-        return samplerDescriptorSetLayout;
-    }
-
-    public DescriptorPool descriptorPool() {
-        return descriptorPool;
-    }
-
     LogicalDevice logicalDevice() {
         return logicalDevice;
     }
@@ -337,33 +321,13 @@ public class SwapChain {
         for (var view : imageViews) {
             view.destroy();
         }
-        
+
         if (pipeline != null) {
             pipeline.destroy();
         }
-        
+
         if (pipelineCache != null) {
             pipelineCache.destroy();
-        }
-
-        if (projMatrixDescriptorSet != null) {
-            projMatrixDescriptorSet.destroy();
-        }
-
-        if (projMatrixUniform != null) {
-            projMatrixUniform.destroy();
-        }
-
-        if (uniformDescriptorSetLayout != null) {
-            uniformDescriptorSetLayout.destroy();
-        }
-
-        if (samplerDescriptorSetLayout != null) {
-            samplerDescriptorSetLayout.destroy();
-        }
-
-        if (descriptorPool != null) {
-            descriptorPool.destroy();
         }
 
         if (program != null) {
@@ -374,7 +338,6 @@ public class SwapChain {
             renderPass.destroy();
             this.renderPass = null;
         }
-
 
         if (handle != VK10.VK_NULL_HANDLE) {
             KHRSwapchain.vkDestroySwapchainKHR(logicalDevice.handle(), handle, null);

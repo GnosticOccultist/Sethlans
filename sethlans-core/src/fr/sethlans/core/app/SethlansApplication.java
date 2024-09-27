@@ -18,6 +18,7 @@ public abstract class SethlansApplication {
     public static final String APP_PATCH_PROP = "ApplicationVersionPatch";
     public static final String GRAPHICS_API_PROP = "GraphicsApi";
     public static final String GRAPHICS_DEBUG_PROP = "GraphicsDebug";
+    public static final String VSYNC_PROP = "VSync";
     public static final String WINDOW_WIDTH_PROP = "WindowWidth";
     public static final String WINDOW_HEIGHT_PROP = "WindowHeight";
     public static final String WINDOW_TITLE_PROP = "WindowTitle";
@@ -34,6 +35,7 @@ public abstract class SethlansApplication {
     public static final String VK_1_3_GRAPHICS_API = "Vulkan13";
     public static final String DEFAULT_GRAPHICS_API = VK_1_3_GRAPHICS_API;
     public static final boolean DEFAULT_GRAPHICS_DEBUG = false;
+    public static final boolean DEFAULT_VSYNC = true;
 
     private static SethlansApplication application;
 
@@ -45,17 +47,24 @@ public abstract class SethlansApplication {
             var config = new ConfigFile();
             application.prepare(config);
 
-            application.renderEngine = new VulkanRenderEngine();
+            var renderEngine = application.renderEngine = new VulkanRenderEngine();
 
-            application.renderEngine.initialize(config);
+            renderEngine.initialize(config);
 
             application.initialize();
 
-            while (!application.renderEngine.getWindow().shouldClose()) {
+            while (!renderEngine.getWindow().shouldClose()) {
 
-                application.update();
+                var result = renderEngine.beginRender();
+                if (!result) {
+                    continue;
+                }
 
-                application.renderEngine.swapFrames();
+                application.render();
+
+                renderEngine.endRender();
+
+                renderEngine.swapFrames();
             }
 
         } catch (Exception ex) {
@@ -76,7 +85,7 @@ public abstract class SethlansApplication {
 
     protected abstract void initialize();
 
-    protected abstract void update();
+    protected abstract void render();
 
     protected abstract void cleanup();
 
