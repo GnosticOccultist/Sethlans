@@ -26,14 +26,14 @@ import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class Pipeline {
-
+    
     private final LogicalDevice device;
 
     private long handle = VK10.VK_NULL_HANDLE;
 
     private long pipelineLayoutHandle = VK10.VK_NULL_HANDLE;
 
-    public Pipeline(LogicalDevice device, PipelineCache pipelineCache, SwapChain swapChain, ShaderProgram shaderProgram, DescriptorSetLayout[] descriptorSetLayouts) {
+    public Pipeline(LogicalDevice device, PipelineCache pipelineCache, SwapChain swapChain, ShaderProgram shaderProgram, int sampleCount, DescriptorSetLayout[] descriptorSetLayouts) {
         this.device = device;
 
         try (var stack = MemoryStack.stackPush()) {
@@ -94,11 +94,15 @@ public class Pipeline {
                     .cullMode(VK10.VK_CULL_MODE_NONE)
                     .frontFace(VK10.VK_FRONT_FACE_CLOCKWISE)
                     .lineWidth(1.0f);
-
-            // TODO: Multisampling state info.
+            
+            // Define multisampling state info.
             var msCreateInfo = VkPipelineMultisampleStateCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO)
-                    .rasterizationSamples(VK10.VK_SAMPLE_COUNT_1_BIT);
+                    .rasterizationSamples(sampleCount)
+                    .alphaToCoverageEnable(false)
+                    .alphaToOneEnable(false)
+                    .minSampleShading(1f)
+                    .sampleShadingEnable(false);
             
             // Define color and alpha blending state info, one per color attachment.
             // TODO: Support transparency.

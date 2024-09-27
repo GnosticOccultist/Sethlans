@@ -9,27 +9,34 @@ import fr.sethlans.core.render.vk.image.ImageView;
 
 public class Attachment {
 
-    private final LogicalDevice device;
-
     final Image image;
 
     final ImageView imageView;
+    
+    final int finalLayout;
 
-    public Attachment(LogicalDevice device, VkExtent2D extent, int format, int aspectMask) {
-        this.device = device;
-
+    public Attachment(LogicalDevice device, VkExtent2D extent, int format, int aspectMask, int sampleCount) {
         var usage = VK10.VK_IMAGE_USAGE_SAMPLED_BIT;
         if (aspectMask == VK10.VK_IMAGE_ASPECT_COLOR_BIT) {
             // Transient color buffer attachment.
+            this.finalLayout = VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             usage = VK10.VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
         } else if (aspectMask == VK10.VK_IMAGE_ASPECT_DEPTH_BIT) {
             // Depth buffer attachment.
+            this.finalLayout = VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
             usage = VK10.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+       
+        } else {
+            throw new IllegalArgumentException("Illegal aspect mask for attachment " + aspectMask);
         }
 
-        this.image = new Image(device, extent.width(), extent.height(), format, usage);
+        this.image = new Image(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
+                VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         this.imageView = new ImageView(device, image.handle(), format, aspectMask);
+        
+        // Transition the image to an optimal layout.
+        image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout);
     }
 
     public void destroy() {

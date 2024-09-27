@@ -40,8 +40,10 @@ public class Texture {
         data.flip();
         stagingBuffer.unmap();
 
-        this.image = new Image(device, width, height, imageFormat, mipLevels,
-                VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK10.VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK10.VK_IMAGE_USAGE_SAMPLED_BIT);
+        this.image = new Image(
+                device, width, height, imageFormat, mipLevels, VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+                        | VK10.VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK10.VK_IMAGE_USAGE_SAMPLED_BIT,
+                VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
         // Transition the image layout.
         image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);

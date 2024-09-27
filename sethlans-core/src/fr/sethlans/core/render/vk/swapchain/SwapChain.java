@@ -53,6 +53,8 @@ public class SwapChain {
     private RenderPass renderPass;
     
     private Attachment[] depthAttachments;
+    
+    private Attachment[] colorAttachments;
 
     private FrameBuffer[] frameBuffers;
 
@@ -109,20 +111,30 @@ public class SwapChain {
             VkUtil.throwOnFailure(err, "create a swapchain");
             this.handle = pHandle.get(0);
             
-            var depthFormat = logicalDevice.physicalDevice().findSupportedFormat(
-                    VK10.VK_IMAGE_TILING_OPTIMAL, VK10.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                    VK10.VK_FORMAT_D32_SFLOAT, VK10.VK_FORMAT_D32_SFLOAT_S8_UINT, VK10.VK_FORMAT_D24_UNORM_S8_UINT);
-            
-            this.renderPass = new RenderPass(this, depthFormat);
+            var depthFormat = logicalDevice.physicalDevice().findSupportedFormat(VK10.VK_IMAGE_TILING_OPTIMAL,
+                    VK10.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT, VK10.VK_FORMAT_D32_SFLOAT,
+                    VK10.VK_FORMAT_D32_SFLOAT_S8_UINT, VK10.VK_FORMAT_D24_UNORM_S8_UINT);
+
+            var requestedSampleCount = config.getInteger(SethlansApplication.MSAA_SAMPLES_PROP,
+                    SethlansApplication.DEFAULT_MSSA_SAMPLES);
+            var maxSampleCount = logicalDevice.physicalDevice().maxSamplesCount();
+            var sampleCount = Math.min(requestedSampleCount, maxSampleCount);
+            logger.info("Using " + sampleCount + " samples (requested= " + requestedSampleCount + ", max= "
+                    + maxSampleCount + ").");
+
+            this.renderPass = new RenderPass(this, depthFormat, sampleCount);
             
             var imageHandles = getImages(stack);
             this.imageViews = new ImageView[imageHandles.length];
             this.syncFrames = new SyncFrame[imageHandles.length];
             this.commandBuffers = new CommandBuffer[imageHandles.length];
+            if (sampleCount > 1) {
+                this.colorAttachments = new Attachment[imageHandles.length];
+            }
             this.depthAttachments = new Attachment[imageHandles.length];
             this.frameBuffers = new FrameBuffer[imageHandles.length];
             
-            var pAttachments = stack.mallocLong(2);
+            var pAttachments = stack.mallocLong(sampleCount == 1 ? 2 : 3);
 
             this.program = new ShaderProgram(logicalDevice);
             try {
@@ -135,17 +147,25 @@ public class SwapChain {
             }
             
             this.pipelineCache = new PipelineCache(logicalDevice);
-            this.pipeline = new Pipeline(logicalDevice, pipelineCache, this, program, layouts);
+            this.pipeline = new Pipeline(logicalDevice, pipelineCache, this, program, sampleCount, layouts);
 
             for (var i = 0; i < imageHandles.length; ++i) {
                 imageViews[i] = new ImageView(logicalDevice, imageHandles[i], surfaceFormat.format(),
                         VK10.VK_IMAGE_ASPECT_COLOR_BIT);
                 syncFrames[i] = new SyncFrame(logicalDevice);
                 commandBuffers[i] = logicalDevice.commandPool().createCommandBuffer();
-                depthAttachments[i] = new Attachment(logicalDevice, framebufferExtent, depthFormat, VK10.VK_IMAGE_ASPECT_DEPTH_BIT);
-                
-                pAttachments.put(0, imageViews[i].handle());
+                if (sampleCount > 1) {
+                    colorAttachments[i] = new Attachment(logicalDevice, framebufferExtent, surfaceFormat.format(),
+                            VK10.VK_IMAGE_ASPECT_COLOR_BIT, sampleCount);
+                }
+                depthAttachments[i] = new Attachment(logicalDevice, framebufferExtent, depthFormat,
+                        VK10.VK_IMAGE_ASPECT_DEPTH_BIT, sampleCount);
+
+                pAttachments.put(0, sampleCount > 1 ? colorAttachments[i].imageView.handle() : imageViews[i].handle());
                 pAttachments.put(1, depthAttachments[i].imageView.handle());
+                if (sampleCount > 1) {
+                    pAttachments.put(2, imageViews[i].handle());
+                }
                 frameBuffers[i] = new FrameBuffer(logicalDevice, renderPass(), framebufferExtent, pAttachments);
             }
         }
@@ -304,6 +324,12 @@ public class SwapChain {
         
         for (var attachment : depthAttachments) {
             attachment.destroy();
+        }
+
+        if (colorAttachments != null) {
+            for (var attachment : colorAttachments) {
+                attachment.destroy();
+            }
         }
 
         for (var frameBuffer : frameBuffers) {

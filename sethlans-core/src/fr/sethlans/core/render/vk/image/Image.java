@@ -24,23 +24,26 @@ public class Image {
     private int format;
 
     private int mipLevels;
+    
+    private int sampleCount;
 
     private long memoryHandle;
 
     public Image(LogicalDevice device, int width, int height, int format, int usage) {
-        this(device, width, height, format, 1, 1, usage);
+        this(device, width, height, format, 1, 1, usage, 0x0);
     }
     
-     public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int usage) {
-        this(device, width, height, format, mipLevels, 1, usage);
+     public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int usage, int requiredProperties) {
+        this(device, width, height, format, mipLevels, 1, usage, requiredProperties);
     }
 
-    public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int sampleCount, int usage) {
+    public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int sampleCount, int usage, int requiredProperties) {
         this.device = device;
         this.width = width;
         this.height = height;
         this.format = format;
         this.mipLevels = mipLevels;
+        this.sampleCount = sampleCount;
 
         try (var stack = MemoryStack.stackPush()) {
             var createInfo = VkImageCreateInfo.calloc(stack)
@@ -70,7 +73,7 @@ public class Image {
 
             // Create allocation info struct.
             var typeFilter = memRequirements.memoryTypeBits();
-            var memoryType = device.physicalDevice().gatherMemoryType(typeFilter, 0x0);
+            var memoryType = device.physicalDevice().gatherMemoryType(typeFilter, requiredProperties);
             var allocInfo = VkMemoryAllocateInfo.calloc(stack).sType(VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
                     .allocationSize(memRequirements.size()).memoryTypeIndex(memoryType);
 
@@ -85,8 +88,25 @@ public class Image {
         }
     }
 
-    void transitionImageLayout(int oldLayout, int newLayout) {
+    public void transitionImageLayout(int oldLayout, int newLayout) {
         try (var stack = MemoryStack.stackPush()) {
+            
+            var aspectMask = VK10.VK_IMAGE_ASPECT_COLOR_BIT;
+            if (newLayout == VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+                aspectMask = VK10.VK_IMAGE_ASPECT_DEPTH_BIT;
+                
+                switch (format) {
+                    case VK10.VK_FORMAT_D16_UNORM_S8_UINT:
+                    case VK10.VK_FORMAT_D24_UNORM_S8_UINT:
+                    case VK10.VK_FORMAT_D32_SFLOAT_S8_UINT:
+                        // Expecting a stencil component.
+                        aspectMask |= VK10.VK_IMAGE_ASPECT_STENCIL_BIT;
+                        break;
+                }
+            }
+            
+            final var mask = aspectMask;
+            
             var pBarrier = VkImageMemoryBarrier.calloc(1, stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
                     .newLayout(newLayout)
@@ -95,7 +115,7 @@ public class Image {
                     .dstQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
                     .image(handle)
                     .subresourceRange(it -> it
-                            .aspectMask(VK10.VK_IMAGE_ASPECT_COLOR_BIT)
+                            .aspectMask(mask)
                             .baseMipLevel(0)
                             .levelCount(mipLevels)
                             .baseArrayLayer(0)
@@ -122,10 +142,33 @@ public class Image {
                 srcStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
                 dstStage = VK10.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 
+            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_UNDEFINED
+                    && newLayout == VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+
+                // UNDEFINED to COLOR_ATTACHMENT.
+                pBarrier.dstAccessMask(
+                        VK10.VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+                pBarrier.srcAccessMask(0x0);
+
+                srcStage = VK10.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+                dstStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_UNDEFINED
+                    && newLayout == VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+                
+                // UNDEFINED to DEPTH_STENCIL_ATTACHMENT
+                pBarrier.dstAccessMask(VK10.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT
+                        | VK10.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+                pBarrier.srcAccessMask(0x0);
+
+                srcStage = VK10.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+                dstStage = VK10.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
             } else {
-                throw new IllegalArgumentException("Unsupported transition from layout " + oldLayout + " to " + newLayout);
+                throw new IllegalArgumentException(
+                        "Unsupported transition from layout " + oldLayout + " to " + newLayout);
             }
-            
+
             // Create a one-time submit command buffer.
             var command = device.commandPool().createCommandBuffer();
             command.beginRecording(VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
@@ -154,6 +197,10 @@ public class Image {
 
     public int mipLevels() {
         return mipLevels;
+    }
+
+    public int sampleCount() {
+        return sampleCount;
     }
 
     public int format() {

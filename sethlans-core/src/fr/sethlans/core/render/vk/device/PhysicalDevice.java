@@ -36,6 +36,8 @@ public class PhysicalDevice {
     private String name;
 
     private int type = -1;
+    
+    private int maxSamplesCount = -1;
 
     private Set<String> availableExtensions;
 
@@ -181,6 +183,25 @@ public class PhysicalDevice {
         this.name = properties.deviceNameString();
 
         this.type = properties.deviceType();
+
+        var limits = properties.limits();
+        var bitmask = limits.framebufferColorSampleCounts() & limits.framebufferDepthSampleCounts();
+
+        if ((bitmask & VK10.VK_SAMPLE_COUNT_64_BIT) != 0x0) {
+            this.maxSamplesCount = 64;
+        } else if ((bitmask & VK10.VK_SAMPLE_COUNT_32_BIT) != 0x0) {
+            this.maxSamplesCount = 32;
+        } else if ((bitmask & VK10.VK_SAMPLE_COUNT_16_BIT) != 0x0) {
+            this.maxSamplesCount = 16;
+        } else if ((bitmask & VK10.VK_SAMPLE_COUNT_8_BIT) != 0x0) {
+            this.maxSamplesCount = 8;
+        } else if ((bitmask & VK10.VK_SAMPLE_COUNT_4_BIT) != 0x0) {
+            this.maxSamplesCount = 4;
+        } else if ((bitmask & VK10.VK_SAMPLE_COUNT_2_BIT) != 0x0) {
+            this.maxSamplesCount = 2;
+        } else {
+            this.maxSamplesCount = 1;
+        }
     }
     
     public boolean supportFormatFeature(int imageTiling, int format, int requiredFeatures) {
@@ -294,6 +315,16 @@ public class PhysicalDevice {
         }
 
         return properties;
+    }
+
+    public int maxSamplesCount() {
+        if (maxSamplesCount <= 0) {
+            try (var stack = MemoryStack.stackPush()) {
+                gatherDeviceProperties(stack);
+            }
+        }
+
+        return maxSamplesCount;
     }
 
     public String name() {

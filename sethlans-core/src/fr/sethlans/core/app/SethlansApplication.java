@@ -19,6 +19,7 @@ public abstract class SethlansApplication {
     public static final String GRAPHICS_API_PROP = "GraphicsApi";
     public static final String GRAPHICS_DEBUG_PROP = "GraphicsDebug";
     public static final String VSYNC_PROP = "VSync";
+    public static final String MSAA_SAMPLES_PROP = "MssaSamples";
     public static final String WINDOW_WIDTH_PROP = "WindowWidth";
     public static final String WINDOW_HEIGHT_PROP = "WindowHeight";
     public static final String WINDOW_TITLE_PROP = "WindowTitle";
@@ -36,6 +37,7 @@ public abstract class SethlansApplication {
     public static final String DEFAULT_GRAPHICS_API = VK_1_3_GRAPHICS_API;
     public static final boolean DEFAULT_GRAPHICS_DEBUG = false;
     public static final boolean DEFAULT_VSYNC = true;
+    public static final int DEFAULT_MSSA_SAMPLES = 4;
 
     private static SethlansApplication application;
 

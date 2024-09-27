@@ -49,6 +49,7 @@ public class SethlansTest extends SethlansApplication {
                 .addInteger(APP_PATCH_PROP, 0)
                 .addBoolean(GRAPHICS_DEBUG_PROP, true)
                 .addBoolean(VSYNC_PROP, true)
+                .addInteger(MSAA_SAMPLES_PROP, 4)
                 .addString(WINDOW_TITLE_PROP, "Sethlans Demo")
                 .addInteger(WINDOW_WIDTH_PROP, 800)
                 .addInteger(WINDOW_HEIGHT_PROP, 600);
