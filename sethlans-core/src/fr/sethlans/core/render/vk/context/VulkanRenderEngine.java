@@ -7,6 +7,7 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 
 import fr.sethlans.core.app.ConfigFile;
+import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.GlfwBasedRenderEngine;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
@@ -37,6 +38,10 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
     private ConfigFile config;
 
+    public VulkanRenderEngine(SethlansApplication application) {
+        super(application);
+    }
+
     @Override
     public void initializeGlfw(ConfigFile config) {
         super.initializeGlfw(config);
@@ -56,7 +61,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         initializeGlfw(config);
         this.config = config;
 
-        this.window = new Window(this, config);
+        this.window = new Window(application, config);
 
         this.vulkanInstance = new VulkanInstance(config, window);
 
@@ -83,9 +88,11 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
         // Acquire the next presentation image from the swap-chain.
         this.imageIndex = swapChain.acquireNextImage();
-        if (imageIndex < 0) {
+        if (imageIndex < 0 || window.isResized()) {
             recreateSwapchain();
-            return false;
+            
+            // Try acquiring the image from the new swap-chain.
+            imageIndex = swapChain.acquireNextImage();
         }
 
         return true;
@@ -110,13 +117,6 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         if (logicalDevice != null) {
             // Await termination of all pending commands.
             logicalDevice.waitIdle();
-        }
-    }
-
-    @Override
-    public void resize() {
-        if (swapChain != null) {
-            swapChain.invalidate();
         }
     }
 
@@ -146,6 +146,8 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         }
 
         createSwapchain();
+
+        application.resize();
     }
 
     private void createSwapchain() {
@@ -155,7 +157,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
                     physicalDevice.gatherQueueFamilyProperties(stack, surface.handle()),
                     new DescriptorSetLayout[] { uniformDescriptorSetLayout, samplerDescriptorSetLayout },
                     surface.handle(), window.getWidth(), window.getHeight());
-            window.setSize(swapChain.framebufferExtent(stack));
+            window.resize(swapChain.framebufferExtent(stack));
         }
     }
 

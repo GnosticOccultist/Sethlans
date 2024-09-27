@@ -49,7 +49,7 @@ public abstract class SethlansApplication {
             var config = new ConfigFile();
             application.prepare(config);
 
-            var renderEngine = application.renderEngine = new VulkanRenderEngine();
+            var renderEngine = application.renderEngine = new VulkanRenderEngine(application);
 
             renderEngine.initialize(config);
 
@@ -57,10 +57,7 @@ public abstract class SethlansApplication {
 
             while (!renderEngine.getWindow().shouldClose()) {
 
-                var result = renderEngine.beginRender();
-                if (!result) {
-                    continue;
-                }
+                renderEngine.beginRender();
 
                 application.render();
 
@@ -86,6 +83,10 @@ public abstract class SethlansApplication {
     protected abstract void prepare(ConfigFile appConfig);
 
     protected abstract void initialize();
+
+    public void resize() {
+
+    }
 
     protected abstract void render();
 

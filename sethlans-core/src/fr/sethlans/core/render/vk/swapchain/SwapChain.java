@@ -63,8 +63,6 @@ public class SwapChain {
     private Pipeline pipeline;
 
     private ShaderProgram program;
-    
-    private boolean needsRecreation = false;
 
     public SwapChain(LogicalDevice logicalDevice, ConfigFile config, SurfaceProperties surfaceProperties,
             QueueFamilyProperties queueFamilyProperties, DescriptorSetLayout[] layouts, long surfaceHandle, int desiredWidth, int desiredHeight) {
@@ -214,11 +212,6 @@ public class SwapChain {
                 VkUtil.throwOnFailure(err, "present image");
                 return false;
             }
-            
-            if (needsRecreation) {
-                this.needsRecreation = false;
-                return false;
-            }
 
             this.currentFrame = (currentFrame + 1) % imageViews.length;
             return true;
@@ -269,10 +262,6 @@ public class SwapChain {
 
         logger.info("Requested " + numImages + " images for the swapchain.");
         return numImages;
-    }
-    
-    public void invalidate() {
-        this.needsRecreation = true;
     }
 
     public VkExtent2D framebufferExtent(MemoryStack stack) {

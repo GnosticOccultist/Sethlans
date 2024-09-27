@@ -29,18 +29,20 @@ public class Window {
     private int height;
 
     private long windowHandle = MemoryUtil.NULL;
+    
+    private boolean resized = false;
 
-    public Window(RenderEngine renderEngine) {
-        this(renderEngine, DEFAULT_TITLE, DEFAULT_WIDTH, DEFAULT_HEIGHT);
+    public Window(SethlansApplication application) {
+        this(application, DEFAULT_TITLE, DEFAULT_WIDTH, DEFAULT_HEIGHT);
     }
 
-    public Window(RenderEngine renderEngine, ConfigFile config) {
-        this(renderEngine, config.getString(SethlansApplication.WINDOW_TITLE_PROP, DEFAULT_TITLE),
+    public Window(SethlansApplication application, ConfigFile config) {
+        this(application, config.getString(SethlansApplication.WINDOW_TITLE_PROP, DEFAULT_TITLE),
                 config.getInteger(SethlansApplication.WINDOW_WIDTH_PROP, DEFAULT_WIDTH),
                 config.getInteger(SethlansApplication.WINDOW_HEIGHT_PROP, DEFAULT_HEIGHT));
     }
 
-    public Window(RenderEngine renderEngine, String title, int width, int height) {
+    public Window(SethlansApplication application, String title, int width, int height) {
         this.width = width;
         this.height = height;
 
@@ -52,7 +54,7 @@ public class Window {
         }
 
         // Setup a callback when window framebuffer is resized.
-        glfwSetFramebufferSizeCallback(windowHandle, (handle, w, h) -> renderEngine.resize());
+        glfwSetFramebufferSizeCallback(windowHandle, (handle, w, h) -> resized = true);
     }
 
     public void update() {
@@ -74,10 +76,15 @@ public class Window {
     public int getHeight() {
         return height;
     }
+    
+    public boolean isResized() {
+        return resized;
+    }
 
-    public void setSize(VkExtent2D framebufferExtent) {
+    public void resize(VkExtent2D framebufferExtent) {
         this.width = framebufferExtent.width();
         this.height = framebufferExtent.height();
+        this.resized = false;
     }
 
     public void destroy() {

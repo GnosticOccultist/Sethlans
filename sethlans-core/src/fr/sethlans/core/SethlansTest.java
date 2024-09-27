@@ -40,6 +40,7 @@ public class SethlansTest extends SethlansApplication {
     private double angle;
     private Texture texture;
     private VulkanBuffer projMatrixUniform;
+    private Projection projection;
 
     @Override
     protected void prepare(ConfigFile appConfig) {
@@ -141,7 +142,7 @@ public class SethlansTest extends SethlansApplication {
             throw new RuntimeException(ex);
         }
 
-        var projection = new Projection(window.getWidth(), window.getHeight());
+        projection = new Projection(window.getWidth(), window.getHeight());
 
         projMatrixUniform = new VulkanBuffer(logicalDevice, 16 * Float.BYTES, VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
         projMatrixUniform.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
@@ -165,6 +166,17 @@ public class SethlansTest extends SethlansApplication {
     }
 
     @Override
+    public void resize() {
+        super.resize();
+
+        projection.update(getWindow().getWidth(), getWindow().getHeight());
+
+        var matrixBuffer = projMatrixUniform.map();
+        projection.store(0, matrixBuffer);
+        projMatrixUniform.unmap();
+    }
+
+    @Override
     protected void render() {
         var swapChain = ((VulkanRenderEngine) getRenderEngine()).getSwapChain();
         var logicalDevice = ((VulkanRenderEngine) getRenderEngine()).getLogicalDevice();
@@ -175,7 +187,7 @@ public class SethlansTest extends SethlansApplication {
         buffer.clear();
 
         rotation.identity().rotateAxis((float) Math.toRadians(angle), new Vector3f(0, 1, 0));
-        modelMatrix.identity().translationRotateScale(new Vector3f(0, 0, -1f), rotation, 1);
+        modelMatrix.identity().translationRotateScale(new Vector3f(0, 0, -3f), rotation, 1);
 
         modelMatrix.get(0, buffer);
 

@@ -6,8 +6,6 @@ public interface RenderEngine {
 
     void initialize(ConfigFile config);
 
-    void resize();
-
     void waitIdle();
 
     boolean beginRender();
