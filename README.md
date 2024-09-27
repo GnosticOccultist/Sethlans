@@ -11,3 +11,10 @@ It is first and foremost a learning hobby project, but might be involved with co
 ## How to use Sethlans
 
 There is no public release of the project yet, but you can still clone the repo or fork it.
+
+## Documentation 
+
+- [Vulkan Documentation](https://docs.vulkan.org/)
+- [Vulkan Specification](https://registry.khronos.org/vulkan/)
+- [Vulkan Book by Antonio Hernández Bejarano](https://github.com/lwjglgamedev/vulkanbook)
+- [Vulkan Tutorial by Alexander Overvoorde](https://vulkan-tutorial.com/)
