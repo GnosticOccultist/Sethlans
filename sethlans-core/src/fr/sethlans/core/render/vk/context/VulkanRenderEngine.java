@@ -90,7 +90,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         this.imageIndex = swapChain.acquireNextImage();
         if (imageIndex < 0 || window.isResized()) {
             recreateSwapchain();
-            
+
             // Try acquiring the image from the new swap-chain.
             imageIndex = swapChain.acquireNextImage();
         }
@@ -121,7 +121,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
     }
 
     private void recreateSwapchain() {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
+        try (var stack = MemoryStack.stackPush()) {
             var windowHandle = window.handle();
             var pWidth = stack.ints(0);
             var pHeight = stack.ints(0);

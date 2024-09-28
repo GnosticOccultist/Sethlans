@@ -1,6 +1,7 @@
 package fr.sethlans.core.render.vk.image;
 
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkImageCreateInfo;
 import org.lwjgl.vulkan.VkImageMemoryBarrier;
@@ -24,20 +25,32 @@ public class Image {
     private int format;
 
     private int mipLevels;
-    
+
     private int sampleCount;
 
     private long memoryHandle;
 
-    public Image(LogicalDevice device, int width, int height, int format, int usage) {
-        this(device, width, height, format, 1, 1, usage, 0x0);
+    protected Image(LogicalDevice device, long imageHandle, int width, int height, int format) {
+        this.device = device;
+        this.handle = imageHandle;
+        this.width = width;
+        this.height = height;
+        this.format = format;
+        this.mipLevels = 1;
+        this.sampleCount = VK10.VK_SAMPLE_COUNT_1_BIT;
     }
-    
-     public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int usage, int requiredProperties) {
+
+    public Image(LogicalDevice device, int width, int height, int format, int usage) {
+        this(device, width, height, format, 1, VK10.VK_SAMPLE_COUNT_1_BIT, usage, 0x0);
+    }
+
+    public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int usage,
+            int requiredProperties) {
         this(device, width, height, format, mipLevels, 1, usage, requiredProperties);
     }
 
-    public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int sampleCount, int usage, int requiredProperties) {
+    public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int sampleCount, int usage,
+            int requiredProperties) {
         this.device = device;
         this.width = width;
         this.height = height;
@@ -74,8 +87,10 @@ public class Image {
             // Create allocation info struct.
             var typeFilter = memRequirements.memoryTypeBits();
             var memoryType = device.physicalDevice().gatherMemoryType(typeFilter, requiredProperties);
-            var allocInfo = VkMemoryAllocateInfo.calloc(stack).sType(VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
-                    .allocationSize(memRequirements.size()).memoryTypeIndex(memoryType);
+            var allocInfo = VkMemoryAllocateInfo.calloc(stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
+                    .allocationSize(memRequirements.size())
+                    .memoryTypeIndex(memoryType);
 
             var pMemory = stack.mallocLong(1);
             err = VK10.vkAllocateMemory(device.handle(), allocInfo, null, pMemory);
@@ -163,6 +178,26 @@ public class Image {
 
                 srcStage = VK10.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
                 dstStage = VK10.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
+            } else if (oldLayout == KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+                    && newLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+
+                // PRESENT_SRC_KHR to TRANSFER_SRC
+                pBarrier.srcAccessMask(VK10.VK_ACCESS_MEMORY_READ_BIT);
+                pBarrier.dstAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
+
+                srcStage = VK10.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+                dstStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+            }  else if (oldLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+                    && newLayout == KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+
+                // TRANSFER_SRC to PRESENT_SRC_KHR
+                pBarrier.srcAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
+                pBarrier.dstAccessMask(VK10.VK_ACCESS_MEMORY_READ_BIT);
+
+                srcStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
+                dstStage = VK10.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
             } else {
                 throw new IllegalArgumentException(

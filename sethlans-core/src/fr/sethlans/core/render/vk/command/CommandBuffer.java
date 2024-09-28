@@ -119,6 +119,26 @@ public class CommandBuffer {
 
         return this;
     }
+    
+    public CommandBuffer copyImage(Image source, int imageLayout, VulkanBuffer destination) {
+        try (var stack = MemoryStack.stackPush()) {
+            var pRegion = VkBufferImageCopy.calloc(1, stack)
+                    .bufferOffset(0)
+                    .bufferRowLength(0)
+                    .bufferImageHeight(0)
+                    .imageSubresource(it -> it
+                            .aspectMask(VK10.VK_IMAGE_ASPECT_COLOR_BIT)
+                            .mipLevel(0)
+                            .baseArrayLayer(0)
+                            .layerCount(1))
+                    .imageOffset(it -> it.x(0).y(0).z(0))
+                    .imageExtent(it -> it.width(source.width()).height(source.height()).depth(1));
+
+            VK10.vkCmdCopyImageToBuffer(handle, source.handle(), imageLayout, destination.handle(), pRegion);
+        }
+
+        return this;
+    }
 
     public CommandBuffer bindVertexBuffer(DeviceBuffer buffer) {
         try (var stack = MemoryStack.stackPush()) {
@@ -164,7 +184,7 @@ public class CommandBuffer {
     public CommandBuffer beginRenderPass(SwapChain swapChain, FrameBuffer frameBuffer, RenderPass renderPass) {
         try (var stack = MemoryStack.stackPush()) {
             var clearValues = VkClearValue.calloc(2, stack);
-            clearValues.apply(0, v -> v.color().float32(0, 0.5f).float32(1, 0.7f).float32(2, 0.9f).float32(3, 1));
+            clearValues.apply(0, v -> v.color().float32(0, 0.5f).float32(1, 0.7f).float32(2, 0.9f).float32(3, 1.0f));
             clearValues.apply(1, v -> v.depthStencil().depth(1.0f));
 
             var renderArea = VkRect2D.calloc(stack);

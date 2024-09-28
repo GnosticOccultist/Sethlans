@@ -1,6 +1,15 @@
 package fr.sethlans.core.render.vk.swapchain;
 
+import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Date;
+
+import javax.imageio.ImageIO;
 
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.util.shaderc.Shaderc;
@@ -21,7 +30,9 @@ import fr.sethlans.core.render.vk.context.SurfaceProperties;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.device.QueueFamilyProperties;
+import fr.sethlans.core.render.vk.image.Image;
 import fr.sethlans.core.render.vk.image.ImageView;
+import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineCache;
 import fr.sethlans.core.render.vk.shader.ShaderProgram;
@@ -31,19 +42,21 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 public class SwapChain {
 
     private static final Logger logger = FactoryLogger.getLogger("sethlans-core.vk.swapchain");
-    
+
     private static final long NO_TIMEOUT = 0xFFFFFFFFFFFFFFFFL;
+
+    private final LogicalDevice logicalDevice;
+
+    private final PresentationImage[] images;
+
+    private final ImageView[] imageViews;
+
+    private final SyncFrame[] syncFrames;
 
     private final VkExtent2D framebufferExtent = VkExtent2D.create();
 
     private long handle = VK10.VK_NULL_HANDLE;
 
-    private final LogicalDevice logicalDevice;
-
-    private final ImageView[] imageViews;
-    
-    private final SyncFrame[] syncFrames;
-    
     private int currentFrame;
 
     private final VkSurfaceFormatKHR surfaceFormat;
@@ -51,9 +64,9 @@ public class SwapChain {
     private CommandBuffer[] commandBuffers;
 
     private RenderPass renderPass;
-    
+
     private Attachment[] depthAttachments;
-    
+
     private Attachment[] colorAttachments;
 
     private FrameBuffer[] frameBuffers;
@@ -93,7 +106,7 @@ public class SwapChain {
                     .imageFormat(surfaceFormat.format())
                     .minImageCount(imageCount)
                     .oldSwapchain(VK10.VK_NULL_HANDLE)
-                    .imageUsage(VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) // Render the images to the surface.
+                    .imageUsage(VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT) // Render the images to the surface.
                     .preTransform(surfaceProperties.currentTransform()) // Use the current transformation mode.
                     .surface(surfaceHandle)
                     .imageColorSpace(surfaceFormat.colorSpace())
@@ -123,6 +136,8 @@ public class SwapChain {
             this.renderPass = new RenderPass(this, depthFormat, sampleCount);
             
             var imageHandles = getImages(stack);
+            
+            this.images = new PresentationImage[imageHandles.length];
             this.imageViews = new ImageView[imageHandles.length];
             this.syncFrames = new SyncFrame[imageHandles.length];
             this.commandBuffers = new CommandBuffer[imageHandles.length];
@@ -148,6 +163,7 @@ public class SwapChain {
             this.pipeline = new Pipeline(logicalDevice, pipelineCache, this, program, sampleCount, layouts);
 
             for (var i = 0; i < imageHandles.length; ++i) {
+                images[i] = new PresentationImage(imageHandles[i]);
                 imageViews[i] = new ImageView(logicalDevice, imageHandles[i], surfaceFormat.format(),
                         VK10.VK_IMAGE_ASPECT_COLOR_BIT);
                 syncFrames[i] = new SyncFrame(logicalDevice);
@@ -164,6 +180,7 @@ public class SwapChain {
                 if (sampleCount > 1) {
                     pAttachments.put(2, imageViews[i].handle());
                 }
+                
                 frameBuffers[i] = new FrameBuffer(logicalDevice, renderPass(), framebufferExtent, pAttachments);
             }
         }
@@ -187,7 +204,7 @@ public class SwapChain {
 
             var result = pImageIndex.get(0);
             assert result >= 0 : result;
-            assert result < imageViews.length : result;
+            assert result < images.length : result;
             return result;
         }
     }
@@ -263,6 +280,73 @@ public class SwapChain {
         logger.info("Requested " + numImages + " images for the swapchain.");
         return numImages;
     }
+    
+    public void captureFrame(int frameIndex) {
+        assert frameIndex >= 0 : frameIndex;
+        assert frameIndex < images.length : frameIndex;
+
+        // Transition image to a valid transfer layout.
+        images[frameIndex].transitionImageLayout(KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+        // Allocate a readable buffer.
+        var width = framebufferExtent.width();
+        var height = framebufferExtent.height();
+        var channels = 4;
+        var size = width * height * channels;
+        var vkBuffer = new VulkanBuffer(logicalDevice, size, VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+        vkBuffer.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        // Copy the data from the presentation image to a buffer.
+        var command = logicalDevice.commandPool().createCommandBuffer();
+        command.beginRecording(VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        command.copyImage(images[frameIndex], VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vkBuffer);
+        command.end();
+
+        // Submit and wait for execution.
+        command.submit(logicalDevice.graphicsQueue(), (Fence) null);
+        logicalDevice.graphicsQueueWaitIdle();
+
+        // Destroy command once finished.
+        command.destroy();
+
+        // Map buffer memory and decode BGRA pixel data.
+        var data = vkBuffer.map();
+        var image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        for (var y = 0; y < height; ++y) {
+            for (var x = 0; x < width; ++x) {
+
+                var idx = (y * width + x) * channels;
+                var b = data.get(idx) & 0xff;
+                var g = data.get(idx + 1) & 0xff;
+                var r = data.get(idx + 2) & 0xff;
+                var a = data.get(idx + 3) & 0xff;
+
+                var argb = (a << 24) | (r << 16) | (g << 8) | b;
+                image.setRGB(x, y, argb);
+            }
+        }
+
+        // Re-transition image layout back for future presentation.
+        images[frameIndex].transitionImageLayout(VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+        // Free memory and buffer.
+        vkBuffer.unmap();
+        vkBuffer.destroy();
+
+        var date = new SimpleDateFormat("dd.MM.yy_HH.mm.ss").format(new Date());
+        var outputPath = Paths.get("resources/" + date + ".png");
+        try (var out = Files.newOutputStream(outputPath, StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+
+            ImageIO.write(image, "png", out);
+            logger.info("Created frame capture at '" + outputPath + "'!");
+
+        } catch (IOException ex) {
+            logger.error("Failed to write PNG image to '" + outputPath + "'!", ex);
+        }
+    }
 
     public VkExtent2D framebufferExtent(MemoryStack stack) {
         var result = VkExtent2D.malloc(stack);
@@ -301,16 +385,24 @@ public class SwapChain {
         return surfaceFormat.format();
     }
 
+    public int imageCount() {
+        return images.length;
+    }
+
     LogicalDevice logicalDevice() {
         return logicalDevice;
     }
-    
+
     public RenderPass renderPass() {
         return renderPass;
     }
 
+    public Pipeline pipeline() {
+        return pipeline;
+    }
+
     public void destroy() {
-        
+
         for (var attachment : depthAttachments) {
             attachment.destroy();
         }
@@ -337,6 +429,8 @@ public class SwapChain {
             view.destroy();
         }
 
+        Arrays.fill(images, null);
+
         if (pipeline != null) {
             pipeline.destroy();
         }
@@ -360,7 +454,10 @@ public class SwapChain {
         }
     }
 
-    public Pipeline pipeline() {
-        return pipeline;
+    class PresentationImage extends Image {
+
+        PresentationImage(long imageHandle) {
+            super(logicalDevice, imageHandle, framebufferExtent.width(), framebufferExtent.height(), imageFormat());
+        }
     }
 }

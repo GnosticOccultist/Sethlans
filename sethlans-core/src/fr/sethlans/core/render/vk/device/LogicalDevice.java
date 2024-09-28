@@ -43,6 +43,11 @@ public class LogicalDevice {
             VkUtil.throwOnFailure(err, "wait for device");
         }
     }
+    
+    public void graphicsQueueWaitIdle() {
+        var err = VK10.vkQueueWaitIdle(graphicsQueue);
+        VkUtil.throwOnFailure(err, "wait for graphics queue");
+    }
 
     VkQueue getQueue(MemoryStack stack, int familyIndex) {
         var pPointer = stack.mallocPointer(1);
