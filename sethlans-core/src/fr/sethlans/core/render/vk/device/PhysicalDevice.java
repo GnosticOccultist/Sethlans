@@ -336,7 +336,6 @@ public class PhysicalDevice {
             // Check for a graphics command queue.
             var flags = family.queueFlags();
             if ((flags & VK10.VK_QUEUE_GRAPHICS_BIT) != 0x0) {
-                ;
                 properties.setGraphics(i);
             }
 

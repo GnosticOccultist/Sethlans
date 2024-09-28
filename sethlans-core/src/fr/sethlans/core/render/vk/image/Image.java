@@ -30,7 +30,9 @@ public class Image {
 
     private long memoryHandle;
 
-    protected Image(LogicalDevice device, long imageHandle, int width, int height, int format) {
+    private int usage;
+
+    protected Image(LogicalDevice device, long imageHandle, int width, int height, int format, int usage) {
         this.device = device;
         this.handle = imageHandle;
         this.width = width;
@@ -38,6 +40,7 @@ public class Image {
         this.format = format;
         this.mipLevels = 1;
         this.sampleCount = VK10.VK_SAMPLE_COUNT_1_BIT;
+        this.usage = usage;
     }
 
     public Image(LogicalDevice device, int width, int height, int format, int usage) {
@@ -57,6 +60,7 @@ public class Image {
         this.format = format;
         this.mipLevels = mipLevels;
         this.sampleCount = sampleCount;
+        this.usage = usage;
 
         try (var stack = MemoryStack.stackPush()) {
             var createInfo = VkImageCreateInfo.calloc(stack)
@@ -240,6 +244,10 @@ public class Image {
 
     public int format() {
         return format;
+    }
+
+    public int usage() {
+        return usage;
     }
 
     public long handle() {

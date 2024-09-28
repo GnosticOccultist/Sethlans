@@ -42,6 +42,8 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 public class SwapChain {
 
     private static final Logger logger = FactoryLogger.getLogger("sethlans-core.vk.swapchain");
+    
+    private static final int INVALID_IMAGE_INDEX = -1;
 
     private static final long NO_TIMEOUT = 0xFFFFFFFFFFFFFFFFL;
 
@@ -97,6 +99,15 @@ public class SwapChain {
             var families = queueFamilyProperties.listFamilies(stack);
             var familyCount = families.capacity();
 
+            var supportTransfer = surfaceProperties.supportsUsage(VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+            var imageUsage = VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+            if (supportTransfer) {
+                imageUsage |= VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+            } else {
+                logger.warning(
+                        "Swapchain surface doesn't support image transfer usage, some features might not work properly!");
+            }
+
             var createInfo = VkSwapchainCreateInfoKHR.calloc(stack)
                     .sType(KHRSwapchain.VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR)
                     .clipped(true) // Discard operations on pixels outside the surface resolution.
@@ -106,7 +117,7 @@ public class SwapChain {
                     .imageFormat(surfaceFormat.format())
                     .minImageCount(imageCount)
                     .oldSwapchain(VK10.VK_NULL_HANDLE)
-                    .imageUsage(VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT) // Render the images to the surface.
+                    .imageUsage(imageUsage) // Render the images to the surface.
                     .preTransform(surfaceProperties.currentTransform()) // Use the current transformation mode.
                     .surface(surfaceHandle)
                     .imageColorSpace(surfaceFormat.colorSpace())
@@ -163,7 +174,7 @@ public class SwapChain {
             this.pipeline = new Pipeline(logicalDevice, pipelineCache, this, program, sampleCount, layouts);
 
             for (var i = 0; i < imageHandles.length; ++i) {
-                images[i] = new PresentationImage(imageHandles[i]);
+                images[i] = new PresentationImage(imageHandles[i], imageUsage);
                 imageViews[i] = new ImageView(logicalDevice, imageHandles[i], surfaceFormat.format(),
                         VK10.VK_IMAGE_ASPECT_COLOR_BIT);
                 syncFrames[i] = new SyncFrame(logicalDevice);
@@ -193,13 +204,13 @@ public class SwapChain {
                     syncFrames[currentFrame].imageAvailableSemaphore().handle(), VK10.VK_NULL_HANDLE, pImageIndex);
             if (err == KHRSwapchain.VK_ERROR_OUT_OF_DATE_KHR) {
                 logger.warning("Swapchain is outdated while acquiring next image!");
-                return -1;
+                return INVALID_IMAGE_INDEX;
             } else if (err == KHRSwapchain.VK_SUBOPTIMAL_KHR) {
                 logger.warning("Swapchain is suboptimal while acquiring next image!");
-                return -1;
+                return INVALID_IMAGE_INDEX;
             } else if (err != VK10.VK_SUCCESS) {
                 VkUtil.throwOnFailure(err, "acquire next image");
-                return -1;
+                return INVALID_IMAGE_INDEX;
             }
 
             var result = pImageIndex.get(0);
@@ -285,8 +296,13 @@ public class SwapChain {
         assert frameIndex >= 0 : frameIndex;
         assert frameIndex < images.length : frameIndex;
 
+        var image = images[frameIndex];
+        if ((image.usage() & VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT) == 0) {
+            throw new IllegalStateException("Surface images doesn't support transfering to a buffer!");
+        }
+
         // Transition image to a valid transfer layout.
-        images[frameIndex].transitionImageLayout(KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        image.transitionImageLayout(KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                 VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
         // Allocate a readable buffer.
@@ -300,7 +316,7 @@ public class SwapChain {
         // Copy the data from the presentation image to a buffer.
         var command = logicalDevice.commandPool().createCommandBuffer();
         command.beginRecording(VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-        command.copyImage(images[frameIndex], VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vkBuffer);
+        command.copyImage(image, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vkBuffer);
         command.end();
 
         // Submit and wait for execution.
@@ -312,7 +328,7 @@ public class SwapChain {
 
         // Map buffer memory and decode BGRA pixel data.
         var data = vkBuffer.map();
-        var image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        var img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         for (var y = 0; y < height; ++y) {
             for (var x = 0; x < width; ++x) {
 
@@ -323,12 +339,12 @@ public class SwapChain {
                 var a = data.get(idx + 3) & 0xff;
 
                 var argb = (a << 24) | (r << 16) | (g << 8) | b;
-                image.setRGB(x, y, argb);
+                img.setRGB(x, y, argb);
             }
         }
 
         // Re-transition image layout back for future presentation.
-        images[frameIndex].transitionImageLayout(VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
         // Free memory and buffer.
@@ -340,7 +356,7 @@ public class SwapChain {
         try (var out = Files.newOutputStream(outputPath, StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING)) {
 
-            ImageIO.write(image, "png", out);
+            ImageIO.write(img, "png", out);
             logger.info("Created frame capture at '" + outputPath + "'!");
 
         } catch (IOException ex) {
@@ -456,8 +472,8 @@ public class SwapChain {
 
     class PresentationImage extends Image {
 
-        PresentationImage(long imageHandle) {
-            super(logicalDevice, imageHandle, framebufferExtent.width(), framebufferExtent.height(), imageFormat());
+        PresentationImage(long imageHandle, int imageUsage) {
+            super(logicalDevice, imageHandle, framebufferExtent.width(), framebufferExtent.height(), imageFormat(), imageUsage);
         }
     }
 }
