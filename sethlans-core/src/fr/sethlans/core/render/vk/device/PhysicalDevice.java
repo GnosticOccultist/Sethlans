@@ -7,6 +7,7 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
+import org.lwjgl.vulkan.VK13;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkDeviceCreateInfo;
 import org.lwjgl.vulkan.VkDeviceQueueCreateInfo;
@@ -16,6 +17,7 @@ import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures;
 import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties;
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
+import org.lwjgl.vulkan.VkPhysicalDeviceToolProperties;
 import org.lwjgl.vulkan.VkQueueFamilyProperties;
 
 import fr.alchemy.utilities.collections.array.Array;
@@ -40,6 +42,8 @@ public class PhysicalDevice {
     private int maxSamplesCount = -1;
 
     private Set<String> availableExtensions;
+    
+    private Set<String> availableToolProperties;
 
     public PhysicalDevice(long handle, VulkanInstance instance) {
         this.handle = new VkPhysicalDevice(handle, instance.handle());
@@ -143,7 +147,7 @@ public class PhysicalDevice {
         }
     }
 
-    private boolean hasExtension(String extensionName) {
+    public boolean hasExtension(String extensionName) {
         if (availableExtensions == null) {
             try (var stack = MemoryStack.stackPush()) {
                 gatherExtensionProperties(stack);
@@ -173,6 +177,38 @@ public class PhysicalDevice {
             var properties = pProperties.get(i);
             var extensionName = properties.extensionNameString();
             availableExtensions.add(extensionName);
+        }
+    }
+
+    public boolean hasToolProperty(String toolPropertyName) {
+        if (availableExtensions == null) {
+            try (var stack = MemoryStack.stackPush()) {
+                gatherToolProperties(stack);
+            }
+        }
+
+        return availableToolProperties.contains(toolPropertyName);
+    }
+
+    private void gatherToolProperties(MemoryStack stack) {
+        // Count the number of extensions.
+        var pCount = stack.mallocInt(1);
+        var err = VK13.vkGetPhysicalDeviceToolProperties(handle, pCount, null);
+        VkUtil.throwOnFailure(err, "count physical device tool properties.");
+        var numToolProps = pCount.get(0);
+
+        logger.info("Found " + numToolProps + " tool properties for " + this);
+
+        // Enumerate the tool properties.
+        var pToolProperties = VkPhysicalDeviceToolProperties.malloc(numToolProps, stack);
+        err = VK13.vkGetPhysicalDeviceToolProperties(handle, pCount, pToolProperties);
+        VkUtil.throwOnFailure(err, "enumerate physical tool properties.");
+
+        this.availableToolProperties = new TreeSet<>();
+        for (var i = 0; i < numToolProps; ++i) {
+            var properties = pToolProperties.get(i);
+            var toolName = properties.nameString();
+            availableToolProperties.add(toolName);
         }
     }
 
