@@ -96,13 +96,14 @@ public class Pipeline {
                     .lineWidth(1.0f);
             
             // Define multisampling state info.
+            var minSampleShading = device.physicalDevice().minSampleShading();
             var msCreateInfo = VkPipelineMultisampleStateCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO)
                     .rasterizationSamples(swapChain.sampleCount())
                     .alphaToCoverageEnable(false)
                     .alphaToOneEnable(false)
-                    .minSampleShading(1f)
-                    .sampleShadingEnable(false);
+                    .minSampleShading(minSampleShading)
+                    .sampleShadingEnable(minSampleShading > 0.0f);
             
             // Define color and alpha blending state info, one per color attachment.
             // TODO: Support transparency.

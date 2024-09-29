@@ -40,6 +40,8 @@ public class PhysicalDevice {
     private int type = -1;
     
     private int maxSamplesCount = -1;
+    
+    private float minSampleShading = 0f;
 
     private Set<String> availableExtensions;
     
@@ -101,6 +103,18 @@ public class PhysicalDevice {
 
             // Set up required features.
             var features = VkPhysicalDeviceFeatures.calloc(stack);
+
+            var sampleShading = config.getFloat(SethlansApplication.MIN_SAMPLE_SHADING_PROP,
+                    SethlansApplication.DEFAULT_MIN_SAMPLE_SHADING);
+            var enableSampleShading = sampleShading > 0f;
+            if (enableSampleShading && !features.sampleRateShading()) {
+                logger.warning("Requested Sample Shading, but physical device " + this + " doesn't support this feature.");
+                this.minSampleShading = 0.0f;
+            } else {
+                features.sampleRateShading(enableSampleShading);
+                this.minSampleShading = Math.min(minSampleShading, 1.0f);
+            }
+
             features.samplerAnisotropy(true);
             
             createInfo.pEnabledFeatures(features);
@@ -358,8 +372,18 @@ public class PhysicalDevice {
                 gatherDeviceProperties(stack);
             }
         }
+        
+        assert maxSamplesCount > 1 : maxSamplesCount;
+        assert maxSamplesCount <= 64 : maxSamplesCount;
 
         return maxSamplesCount;
+    }
+
+    public float minSampleShading() {
+        assert minSampleShading >= 0f : minSampleShading;
+        assert minSampleShading <= 1f : minSampleShading;
+
+        return minSampleShading;
     }
 
     public String name() {
