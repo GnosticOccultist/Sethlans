@@ -3,7 +3,10 @@ package fr.sethlans.core.render.vk.context;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.glfwVulkanSupported;
 
+import java.io.IOException;
+
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.util.shaderc.Shaderc;
 import org.lwjgl.vulkan.VK10;
 
 import fr.sethlans.core.app.ConfigFile;
@@ -14,6 +17,9 @@ import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.device.PhysicalDevice;
+import fr.sethlans.core.render.vk.pipeline.Pipeline;
+import fr.sethlans.core.render.vk.pipeline.PipelineCache;
+import fr.sethlans.core.render.vk.shader.ShaderProgram;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 
 public class VulkanRenderEngine extends GlfwBasedRenderEngine {
@@ -34,9 +40,15 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
     private DescriptorSetLayout samplerDescriptorSetLayout;
 
+    private ConfigFile config;
+
+    private ShaderProgram program;
+
     private volatile int imageIndex;
 
-    private ConfigFile config;
+    private PipelineCache pipelineCache;
+
+    private Pipeline pipeline;
 
     public VulkanRenderEngine(SethlansApplication application) {
         super(application);
@@ -78,7 +90,21 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         this.samplerDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0,
                 VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK10.VK_SHADER_STAGE_FRAGMENT_BIT);
 
-        createSwapchain();
+        this.program = new ShaderProgram(logicalDevice);
+        try {
+            program.addVertexModule(
+                    ShaderProgram.compileShader("resources/shaders/base.vert", Shaderc.shaderc_glsl_vertex_shader));
+            program.addFragmentModule(
+                    ShaderProgram.compileShader("resources/shaders/base.frag", Shaderc.shaderc_glsl_fragment_shader));
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+
+        this.swapChain = new SwapChain(logicalDevice, surface, config, window.getWidth(), window.getHeight());
+
+        this.pipelineCache = new PipelineCache(logicalDevice);
+        this.pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program,
+                new DescriptorSetLayout[] { uniformDescriptorSetLayout, samplerDescriptorSetLayout });
     }
 
     @Override
@@ -139,26 +165,22 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
         waitIdle();
 
-        // Destroy the outdated swap-chain before recreation.
         if (swapChain != null) {
             swapChain.destroy();
-            swapChain = null;
         }
 
-        createSwapchain();
+        if (pipeline != null) {
+            pipeline.destroy();
+        }
 
-        application.resize();
-    }
-
-    private void createSwapchain() {
+        this.swapChain = new SwapChain(logicalDevice, surface, config, window.getWidth(), window.getHeight());
+        this.pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program,
+                new DescriptorSetLayout[] { uniformDescriptorSetLayout, samplerDescriptorSetLayout });
         try (var stack = MemoryStack.stackPush()) {
-            var surfaceProperties = physicalDevice.gatherSurfaceProperties(surface.handle(), stack);
-            this.swapChain = new SwapChain(logicalDevice, config, surfaceProperties,
-                    physicalDevice.gatherQueueFamilyProperties(stack, surface.handle()),
-                    new DescriptorSetLayout[] { uniformDescriptorSetLayout, samplerDescriptorSetLayout },
-                    surface.handle(), window.getWidth(), window.getHeight());
             window.resize(swapChain.framebufferExtent(stack));
         }
+
+        application.resize();
     }
 
     public VulkanInstance getVulkanInstance() {
@@ -171,6 +193,10 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
     public SwapChain getSwapChain() {
         return swapChain;
+    }
+
+    public Pipeline getPipeline() {
+        return pipeline;
     }
 
     public DescriptorPool descriptorPool() {
@@ -189,6 +215,18 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
     public void terminate() {
 
         logger.info("Destroying Vulkan resources");
+
+        if (pipeline != null) {
+            pipeline.destroy();
+        }
+
+        if (pipelineCache != null) {
+            pipelineCache.destroy();
+        }
+
+        if (program != null) {
+            program.destroy();
+        }
 
         if (swapChain != null) {
             swapChain.destroy();

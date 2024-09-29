@@ -33,7 +33,7 @@ public class Pipeline {
 
     private long pipelineLayoutHandle = VK10.VK_NULL_HANDLE;
 
-    public Pipeline(LogicalDevice device, PipelineCache pipelineCache, SwapChain swapChain, ShaderProgram shaderProgram, int sampleCount, DescriptorSetLayout[] descriptorSetLayouts) {
+    public Pipeline(LogicalDevice device, PipelineCache pipelineCache, SwapChain swapChain, ShaderProgram shaderProgram, DescriptorSetLayout[] descriptorSetLayouts) {
         this.device = device;
 
         try (var stack = MemoryStack.stackPush()) {
@@ -59,7 +59,7 @@ public class Pipeline {
             var framebufferExtent = swapChain.framebufferExtent(stack);
 
             // Define viewport dimension and origin.
-            VkViewport.Buffer viewport = VkViewport.calloc(1, stack);
+            var viewport = VkViewport.calloc(1, stack);
             viewport.x(0f);
             viewport.y(0f);
             viewport.width(framebufferExtent.width());
@@ -98,7 +98,7 @@ public class Pipeline {
             // Define multisampling state info.
             var msCreateInfo = VkPipelineMultisampleStateCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO)
-                    .rasterizationSamples(sampleCount)
+                    .rasterizationSamples(swapChain.sampleCount())
                     .alphaToCoverageEnable(false)
                     .alphaToOneEnable(false)
                     .minSampleShading(1f)

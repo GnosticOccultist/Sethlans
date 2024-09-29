@@ -12,7 +12,6 @@ import java.util.Date;
 import javax.imageio.ImageIO;
 
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.util.shaderc.Shaderc;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
@@ -26,16 +25,12 @@ import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
+import fr.sethlans.core.render.vk.context.Surface;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
-import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.device.QueueFamilyProperties;
 import fr.sethlans.core.render.vk.image.Image;
 import fr.sethlans.core.render.vk.image.ImageView;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
-import fr.sethlans.core.render.vk.pipeline.Pipeline;
-import fr.sethlans.core.render.vk.pipeline.PipelineCache;
-import fr.sethlans.core.render.vk.shader.ShaderProgram;
 import fr.sethlans.core.render.vk.sync.Fence;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
@@ -63,6 +58,10 @@ public class SwapChain {
 
     private final VkSurfaceFormatKHR surfaceFormat;
 
+    private int sampleCount;
+
+    private int depthFormat;
+
     private CommandBuffer[] commandBuffers;
 
     private RenderPass renderPass;
@@ -72,18 +71,14 @@ public class SwapChain {
     private Attachment[] colorAttachments;
 
     private FrameBuffer[] frameBuffers;
-
-    private PipelineCache pipelineCache;
-
-    private Pipeline pipeline;
-
-    private ShaderProgram program;
-
-    public SwapChain(LogicalDevice logicalDevice, ConfigFile config, SurfaceProperties surfaceProperties,
-            QueueFamilyProperties queueFamilyProperties, DescriptorSetLayout[] layouts, long surfaceHandle, int desiredWidth, int desiredHeight) {
+    
+    public SwapChain(LogicalDevice logicalDevice, Surface surface, ConfigFile config, int desiredWidth, int desiredHeight) {
         this.logicalDevice = logicalDevice;
 
         try (var stack = MemoryStack.stackPush()) {
+            var surfaceHandle = surface.handle();
+            var physicalDevice = logicalDevice.physicalDevice();
+            var surfaceProperties = physicalDevice.gatherSurfaceProperties(surfaceHandle, stack);
             var imageCount = computeNumImages(surfaceProperties);
 
             this.surfaceFormat = surfaceProperties
@@ -96,8 +91,9 @@ public class SwapChain {
             var preferredMode = vSync ? KHRSurface.VK_PRESENT_MODE_FIFO_KHR : KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
             var presentationMode = surfaceProperties.getPresentationMode(preferredMode);
 
-            var families = queueFamilyProperties.listFamilies(stack);
-            var familyCount = families.capacity();
+            var queueFamilyProperties = physicalDevice.gatherQueueFamilyProperties(stack, surfaceHandle);
+            var queueFamilies = queueFamilyProperties.listFamilies(stack);
+            var familyCount = queueFamilies.capacity();
 
             var supportTransfer = surfaceProperties.supportsUsage(VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
             var imageUsage = VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -125,7 +121,7 @@ public class SwapChain {
                     .presentMode(presentationMode);
             
             if (familyCount == 2) {
-                createInfo.pQueueFamilyIndices(families);
+                createInfo.pQueueFamilyIndices(queueFamilies);
             }
             
             var pHandle = stack.mallocLong(1);
@@ -133,18 +129,18 @@ public class SwapChain {
             VkUtil.throwOnFailure(err, "create a swapchain");
             this.handle = pHandle.get(0);
             
-            var depthFormat = logicalDevice.physicalDevice().findSupportedFormat(VK10.VK_IMAGE_TILING_OPTIMAL,
+            this.depthFormat = physicalDevice.findSupportedFormat(VK10.VK_IMAGE_TILING_OPTIMAL,
                     VK10.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT, VK10.VK_FORMAT_D32_SFLOAT,
                     VK10.VK_FORMAT_D32_SFLOAT_S8_UINT, VK10.VK_FORMAT_D24_UNORM_S8_UINT);
 
             var requestedSampleCount = config.getInteger(SethlansApplication.MSAA_SAMPLES_PROP,
                     SethlansApplication.DEFAULT_MSSA_SAMPLES);
             var maxSampleCount = logicalDevice.physicalDevice().maxSamplesCount();
-            var sampleCount = Math.min(requestedSampleCount, maxSampleCount);
+            this.sampleCount = Math.min(requestedSampleCount, maxSampleCount);
             logger.info("Using " + sampleCount + " samples (requested= " + requestedSampleCount + ", max= "
                     + maxSampleCount + ").");
 
-            this.renderPass = new RenderPass(this, depthFormat, sampleCount);
+            this.renderPass = new RenderPass(this);
             
             var imageHandles = getImages(stack);
             
@@ -159,19 +155,6 @@ public class SwapChain {
             this.frameBuffers = new FrameBuffer[imageHandles.length];
             
             var pAttachments = stack.mallocLong(sampleCount == 1 ? 2 : 3);
-
-            this.program = new ShaderProgram(logicalDevice);
-            try {
-                program.addVertexModule(
-                        ShaderProgram.compileShader("resources/shaders/base.vert", Shaderc.shaderc_glsl_vertex_shader));
-                program.addFragmentModule(
-                        ShaderProgram.compileShader("resources/shaders/base.frag", Shaderc.shaderc_glsl_fragment_shader));
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-            
-            this.pipelineCache = new PipelineCache(logicalDevice);
-            this.pipeline = new Pipeline(logicalDevice, pipelineCache, this, program, sampleCount, layouts);
 
             for (var i = 0; i < imageHandles.length; ++i) {
                 images[i] = new PresentationImage(imageHandles[i], imageUsage);
@@ -198,7 +181,7 @@ public class SwapChain {
     }
     
     public int acquireNextImage() {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
+        try (var stack = MemoryStack.stackPush()) {
             var pImageIndex = stack.mallocInt(1);
             var err = KHRSwapchain.vkAcquireNextImageKHR(logicalDevice.handle(), handle, NO_TIMEOUT,
                     syncFrames[currentFrame].imageAvailableSemaphore().handle(), VK10.VK_NULL_HANDLE, pImageIndex);
@@ -221,7 +204,7 @@ public class SwapChain {
     }
 
     public boolean presentImage(int imageIndex) {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
+        try (var stack = MemoryStack.stackPush()) {
             var presentInfo = VkPresentInfoKHR.calloc(stack)
                     .sType(KHRSwapchain.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR)
                     .pImageIndices(stack.ints(imageIndex))
@@ -298,11 +281,11 @@ public class SwapChain {
 
         var image = images[frameIndex];
         if ((image.usage() & VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT) == 0) {
-            throw new IllegalStateException("Surface images doesn't support transfering to a buffer!");
+            throw new IllegalStateException("Surface images doesn't support transferring to a buffer!");
         }
 
         // Transition image to a valid transfer layout.
-        image.transitionImageLayout(KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        var command = image.transitionImageLayout(KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                 VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
         // Allocate a readable buffer.
@@ -314,9 +297,11 @@ public class SwapChain {
         vkBuffer.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
         // Copy the data from the presentation image to a buffer.
-        var command = logicalDevice.commandPool().createCommandBuffer();
-        command.beginRecording(VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
         command.copyImage(image, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vkBuffer);
+        
+        // Re-transition image layout back for future presentation.
+        image.transitionImageLayout(command, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
         command.end();
 
         // Submit and wait for execution.
@@ -342,10 +327,6 @@ public class SwapChain {
                 img.setRGB(x, y, argb);
             }
         }
-
-        // Re-transition image layout back for future presentation.
-        image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
         // Free memory and buffer.
         vkBuffer.unmap();
@@ -400,9 +381,21 @@ public class SwapChain {
     int imageFormat() {
         return surfaceFormat.format();
     }
+    
+    public int sampleCount() {
+        return sampleCount;
+    }
+    
+    public int depthFormat() {
+        return depthFormat;
+    }
 
     public int imageCount() {
         return images.length;
+    }
+
+    public long handle() {
+        return handle;
     }
 
     LogicalDevice logicalDevice() {
@@ -411,10 +404,6 @@ public class SwapChain {
 
     public RenderPass renderPass() {
         return renderPass;
-    }
-
-    public Pipeline pipeline() {
-        return pipeline;
     }
 
     public void destroy() {
@@ -447,18 +436,6 @@ public class SwapChain {
 
         Arrays.fill(images, null);
 
-        if (pipeline != null) {
-            pipeline.destroy();
-        }
-
-        if (pipelineCache != null) {
-            pipelineCache.destroy();
-        }
-
-        if (program != null) {
-            program.destroy();
-        }
-
         if (renderPass != null) {
             renderPass.destroy();
             this.renderPass = null;
@@ -473,7 +450,8 @@ public class SwapChain {
     class PresentationImage extends Image {
 
         PresentationImage(long imageHandle, int imageUsage) {
-            super(logicalDevice, imageHandle, framebufferExtent.width(), framebufferExtent.height(), imageFormat(), imageUsage);
+            super(logicalDevice, imageHandle, framebufferExtent.width(), framebufferExtent.height(), imageFormat(),
+                    imageUsage);
         }
     }
 }

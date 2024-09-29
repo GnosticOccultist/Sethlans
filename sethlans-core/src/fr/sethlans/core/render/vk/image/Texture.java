@@ -46,11 +46,9 @@ public class Texture {
                 VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
         // Transition the image layout.
-        image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         // Copy the data from the staging buffer the new image.
-        var command = device.commandPool().createCommandBuffer();
-        command.beginRecording(VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
         command.copyBuffer(stagingBuffer, image);
         generateMipmaps(command);
         command.end();

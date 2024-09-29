@@ -17,12 +17,12 @@ public class RenderPass {
     
     private long handle = VK10.VK_NULL_HANDLE;
 
-    RenderPass(SwapChain swapChain, int depthFormat, int sampleCount) {
+    RenderPass(SwapChain swapChain) {
         this.swapChain = swapChain;
 
         try (var stack = MemoryStack.stackPush()) {
             
-            var attachmentCount = sampleCount == VK10.VK_SAMPLE_COUNT_1_BIT ? 2 : 3;
+            var attachmentCount = swapChain.sampleCount() == VK10.VK_SAMPLE_COUNT_1_BIT ? 2 : 3;
             
             var pDescription = VkAttachmentDescription.calloc(attachmentCount, stack);
             var pReferences = VkAttachmentReference.calloc(attachmentCount, stack);
@@ -43,7 +43,7 @@ public class RenderPass {
                 // Describe transient color attachment for multisampling.
                 pDescription.get(0)
                         .format(swapChain.imageFormat())
-                        .samples(sampleCount)
+                        .samples(swapChain.sampleCount())
                         .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR) // Clear content of the attachment.
                         .storeOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE) // Ignore storing content of the attachment.
                         .stencilLoadOp(VK10.VK_ATTACHMENT_LOAD_OP_DONT_CARE) // Ignore stencil operations.
@@ -60,8 +60,8 @@ public class RenderPass {
             pColorRefs.put(0, colorAttachmentRef);
             
             pDescription.get(1)
-                .format(depthFormat)
-                .samples(sampleCount)
+                .format(swapChain.depthFormat())
+                .samples(swapChain.sampleCount())
                 .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR)
                 .storeOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE)
                 .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)

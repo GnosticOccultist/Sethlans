@@ -180,6 +180,7 @@ public class SethlansTest extends SethlansApplication {
     protected void render() {
         var swapChain = ((VulkanRenderEngine) getRenderEngine()).getSwapChain();
         var logicalDevice = ((VulkanRenderEngine) getRenderEngine()).getLogicalDevice();
+        var pipeline = ((VulkanRenderEngine) getRenderEngine()).getPipeline();
 
         angle += 0.1f;
         angle %= 360;
@@ -196,9 +197,9 @@ public class SethlansTest extends SethlansApplication {
 
         swapChain.commandBuffer().reset().beginRecording()
                 .beginRenderPass(swapChain, swapChain.frameBuffer(), swapChain.renderPass())
-                .bindPipeline(swapChain.pipeline().handle()).bindVertexBuffer(vertexBuffer).bindIndexBuffer(indexBuffer)
-                .bindDescriptorSets(swapChain.pipeline().layoutHandle(), descriptorSets)
-                .pushConstants(swapChain.pipeline().layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, buffer)
+                .bindPipeline(pipeline.handle()).bindVertexBuffer(vertexBuffer).bindIndexBuffer(indexBuffer)
+                .bindDescriptorSets(pipeline.layoutHandle(), descriptorSets)
+                .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, buffer)
                 .drawIndexed(36).endRenderPass().end();
 
         swapChain.fenceReset();

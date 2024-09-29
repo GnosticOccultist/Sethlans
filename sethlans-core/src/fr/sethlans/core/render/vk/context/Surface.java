@@ -23,7 +23,7 @@ public class Surface {
         }
     }
 
-    long handle() {
+    public long handle() {
         return handle;
     }
 

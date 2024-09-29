@@ -8,8 +8,8 @@ import org.lwjgl.vulkan.VkImageMemoryBarrier;
 import org.lwjgl.vulkan.VkMemoryAllocateInfo;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
+import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.sync.Fence;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class Image {
@@ -106,8 +106,12 @@ public class Image {
             VkUtil.throwOnFailure(err, "bind memory to an image");
         }
     }
+    
+    public CommandBuffer transitionImageLayout(int oldLayout, int newLayout) {
+        return transitionImageLayout(null, oldLayout, newLayout);
+    }
 
-    public void transitionImageLayout(int oldLayout, int newLayout) {
+    public CommandBuffer transitionImageLayout(CommandBuffer existingCommand, int oldLayout, int newLayout) {
         try (var stack = MemoryStack.stackPush()) {
             
             var aspectMask = VK10.VK_IMAGE_ASPECT_COLOR_BIT;
@@ -187,10 +191,10 @@ public class Image {
                     && newLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
 
                 // PRESENT_SRC_KHR to TRANSFER_SRC
-                pBarrier.srcAccessMask(VK10.VK_ACCESS_MEMORY_READ_BIT);
+                pBarrier.srcAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
                 pBarrier.dstAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
 
-                srcStage = VK10.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+                srcStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
                 dstStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
 
             }  else if (oldLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
@@ -198,10 +202,10 @@ public class Image {
 
                 // TRANSFER_SRC to PRESENT_SRC_KHR
                 pBarrier.srcAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
-                pBarrier.dstAccessMask(VK10.VK_ACCESS_MEMORY_READ_BIT);
+                pBarrier.dstAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 
                 srcStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
-                dstStage = VK10.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+                dstStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
             } else {
                 throw new IllegalArgumentException(
@@ -209,20 +213,14 @@ public class Image {
             }
 
             // Create a one-time submit command buffer.
-            var command = device.commandPool().createCommandBuffer();
-            command.beginRecording(VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+            var command = existingCommand != null ? existingCommand : device.commandPool().createCommandBuffer();
+            if (existingCommand == null) {
+                command.beginRecording(VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+            }
+            
             command.addBarrier(srcStage, dstStage, pBarrier);
-            command.end();
-
-            // Synchronize command execution.
-            var fence = new Fence(device, true);
-            fence.reset();
-            command.submit(device.graphicsQueue(), fence);
-            fence.fenceWait();
-
-            // Destroy fence and command once finished.
-            fence.destroy();
-            command.destroy();
+            
+            return command;
         }
     }
 
