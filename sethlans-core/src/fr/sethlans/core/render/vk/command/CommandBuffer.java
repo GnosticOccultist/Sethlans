@@ -1,6 +1,7 @@
 package fr.sethlans.core.render.vk.command;
 
 import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 
 import org.joml.Matrix4f;
@@ -166,6 +167,13 @@ public class CommandBuffer {
     public CommandBuffer bindDescriptorSets(long pipelineLayoutHandle, LongBuffer pDescriptorSets) {
         VK10.vkCmdBindDescriptorSets(handle, VK10.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutHandle, 0,
                 pDescriptorSets, null);
+        return this;
+    }
+
+    public CommandBuffer bindDescriptorSets(long pipelineLayoutHandle, LongBuffer pDescriptorSets,
+            IntBuffer pDynamicOffsets) {
+        VK10.vkCmdBindDescriptorSets(handle, VK10.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutHandle, 0,
+                pDescriptorSets, pDynamicOffsets);
         return this;
     }
 

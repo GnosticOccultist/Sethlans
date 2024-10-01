@@ -18,11 +18,13 @@ public class DescriptorPool {
         this.device = device;
 
         try (var stack = MemoryStack.stackPush()) {
-            var pPoolSizes = VkDescriptorPoolSize.calloc(2, stack);
+            var pPoolSizes = VkDescriptorPoolSize.calloc(3, stack);
             // The UBO descriptor pool will contain poolSize descriptors.
             pPoolSizes.get(0).type(VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER).descriptorCount(poolSize);
             // The sampler descriptor pool will contain poolSize descriptors.
             pPoolSizes.get(1).type(VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).descriptorCount(poolSize);
+            // The UBO descriptor pool will contain poolSize descriptors.
+            pPoolSizes.get(2).type(VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC).descriptorCount(poolSize);
 
             var createInfo = VkDescriptorPoolCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO)

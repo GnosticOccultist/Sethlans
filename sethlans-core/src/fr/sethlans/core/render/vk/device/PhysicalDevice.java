@@ -43,7 +43,9 @@ public class PhysicalDevice {
 
     private float minSampleShading = 0f;
     
-    private int maxPushConstantsSize;
+    private long minUboAlignment = -1;
+    
+    private int maxPushConstantsSize = -1;
 
     private Set<String> availableExtensions;
 
@@ -235,6 +237,7 @@ public class PhysicalDevice {
 
         this.name = properties.deviceNameString();
         this.maxPushConstantsSize = properties.limits().maxPushConstantsSize();
+        this.minUboAlignment = properties.limits().minUniformBufferOffsetAlignment();
 
         this.type = properties.deviceType();
 
@@ -391,7 +394,23 @@ public class PhysicalDevice {
     }
     
     public int maxPushConstantsSize() {
+        if (maxPushConstantsSize <= 0) {
+            try (var stack = MemoryStack.stackPush()) {
+                gatherDeviceProperties(stack);
+            }
+        }
+
         return maxPushConstantsSize;
+    }
+
+    public long minUboAlignment() {
+        if (minUboAlignment <= 0) {
+            try (var stack = MemoryStack.stackPush()) {
+                gatherDeviceProperties(stack);
+            }
+        }
+
+        return minUboAlignment;
     }
 
     public String name() {

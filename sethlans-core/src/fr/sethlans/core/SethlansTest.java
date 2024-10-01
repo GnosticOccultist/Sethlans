@@ -141,7 +141,7 @@ public class SethlansTest extends SethlansApplication {
         rotation = new Quaternionf();
         modelMatrix = new Matrix4f();
 
-        renderEngine.putDescriptorSets(1, samplerDescriptorSet);
+        renderEngine.putDescriptorSets(2, samplerDescriptorSet);
     }
 
     @Override
@@ -162,7 +162,7 @@ public class SethlansTest extends SethlansApplication {
         renderEngine.bindDescriptorSets(swapChain.commandBuffer(imageIndex))
                 .bindVertexBuffer(vertexBuffer)
                 .bindIndexBuffer(indexBuffer)
-                .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, modelMatrix.mul(renderEngine.viewMatrix))
+                .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, modelMatrix)
                 .drawIndexed(36)
                 .endRenderPass()
                 .end();

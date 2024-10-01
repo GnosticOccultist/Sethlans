@@ -4,6 +4,7 @@ import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.glfwVulkanSupported;
 
 import java.io.IOException;
+import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -82,6 +83,14 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
     private LongBuffer descriptorSets;
 
+    private DescriptorSetLayout dynamicDescriptorSetLayout;
+
+    private VulkanBuffer dynamicUniform;
+
+    private DescriptorSet dynamicDescriptorSet;
+
+    private IntBuffer dynDescriptorOffset;
+
     public VulkanRenderEngine(SethlansApplication application) {
         super(application);
     }
@@ -119,8 +128,14 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
         this.globalDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0,
                 VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK10.VK_SHADER_STAGE_VERTEX_BIT);
+        this.dynamicDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0,
+                VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK10.VK_SHADER_STAGE_VERTEX_BIT);
         this.samplerDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0,
                 VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK10.VK_SHADER_STAGE_FRAGMENT_BIT);
+
+        var mult = 16 * Float.BYTES * MAX_FRAMES_IN_FLIGHT / physicalDevice.minUboAlignment() + 1;
+        // Choose the correct chunk size based on minimum alignment.
+        var size = (int) (mult * physicalDevice.minUboAlignment());
 
         this.program = new ShaderProgram(logicalDevice);
         try {
@@ -138,23 +153,37 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         Arrays.fill(syncFrames, new SyncFrame(logicalDevice));
 
         this.pipelineCache = new PipelineCache(logicalDevice);
-        this.pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program,
-                new DescriptorSetLayout[] { globalDescriptorSetLayout, samplerDescriptorSetLayout });
+        this.pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program, new DescriptorSetLayout[] {
+                globalDescriptorSetLayout, dynamicDescriptorSetLayout, samplerDescriptorSetLayout });
 
         this.projection = new Projection(window.getWidth(), window.getHeight());
         this.viewMatrix = new Matrix4f();
 
-        this.globalUniform = new VulkanBuffer(logicalDevice, 16 * Float.BYTES, VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        this.globalUniform = new VulkanBuffer(logicalDevice, size, VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
         this.globalUniform.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         var matrixBuffer = globalUniform.map();
         projection.store(0, matrixBuffer);
         globalUniform.unmap();
 
         this.globalDescriptorSet = new DescriptorSet(logicalDevice, descriptorPool(), globalDescriptorSetLayout)
-                .updateBufferDescriptorSet(globalUniform, 0, 16 * Float.BYTES);
+                .updateBufferDescriptorSet(globalUniform, 0, size);
 
-        this.descriptorSets = MemoryUtil.memAllocLong(2);
+        this.dynamicUniform = new VulkanBuffer(logicalDevice, size * MAX_FRAMES_IN_FLIGHT,
+                VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        this.dynamicUniform.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        var buffer = dynamicUniform.map();
+        viewMatrix.get(0, buffer);
+        viewMatrix.get(size, buffer);
+        dynamicUniform.unmap();
+
+        this.dynamicDescriptorSet = new DescriptorSet(logicalDevice, descriptorPool(), dynamicDescriptorSetLayout)
+                .updateDynamicBufferDescriptorSet(dynamicUniform, 0, size);
+
+        this.descriptorSets = MemoryUtil.memAllocLong(3);
         putDescriptorSets(0, globalDescriptorSet);
+        putDescriptorSets(1, dynamicDescriptorSet);
+
+        this.dynDescriptorOffset = MemoryUtil.memAllocInt(1);
     }
 
     @Override
@@ -218,6 +247,12 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         this.descriptorSets.put(index, descriptorSet.handle());
     }
 
+    public CommandBuffer bindDescriptorSets(CommandBuffer command) {
+        dynDescriptorOffset.put(0, currentFrame * 256);
+        command.bindDescriptorSets(pipeline.layoutHandle(), descriptorSets, dynDescriptorOffset);
+        return command;
+    }
+
     private void recreateSwapchain() {
         try (var stack = MemoryStack.stackPush()) {
             var windowHandle = window.handle();
@@ -271,11 +306,6 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         globalUniform.unmap();
     }
 
-    public CommandBuffer bindDescriptorSets(CommandBuffer command) {
-        command.bindDescriptorSets(pipeline.layoutHandle(), descriptorSets);
-        return command;
-    }
-
     public VulkanInstance getVulkanInstance() {
         return vulkanInstance;
     }
@@ -312,6 +342,10 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         globalUniform.destroy();
         globalDescriptorSet.destroy();
 
+        dynamicUniform.destroy();
+        dynamicDescriptorSet.destroy();
+
+        MemoryUtil.memFree(dynDescriptorOffset);
         MemoryUtil.memFree(descriptorSets);
 
         if (pipeline != null) {

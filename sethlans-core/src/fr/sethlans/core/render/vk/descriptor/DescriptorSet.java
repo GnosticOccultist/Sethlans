@@ -61,6 +61,31 @@ public class DescriptorSet {
         
         return this;
     }
+    
+    public DescriptorSet updateDynamicBufferDescriptorSet(VulkanBuffer buffer, int binding, long size) {
+        return updateDynamicBufferDescriptorSet(buffer, binding, 0, size);
+    }
+    
+    public DescriptorSet updateDynamicBufferDescriptorSet(VulkanBuffer buffer, int binding, long offset, long size) {
+        try (var stack = MemoryStack.stackPush()) {
+            var bufferInfo = VkDescriptorBufferInfo.calloc(1, stack)
+                    .buffer(buffer.handle())
+                    .offset(offset)
+                    .range(size);
+
+            var writeDescriptor = VkWriteDescriptorSet.calloc(1, stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
+                    .dstSet(handle)
+                    .dstBinding(binding)
+                    .descriptorType(VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
+                    .descriptorCount(1)
+                    .pBufferInfo(bufferInfo);
+
+            VK10.vkUpdateDescriptorSets(device.handle(), writeDescriptor, null);
+        }
+        
+        return this;
+    }
 
     public DescriptorSet updateTextureDescriptorSet(Texture texture, int binding) {
         try (var stack = MemoryStack.stackPush()) {
