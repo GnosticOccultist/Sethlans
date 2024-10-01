@@ -29,15 +29,14 @@ public class DescriptorPool {
                     .flags(VK10.VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)
                     .maxSets(poolSize)
                     .pPoolSizes(pPoolSizes);
-            
+
             var pHandle = stack.mallocLong(1);
-            var err = VK10.vkCreateDescriptorPool(
-                    device.handle(), createInfo, null, pHandle);
+            var err = VK10.vkCreateDescriptorPool(device.handle(), createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create descriptor-set pool");
             this.handle = pHandle.get(0);
         }
     }
-    
+
     public void freeDescriptorSet(long descriptorSetHandle) {
         try (var stack = MemoryStack.stackPush()) {
             var pDescriptorSet = stack.mallocLong(1);
@@ -47,7 +46,7 @@ public class DescriptorPool {
             VkUtil.throwOnFailure(err, "free descriptor-set");
         }
     }
-    
+
     long handle() {
         return handle;
     }

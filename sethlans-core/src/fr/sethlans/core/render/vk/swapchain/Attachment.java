@@ -13,7 +13,7 @@ public class Attachment {
     final Image image;
 
     final ImageView imageView;
-    
+
     final int finalLayout;
 
     public Attachment(LogicalDevice device, VkExtent2D extent, int format, int aspectMask, int sampleCount) {
@@ -27,7 +27,7 @@ public class Attachment {
             // Depth buffer attachment.
             this.finalLayout = VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
             usage = VK10.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-       
+
         } else {
             throw new IllegalArgumentException("Illegal aspect mask for attachment " + aspectMask);
         }
@@ -35,11 +35,11 @@ public class Attachment {
         this.image = new Image(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
                 VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         this.imageView = new ImageView(device, image.handle(), format, aspectMask);
-        
+
         // Transition the image to an optimal layout.
         var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout);
         command.end();
-        
+
         // Synchronize command execution.
         var fence = new Fence(device, true);
         fence.reset();

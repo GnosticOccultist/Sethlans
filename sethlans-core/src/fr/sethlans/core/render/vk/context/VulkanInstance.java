@@ -38,16 +38,17 @@ public class VulkanInstance {
     private VkDebugUtilsMessengerCallbackEXT debugMessengerCallback;
 
     private long vkDebugHandle;
-    
+
     public VulkanInstance(ConfigFile config, Window window) {
         try (var stack = MemoryStack.stackPush()) {
-            
+
             var appName = config.getString(SethlansApplication.APP_NAME_PROP, SethlansApplication.DEFAULT_APP_NAME);
-            var appVariant = config.getInteger(SethlansApplication.APP_VARIANT_PROP, SethlansApplication.DEFAULT_APP_VARIANT);
+            var appVariant = config.getInteger(SethlansApplication.APP_VARIANT_PROP,
+                    SethlansApplication.DEFAULT_APP_VARIANT);
             var appMajor = config.getInteger(SethlansApplication.APP_MAJOR_PROP, SethlansApplication.DEFAULT_APP_MAJOR);
             var appMinor = config.getInteger(SethlansApplication.APP_MINOR_PROP, SethlansApplication.DEFAULT_APP_MINOR);
             var appPatch = config.getInteger(SethlansApplication.APP_PATCH_PROP, SethlansApplication.DEFAULT_APP_PATCH);
-            
+
             var apiVersion = getVulkanVersion(config);
 
             // Create the application info.
@@ -58,17 +59,17 @@ public class VulkanInstance {
                     .pEngineName(stack.UTF8("Sethlans"))
                     .engineVersion(VK10.VK_MAKE_API_VERSION(0, 0, 1, 0))
                     .apiVersion(apiVersion);
-            
+
             var debug = config.getBoolean(SethlansApplication.GRAPHICS_DEBUG_PROP,
                     SethlansApplication.DEFAULT_GRAPHICS_DEBUG);
             var ppEnabledExtensionNames = getRequiredExtensions(debug, stack);
-            
+
             // Create the instance-creation info.
             var createInfo = VkInstanceCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO)
                     .pApplicationInfo(appInfo)
                     .ppEnabledExtensionNames(ppEnabledExtensionNames);
-            
+
             VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = null;
             if (debug) {
                 // Acquire required validation layers if available.
@@ -94,7 +95,7 @@ public class VulkanInstance {
             }
         }
     }
-    
+
     public PhysicalDevice choosePhysicalDevice(ConfigFile config, long surfaceHandle) {
         try (var stack = MemoryStack.stackPush()) {
             var pDevices = getPhysicalDevices(stack);
@@ -166,7 +167,7 @@ public class VulkanInstance {
 
         return messengerCreateInfo;
     }
-    
+
     private int debugCallback(int severity, int messageType, long pCallbackData, long pUserData) {
         var callbackData = VkDebugUtilsMessengerCallbackDataEXT.create(pCallbackData);
         var message = callbackData.pMessageString();

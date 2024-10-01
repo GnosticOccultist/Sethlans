@@ -39,8 +39,8 @@ public class CommandBuffer {
 
         try (var stack = MemoryStack.stackPush()) {
 
-            var allocateInfo = VkCommandBufferAllocateInfo.calloc(stack);
-            allocateInfo.sType(VK10.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO)
+            var allocateInfo = VkCommandBufferAllocateInfo.calloc(stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO)
                     .commandPool(commandPool.handle())
                     .level(VK10.VK_COMMAND_BUFFER_LEVEL_PRIMARY)
                     .commandBufferCount(1);
@@ -76,7 +76,7 @@ public class CommandBuffer {
         VK10.vkCmdPipelineBarrier(handle, srcStage, dstStage, 0x0, null, null, pBarriers);
         return this;
     }
-    
+
     public CommandBuffer addBlit(Image image, VkImageBlit.Buffer pBlits) {
         var imageHandle = image.handle();
         VK10.vkCmdBlitImage(handle, imageHandle, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, imageHandle,
@@ -119,7 +119,7 @@ public class CommandBuffer {
 
         return this;
     }
-    
+
     public CommandBuffer copyImage(Image source, int imageLayout, VulkanBuffer destination) {
         try (var stack = MemoryStack.stackPush()) {
             var pRegion = VkBufferImageCopy.calloc(1, stack)
@@ -224,9 +224,12 @@ public class CommandBuffer {
             var submitInfo = VkSubmitInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_SUBMIT_INFO)
                     .pCommandBuffers(stack.pointers(handle))
-                    .pSignalSemaphores(stack.longs(frame.renderCompleteSemaphore().handle())).waitSemaphoreCount(1)
+                    .pSignalSemaphores(stack.longs(frame.renderCompleteSemaphore().handle()))
+                    .waitSemaphoreCount(1)
                     .pWaitSemaphores(stack.longs(frame.imageAvailableSemaphore().handle()))
                     .pWaitDstStageMask(stack.ints(VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT));
+
+            frame.fence().reset();
 
             var fenceHandle = frame.fence().handle();
             var err = VK10.vkQueueSubmit(queue, submitInfo, fenceHandle);

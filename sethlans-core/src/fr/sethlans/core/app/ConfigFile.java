@@ -17,7 +17,12 @@ public class ConfigFile {
     }
 
     public Boolean getBoolean(String name, Boolean defValue) {
-        return root.getOptional(name).filter(JSONValue::isTrue).map(JSONValue::isTrue).orElse(defValue);
+        var opt = root.getOptional(name);
+        if (!opt.isPresent()) {
+            return defValue;
+        }
+
+        return opt.map(JSONValue::isTrue).get();
     }
 
     public ConfigFile addBoolean(String name, Boolean value) {

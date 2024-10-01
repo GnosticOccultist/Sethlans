@@ -70,11 +70,11 @@ public class SurfaceProperties {
     public int currentTransform() {
         return capabilities.currentTransform();
     }
-    
+
     public boolean supportsUsage(int usageBit) {
         return (supportedUsage() & usageBit) != 0;
     }
-    
+
     public int supportedUsage() {
         return capabilities.supportedUsageFlags();
     }

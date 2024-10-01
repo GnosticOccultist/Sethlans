@@ -28,7 +28,7 @@ public class Fence {
             this.handle = pHandle.get(0);
         }
     }
-    
+
     public void fenceWait() {
         var err = VK10.vkWaitForFences(logicalDevice.handle(), handle, true, Long.MAX_VALUE);
         VkUtil.throwOnFailure(err, "wait for fence");

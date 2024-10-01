@@ -18,8 +18,8 @@ public class Semaphore {
 
         try (var stack = MemoryStack.stackPush()) {
 
-            var createInfo = VkSemaphoreCreateInfo.calloc(stack);
-            createInfo.sType(VK10.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
+            var createInfo = VkSemaphoreCreateInfo.calloc(stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
 
             var pHandle = stack.mallocLong(1);
             var err = VK10.vkCreateSemaphore(logicalDevice.handle(), createInfo, null, pHandle);

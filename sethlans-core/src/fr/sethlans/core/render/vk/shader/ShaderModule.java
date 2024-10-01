@@ -13,11 +13,11 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 public class ShaderModule {
 
     private final LogicalDevice device;
-    
+
     private final int stage;
 
     private long handle = VK10.VK_NULL_HANDLE;
-    
+
     ShaderModule(LogicalDevice device, ByteBuffer shaderCode, int stage) {
         this.device = device;
         this.stage = stage;

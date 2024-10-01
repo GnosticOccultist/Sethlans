@@ -106,30 +106,30 @@ public class Image {
             VkUtil.throwOnFailure(err, "bind memory to an image");
         }
     }
-    
+
     public CommandBuffer transitionImageLayout(int oldLayout, int newLayout) {
         return transitionImageLayout(null, oldLayout, newLayout);
     }
 
     public CommandBuffer transitionImageLayout(CommandBuffer existingCommand, int oldLayout, int newLayout) {
         try (var stack = MemoryStack.stackPush()) {
-            
+
             var aspectMask = VK10.VK_IMAGE_ASPECT_COLOR_BIT;
             if (newLayout == VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
                 aspectMask = VK10.VK_IMAGE_ASPECT_DEPTH_BIT;
-                
+
                 switch (format) {
-                    case VK10.VK_FORMAT_D16_UNORM_S8_UINT:
-                    case VK10.VK_FORMAT_D24_UNORM_S8_UINT:
-                    case VK10.VK_FORMAT_D32_SFLOAT_S8_UINT:
-                        // Expecting a stencil component.
-                        aspectMask |= VK10.VK_IMAGE_ASPECT_STENCIL_BIT;
-                        break;
+                case VK10.VK_FORMAT_D16_UNORM_S8_UINT:
+                case VK10.VK_FORMAT_D24_UNORM_S8_UINT:
+                case VK10.VK_FORMAT_D32_SFLOAT_S8_UINT:
+                    // Expecting a stencil component.
+                    aspectMask |= VK10.VK_IMAGE_ASPECT_STENCIL_BIT;
+                    break;
                 }
             }
-            
+
             final var mask = aspectMask;
-            
+
             var pBarrier = VkImageMemoryBarrier.calloc(1, stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
                     .newLayout(newLayout)
@@ -178,7 +178,7 @@ public class Image {
 
             } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_UNDEFINED
                     && newLayout == VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-                
+
                 // UNDEFINED to DEPTH_STENCIL_ATTACHMENT
                 pBarrier.dstAccessMask(VK10.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT
                         | VK10.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
@@ -197,7 +197,7 @@ public class Image {
                 srcStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
                 dstStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
 
-            }  else if (oldLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
                     && newLayout == KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
 
                 // TRANSFER_SRC to PRESENT_SRC_KHR
@@ -217,9 +217,9 @@ public class Image {
             if (existingCommand == null) {
                 command.beginRecording(VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
             }
-            
+
             command.addBarrier(srcStage, dstStage, pBarrier);
-            
+
             return command;
         }
     }

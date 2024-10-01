@@ -13,9 +13,9 @@ import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class DescriptorSet {
-    
+
     private final LogicalDevice device;
-    
+
     private final DescriptorPool descriptorPool;
 
     private long handle = VK10.VK_NULL_HANDLE;
@@ -23,7 +23,7 @@ public class DescriptorSet {
     public DescriptorSet(LogicalDevice device, DescriptorPool descriptorPool, DescriptorSetLayout descriptorSetLayout) {
         this.device = device;
         this.descriptorPool = descriptorPool;
-        
+
         try (var stack = MemoryStack.stackPush()) {
             var allocInfo = VkDescriptorSetAllocateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO)
@@ -36,9 +36,9 @@ public class DescriptorSet {
             this.handle = pSetHandles.get(0);
         }
     }
-    
+
     public void updateBufferDescriptorSet(VulkanBuffer buffer, long size, int binding) {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
+        try (var stack = MemoryStack.stackPush()) {
             var bufferInfo = VkDescriptorBufferInfo.calloc(1, stack)
                     .buffer(buffer.handle())
                     .offset(0)
@@ -55,9 +55,9 @@ public class DescriptorSet {
             VK10.vkUpdateDescriptorSets(device.handle(), writeDescriptor, null);
         }
     }
-    
+
     public void updateTextureDescriptorSet(Texture texture, int binding) {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
+        try (var stack = MemoryStack.stackPush()) {
             var imageInfo = VkDescriptorImageInfo.calloc(1, stack)
                     .imageLayout(VK10.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
                     .imageView(texture.imageViewHandle())
@@ -78,7 +78,7 @@ public class DescriptorSet {
     public long handle() {
         return handle;
     }
-    
+
     public void destroy() {
         if (handle != VK10.VK_NULL_HANDLE) {
             VK10.vkFreeDescriptorSets(device.handle(), descriptorPool.handle(), handle);

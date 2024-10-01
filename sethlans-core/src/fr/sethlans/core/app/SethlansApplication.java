@@ -1,5 +1,7 @@
 package fr.sethlans.core.app;
 
+import java.text.DecimalFormat;
+
 import fr.alchemy.utilities.Instantiator;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
@@ -59,9 +61,10 @@ public abstract class SethlansApplication {
 
             while (!renderEngine.getWindow().shouldClose()) {
 
-                renderEngine.beginRender();
+                application.update();
 
-                application.render();
+                var imageIndex = renderEngine.beginRender();
+                application.render(imageIndex);
 
                 renderEngine.endRender();
 
@@ -78,6 +81,8 @@ public abstract class SethlansApplication {
 
     private RenderEngine renderEngine;
 
+    private final FrameTimer timer = new FrameTimer(400, this::updateWindowTitle);
+
     protected SethlansApplication() {
 
     }
@@ -90,7 +95,17 @@ public abstract class SethlansApplication {
 
     }
 
-    protected abstract void render();
+    protected void update() {
+        timer.update();
+    }
+
+    protected void updateWindowTitle(FrameTimer timer) {
+        var window = getWindow();
+        var formatter = new DecimalFormat("#.###");
+        window.appendTitle(" | " + timer.averageFps() + " fps @ " + formatter.format(timer.averageTpf() * 1000.0) + " ms");
+    }
+
+    protected abstract void render(int imageIndex);
 
     protected abstract void cleanup();
 

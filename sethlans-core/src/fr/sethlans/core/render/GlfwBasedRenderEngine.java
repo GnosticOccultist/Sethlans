@@ -12,9 +12,9 @@ import fr.sethlans.core.app.SethlansApplication;
 public abstract class GlfwBasedRenderEngine implements RenderEngine {
 
     protected static final Logger logger = FactoryLogger.getLogger("sethlans-core.render");
-    
+
     protected final SethlansApplication application;
-    
+
     protected Window window;
 
     public GlfwBasedRenderEngine(SethlansApplication application) {

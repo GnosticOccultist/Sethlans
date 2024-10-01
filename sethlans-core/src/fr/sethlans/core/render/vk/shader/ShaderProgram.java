@@ -43,7 +43,7 @@ public class ShaderProgram {
             var module = modules.get(i);
             module.describe(stack, stageCreateInfos.get(i));
         }
-        
+
         return stageCreateInfos;
     }
 

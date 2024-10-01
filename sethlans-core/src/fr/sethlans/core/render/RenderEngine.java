@@ -8,7 +8,7 @@ public interface RenderEngine {
 
     void waitIdle();
 
-    boolean beginRender();
+    int beginRender();
 
     void endRender();
 

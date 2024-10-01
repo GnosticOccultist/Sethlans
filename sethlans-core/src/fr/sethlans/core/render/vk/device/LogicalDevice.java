@@ -21,7 +21,8 @@ public class LogicalDevice {
 
     private CommandPool commandPool;
 
-    public LogicalDevice(VulkanInstance instance, PhysicalDevice physicalDevice, long surfaceHandle, ConfigFile config) {
+    public LogicalDevice(VulkanInstance instance, PhysicalDevice physicalDevice, long surfaceHandle,
+            ConfigFile config) {
         this.physicalDevice = physicalDevice;
         this.handle = physicalDevice.createLogicalDevice(instance, surfaceHandle, config);
 
@@ -43,7 +44,7 @@ public class LogicalDevice {
             VkUtil.throwOnFailure(err, "wait for device");
         }
     }
-    
+
     public void graphicsQueueWaitIdle() {
         var err = VK10.vkQueueWaitIdle(graphicsQueue);
         VkUtil.throwOnFailure(err, "wait for graphics queue");

@@ -14,19 +14,19 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 public class RenderPass {
 
     private final SwapChain swapChain;
-    
+
     private long handle = VK10.VK_NULL_HANDLE;
 
     RenderPass(SwapChain swapChain) {
         this.swapChain = swapChain;
 
         try (var stack = MemoryStack.stackPush()) {
-            
+
             var attachmentCount = swapChain.sampleCount() == VK10.VK_SAMPLE_COUNT_1_BIT ? 2 : 3;
-            
+
             var pDescription = VkAttachmentDescription.calloc(attachmentCount, stack);
             var pReferences = VkAttachmentReference.calloc(attachmentCount, stack);
-            
+
             if (attachmentCount == 2) {
                 // Describe color attachment for presentation.
                 pDescription.get(0)
@@ -38,7 +38,7 @@ public class RenderPass {
                         .stencilStoreOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE) // Ignore stencil operations.
                         .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
                         .finalLayout(KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-            
+
             } else {
                 // Describe transient color attachment for multisampling.
                 pDescription.get(0)
@@ -51,26 +51,28 @@ public class RenderPass {
                         .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
                         .finalLayout(VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
             }
-            
+
             var colorAttachmentRef = pReferences.get(0);
-            colorAttachmentRef.attachment(0)
+            colorAttachmentRef
+                    .attachment(0)
                     .layout(VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-            
+
             var pColorRefs = VkAttachmentReference.calloc(1, stack);
             pColorRefs.put(0, colorAttachmentRef);
-            
+
             pDescription.get(1)
-                .format(swapChain.depthFormat())
-                .samples(swapChain.sampleCount())
-                .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR)
-                .storeOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE)
-                .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
-                .finalLayout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-            
+                    .format(swapChain.depthFormat())
+                    .samples(swapChain.sampleCount())
+                    .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR)
+                    .storeOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE)
+                    .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
+                    .finalLayout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
             var depthAttachmentRef = pReferences.get(1);
-            depthAttachmentRef.attachment(1)
+            depthAttachmentRef
+                    .attachment(1)
                     .layout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-            
+
             VkAttachmentReference.Buffer pResolveRefs = null;
             if (attachmentCount == 3) {
                 // Resolve the multisampled attachment for presentation.
@@ -83,7 +85,7 @@ public class RenderPass {
                         .stencilStoreOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE) // Ignore stencil operations.
                         .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
                         .finalLayout(KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-                
+
                 var resolveAttachmentRef = pReferences.get(2)
                         .attachment(2)
                         .layout(VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -98,24 +100,27 @@ public class RenderPass {
                     .pColorAttachments(pColorRefs)
                     .pDepthStencilAttachment(depthAttachmentRef)
                     .pResolveAttachments(pResolveRefs);
-            
+
             // Create sub-pass dependency.
             var pDependency = VkSubpassDependency.calloc(1, stack);
             pDependency
-                    .dstAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK10.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
-                    .dstStageMask(VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK10.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
+                    .dstAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+                            | VK10.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
+                    .dstStageMask(VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+                            | VK10.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
                     .dstSubpass(0)
                     .srcAccessMask(0x0)
-                    .srcStageMask(VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK10.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
+                    .srcStageMask(VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+                            | VK10.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
                     .srcSubpass(VK10.VK_SUBPASS_EXTERNAL);
-            
+
             // Create render pass infos.
             var createInfo = VkRenderPassCreateInfo.calloc(stack);
             createInfo.sType(VK10.VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO)
                     .pAttachments(pDescription)
                     .pDependencies(pDependency)
                     .pSubpasses(subpass);
-            
+
             var pHandle = stack.mallocLong(1);
             var err = VK10.vkCreateRenderPass(swapChain.logicalDevice().handle(), createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create render pass");

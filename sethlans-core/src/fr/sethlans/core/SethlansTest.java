@@ -44,16 +44,10 @@ public class SethlansTest extends SethlansApplication {
 
     @Override
     protected void prepare(ConfigFile appConfig) {
-        appConfig.addString(APP_NAME_PROP, "Sethlans Demo")
-                .addInteger(APP_MAJOR_PROP, 1)
-                .addInteger(APP_MINOR_PROP, 0)
-                .addInteger(APP_PATCH_PROP, 0)
-                .addBoolean(GRAPHICS_DEBUG_PROP, true)
-                .addBoolean(VSYNC_PROP, true)
-                .addInteger(MSAA_SAMPLES_PROP, 4)
-                .addString(WINDOW_TITLE_PROP, "Sethlans Demo")
-                .addInteger(WINDOW_WIDTH_PROP, 800)
-                .addInteger(WINDOW_HEIGHT_PROP, 600);
+        appConfig.addString(APP_NAME_PROP, "Sethlans Demo").addInteger(APP_MAJOR_PROP, 1).addInteger(APP_MINOR_PROP, 0)
+                .addInteger(APP_PATCH_PROP, 0).addBoolean(GRAPHICS_DEBUG_PROP, true).addBoolean(VSYNC_PROP, false)
+                .addInteger(MSAA_SAMPLES_PROP, 4).addString(WINDOW_TITLE_PROP, "Sethlans Demo")
+                .addInteger(WINDOW_WIDTH_PROP, 800).addInteger(WINDOW_HEIGHT_PROP, 600);
     }
 
     @Override
@@ -177,9 +171,8 @@ public class SethlansTest extends SethlansApplication {
     }
 
     @Override
-    protected void render() {
+    protected void render(int imageIndex) {
         var swapChain = ((VulkanRenderEngine) getRenderEngine()).getSwapChain();
-        var logicalDevice = ((VulkanRenderEngine) getRenderEngine()).getLogicalDevice();
         var pipeline = ((VulkanRenderEngine) getRenderEngine()).getPipeline();
 
         angle += 0.1f;
@@ -195,16 +188,12 @@ public class SethlansTest extends SethlansApplication {
         descriptorSets.put(0, projMatrixDescriptorSet.handle());
         descriptorSets.put(1, samplerDescriptorSet.handle());
 
-        swapChain.commandBuffer().reset().beginRecording()
-                .beginRenderPass(swapChain, swapChain.frameBuffer(), swapChain.renderPass())
+        swapChain.commandBuffer(imageIndex).reset().beginRecording()
+                .beginRenderPass(swapChain, swapChain.frameBuffer(imageIndex), swapChain.renderPass())
                 .bindPipeline(pipeline.handle()).bindVertexBuffer(vertexBuffer).bindIndexBuffer(indexBuffer)
                 .bindDescriptorSets(pipeline.layoutHandle(), descriptorSets)
-                .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, buffer)
-                .drawIndexed(36).endRenderPass().end();
-
-        swapChain.fenceReset();
-
-        swapChain.commandBuffer().submit(logicalDevice.graphicsQueue(), swapChain.syncFrame());
+                .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, buffer).drawIndexed(36)
+                .endRenderPass().end();
     }
 
     @Override

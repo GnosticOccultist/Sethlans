@@ -29,7 +29,9 @@ public class Window {
     private int height;
 
     private long windowHandle = MemoryUtil.NULL;
-    
+
+    private String initialWindowTitle;
+
     private boolean resized = false;
 
     public Window(SethlansApplication application) {
@@ -45,6 +47,7 @@ public class Window {
     public Window(SethlansApplication application, String title, int width, int height) {
         this.width = width;
         this.height = height;
+        this.initialWindowTitle = title;
 
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
@@ -65,6 +68,17 @@ public class Window {
         return glfwWindowShouldClose(windowHandle);
     }
 
+    public Window setTitle(String title) {
+        glfwSetWindowTitle(windowHandle, title);
+        this.initialWindowTitle = title;
+        return this;
+    }
+
+    public Window appendTitle(String titleSuffix) {
+        glfwSetWindowTitle(windowHandle, initialWindowTitle + titleSuffix);
+        return this;
+    }
+
     public long handle() {
         return windowHandle;
     }
@@ -76,7 +90,7 @@ public class Window {
     public int getHeight() {
         return height;
     }
-    
+
     public boolean isResized() {
         return resized;
     }

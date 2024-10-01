@@ -35,7 +35,7 @@ public class DescriptorSetLayout {
             this.handle = pHandle.get(0);
         }
     }
-    
+
     public long handle() {
         return handle;
     }

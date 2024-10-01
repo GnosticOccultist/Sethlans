@@ -38,13 +38,13 @@ public class PhysicalDevice {
     private String name;
 
     private int type = -1;
-    
+
     private int maxSamplesCount = -1;
-    
+
     private float minSampleShading = 0f;
 
     private Set<String> availableExtensions;
-    
+
     private Set<String> availableToolProperties;
 
     public PhysicalDevice(long handle, VulkanInstance instance) {
@@ -108,7 +108,8 @@ public class PhysicalDevice {
                     SethlansApplication.DEFAULT_MIN_SAMPLE_SHADING);
             var enableSampleShading = sampleShading > 0f;
             if (enableSampleShading && !features.sampleRateShading()) {
-                logger.warning("Requested Sample Shading, but physical device " + this + " doesn't support this feature.");
+                logger.warning(
+                        "Requested Sample Shading, but physical device " + this + " doesn't support this feature.");
                 this.minSampleShading = 0.0f;
             } else {
                 features.sampleRateShading(enableSampleShading);
@@ -116,7 +117,7 @@ public class PhysicalDevice {
             }
 
             features.samplerAnisotropy(true);
-            
+
             createInfo.pEnabledFeatures(features);
 
             // Enable all available queue families.
@@ -253,7 +254,7 @@ public class PhysicalDevice {
             this.maxSamplesCount = 1;
         }
     }
-    
+
     public boolean supportFormatFeature(int imageTiling, int format, int requiredFeatures) {
         try (var stack = MemoryStack.stackPush()) {
             var pFormatProperties = VkFormatProperties.calloc(stack);
@@ -278,7 +279,7 @@ public class PhysicalDevice {
 
         return false;
     }
-    
+
     public int findSupportedFormat(int imageTiling, int requiredFeatures, int... formats) {
         try (var stack = MemoryStack.stackPush()) {
             var pFormatProperties = VkFormatProperties.calloc(stack);
@@ -288,14 +289,14 @@ public class PhysicalDevice {
 
                 int features;
                 switch (imageTiling) {
-                    case VK10.VK_IMAGE_TILING_LINEAR:
-                        features = pFormatProperties.linearTilingFeatures();
-                        break;
-                    case VK10.VK_IMAGE_TILING_OPTIMAL:
-                        features = pFormatProperties.optimalTilingFeatures();
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unsupported image tiling: " + imageTiling);
+                case VK10.VK_IMAGE_TILING_LINEAR:
+                    features = pFormatProperties.linearTilingFeatures();
+                    break;
+                case VK10.VK_IMAGE_TILING_OPTIMAL:
+                    features = pFormatProperties.optimalTilingFeatures();
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported image tiling: " + imageTiling);
                 }
 
                 if ((features & requiredFeatures) == requiredFeatures) {
@@ -303,7 +304,7 @@ public class PhysicalDevice {
                 }
             }
         }
-        
+
         throw new RuntimeException("Failed to find a supported format!");
     }
 
@@ -372,7 +373,7 @@ public class PhysicalDevice {
                 gatherDeviceProperties(stack);
             }
         }
-        
+
         assert maxSamplesCount > 1 : maxSamplesCount;
         assert maxSamplesCount <= 64 : maxSamplesCount;
 

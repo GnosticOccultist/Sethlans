@@ -13,10 +13,11 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 public class FrameBuffer {
 
     private final LogicalDevice logicalDevice;
-    
+
     private long handle = VK10.VK_NULL_HANDLE;
 
-    FrameBuffer(LogicalDevice logicalDevice, RenderPass renderPass, VkExtent2D framebufferExtent, LongBuffer pAttachments) {
+    FrameBuffer(LogicalDevice logicalDevice, RenderPass renderPass, VkExtent2D framebufferExtent,
+            LongBuffer pAttachments) {
         this.logicalDevice = logicalDevice;
 
         try (var stack = MemoryStack.stackPush()) {

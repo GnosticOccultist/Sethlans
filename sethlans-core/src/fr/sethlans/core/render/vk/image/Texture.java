@@ -25,7 +25,7 @@ public class Texture {
 
     public Texture(LogicalDevice device, int width, int height, int imageFormat, ByteBuffer data) {
         this.device = device;
-        
+
         var maxDimension = Math.max(width, height);
         var mipLevels = 1 + Mathf.log2(maxDimension);
 
@@ -46,7 +46,8 @@ public class Texture {
                 VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
         // Transition the image layout.
-        var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED,
+                VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         // Copy the data from the staging buffer the new image.
         command.copyBuffer(stagingBuffer, image);
@@ -76,7 +77,7 @@ public class Texture {
                 VK10.VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
             throw new IllegalStateException("Texture image " + image.format() + " doesn't support linear blitting!");
         }
-        
+
         try (var stack = MemoryStack.stackPush()) {
             var pBarrier = VkImageMemoryBarrier.calloc(1, stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
@@ -84,18 +85,19 @@ public class Texture {
                     .srcQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
                     .dstQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED);
 
-            var barrierRange = pBarrier.subresourceRange()
+            var barrierRange = pBarrier
+                    .subresourceRange()
                     .aspectMask(VK10.VK_IMAGE_ASPECT_COLOR_BIT)
                     .baseArrayLayer(0)
                     .layerCount(1)
                     .levelCount(1);
-            
+
             var srcWidth = image.width();
             var srcHeight = image.height();
             for (var level = 1; level < image.mipLevels(); ++level) {
                 var dstWidth = (srcWidth > 1) ? srcWidth / 2 : 1;
                 var dstHeight = (srcHeight > 1) ? srcHeight / 2 : 1;
-                
+
                 barrierRange.baseMipLevel(level - 1);
 
                 /*
@@ -108,16 +110,16 @@ public class Texture {
                         .dstAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
 
                 command.addBarrier(VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, pBarrier);
-                
+
                 var srcLevel = level - 1;
-                
+
                 // Command to blit from the source mip level (n - 1) to the next mip level (n).
                 var pBlit = VkImageBlit.calloc(1, stack);
                 pBlit.dstOffsets(0).set(0, 0, 0);
                 pBlit.dstOffsets(1).set(dstWidth, dstHeight, 1);
                 pBlit.srcOffsets(0).set(0, 0, 0);
                 pBlit.srcOffsets(1).set(srcWidth, srcHeight, 1);
-                
+
                 pBlit.srcSubresource(it -> it
                         .aspectMask(VK10.VK_IMAGE_ASPECT_COLOR_BIT)
                         .baseArrayLayer(0)
@@ -131,24 +133,23 @@ public class Texture {
 
                 command.addBlit(image, pBlit);
                 /*
-                 * Command to wait until the blit is finished and then optimize
-                 * the source level for being read by fragment shaders.
+                 * Command to wait until the blit is finished and then optimize the source level
+                 * for being read by fragment shaders.
                  */
                 pBarrier.oldLayout(VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
                         .newLayout(VK10.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-                        .srcAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT)
-                        .dstAccessMask(VK10.VK_ACCESS_SHADER_READ_BIT);
-                
-                command.addBarrier(VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, VK10.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, pBarrier);
+                        .srcAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT).dstAccessMask(VK10.VK_ACCESS_SHADER_READ_BIT);
+
+                command.addBarrier(VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, VK10.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                        pBarrier);
 
                 // The destination dimensions becomes the next source dimensions.
                 srcWidth = dstWidth;
                 srcHeight = dstHeight;
             }
-            
+
             /*
-             * Command to optimize last MIP level for being read
-             * by fragment shaders.
+             * Command to optimize last MIP level for being read by fragment shaders.
              */
             barrierRange.baseMipLevel(image.mipLevels() - 1);
             pBarrier.oldLayout(VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
@@ -156,7 +157,8 @@ public class Texture {
                     .srcAccessMask(VK10.VK_ACCESS_TRANSFER_WRITE_BIT)
                     .dstAccessMask(VK10.VK_ACCESS_SHADER_READ_BIT);
 
-            command.addBarrier(VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, VK10.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, pBarrier);
+            command.addBarrier(VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, VK10.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                    pBarrier);
         }
     }
 

@@ -18,8 +18,8 @@ public class CommandPool {
 
         try (var stack = MemoryStack.stackPush()) {
 
-            var createInfo = VkCommandPoolCreateInfo.calloc(stack);
-            createInfo.sType(VK10.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO)
+            var createInfo = VkCommandPoolCreateInfo.calloc(stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO)
                     .flags(VK10.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT)
                     .queueFamilyIndex(queueFamilyIndex);
 

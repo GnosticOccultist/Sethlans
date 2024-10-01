@@ -24,7 +24,7 @@ public class VulkanBuffer {
     public VulkanBuffer(LogicalDevice device, long size, int usage) {
         this.device = device;
         this.size = size;
-        
+
         try (var stack = MemoryStack.stackPush()) {
 
             // Create buffer info struct.
@@ -45,10 +45,9 @@ public class VulkanBuffer {
         assert handle != VK10.VK_NULL_HANDLE;
 
         if (memoryHandle != VK10.VK_NULL_HANDLE) {
-            throw new IllegalStateException(
-                    "Buffer is already allocated with memory" + Long.toHexString(memoryHandle));
+            throw new IllegalStateException("Buffer is already allocated with memory" + Long.toHexString(memoryHandle));
         }
-        
+
         try (var stack = MemoryStack.stackPush()) {
             // Query the memory requirements for the buffer.
             var memRequirements = VkMemoryRequirements.malloc(stack);
@@ -57,8 +56,8 @@ public class VulkanBuffer {
             // Create allocation info struct.
             var typeFilter = memRequirements.memoryTypeBits();
             var memoryType = device.physicalDevice().gatherMemoryType(typeFilter, requiredProperties);
-            var allocInfo = VkMemoryAllocateInfo.calloc(stack).
-                    sType(VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
+            var allocInfo = VkMemoryAllocateInfo.calloc(stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
                     .allocationSize(memRequirements.size())
                     .memoryTypeIndex(memoryType);
 
@@ -72,10 +71,10 @@ public class VulkanBuffer {
             VkUtil.throwOnFailure(err, "bind memory to a buffer");
         }
     }
-    
+
     public ByteBuffer map() {
         assert memoryHandle != VK10.VK_NULL_HANDLE;
-        
+
         try (var stack = MemoryStack.stackPush()) {
             var pPointer = stack.mallocPointer(1);
             var offset = 0;
@@ -87,7 +86,7 @@ public class VulkanBuffer {
             return result;
         }
     }
-    
+
     public void unmap() {
         if (memoryHandle != VK10.VK_NULL_HANDLE) {
             VK10.vkUnmapMemory(device.handle(), memoryHandle);
@@ -107,7 +106,7 @@ public class VulkanBuffer {
             VK10.vkFreeMemory(device.handle(), memoryHandle, null);
             this.memoryHandle = VK10.VK_NULL_HANDLE;
         }
-        
+
         if (handle != VK10.VK_NULL_HANDLE) {
             VK10.vkDestroyBuffer(device.handle(), handle, null);
             this.handle = VK10.VK_NULL_HANDLE;

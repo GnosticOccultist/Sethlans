@@ -4,6 +4,9 @@ import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.glfwVulkanSupported;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.util.shaderc.Shaderc;
@@ -21,8 +24,14 @@ import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineCache;
 import fr.sethlans.core.render.vk.shader.ShaderProgram;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
+import fr.sethlans.core.render.vk.swapchain.SyncFrame;
 
 public class VulkanRenderEngine extends GlfwBasedRenderEngine {
+
+    /**
+     * The count of frames to process concurrently.
+     */
+    private static final int MAX_FRAMES_IN_FLIGHT = 2;
 
     private VulkanInstance vulkanInstance;
 
@@ -33,6 +42,10 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
     private LogicalDevice logicalDevice;
 
     private SwapChain swapChain;
+
+    private SyncFrame[] syncFrames;
+
+    private Map<Integer, SyncFrame> framesInFlight;
 
     private DescriptorPool descriptorPool;
 
@@ -45,6 +58,8 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
     private ShaderProgram program;
 
     private volatile int imageIndex;
+
+    private int currentFrame;
 
     private PipelineCache pipelineCache;
 
@@ -101,6 +116,9 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         }
 
         this.swapChain = new SwapChain(logicalDevice, surface, config, window.getWidth(), window.getHeight());
+        this.framesInFlight = new HashMap<>(swapChain.imageCount());
+        this.syncFrames = new SyncFrame[MAX_FRAMES_IN_FLIGHT];
+        Arrays.fill(syncFrames, new SyncFrame(logicalDevice));
 
         this.pipelineCache = new PipelineCache(logicalDevice);
         this.pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program,
@@ -108,20 +126,25 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
     }
 
     @Override
-    public boolean beginRender() {
+    public int beginRender() {
         // Wait for completion of the previous frame.
-        swapChain.fenceWait();
+        var frame = syncFrames[currentFrame];
+        frame.fenceWait();
 
         // Acquire the next presentation image from the swap-chain.
-        this.imageIndex = swapChain.acquireNextImage();
+        this.imageIndex = swapChain.acquireNextImage(frame);
         if (imageIndex < 0 || window.isResized()) {
+            // Recreate swap-chain.
             recreateSwapchain();
 
+            // Acquire the new sync frame instance.
+            frame = syncFrames[currentFrame];
+
             // Try acquiring the image from the new swap-chain.
-            imageIndex = swapChain.acquireNextImage();
+            imageIndex = swapChain.acquireNextImage(frame);
         }
 
-        return true;
+        return imageIndex;
     }
 
     @Override
@@ -131,9 +154,22 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
     @Override
     public void swapFrames() {
-        if (!swapChain.presentImage(imageIndex)) {
+        var frame = syncFrames[currentFrame];
+
+        var inFlightFrame = framesInFlight.get(imageIndex);
+        if (inFlightFrame != null) {
+            inFlightFrame.fenceWait();
+        }
+        framesInFlight.put(imageIndex, frame);
+
+        var command = swapChain.commandBuffer(imageIndex);
+        command.submit(logicalDevice.graphicsQueue(), frame);
+
+        if (!swapChain.presentImage(frame, imageIndex)) {
             recreateSwapchain();
         }
+
+        this.currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
         window.update();
     }
@@ -171,6 +207,13 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
         if (pipeline != null) {
             pipeline.destroy();
+        }
+
+        framesInFlight.clear();
+
+        for (var i = 0; i < syncFrames.length; ++i) {
+            syncFrames[i].destroy();
+            syncFrames[i] = new SyncFrame(logicalDevice);
         }
 
         this.swapChain = new SwapChain(logicalDevice, surface, config, window.getWidth(), window.getHeight());
@@ -226,6 +269,10 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
         if (program != null) {
             program.destroy();
+        }
+
+        for (var frame : syncFrames) {
+            frame.destroy();
         }
 
         if (swapChain != null) {

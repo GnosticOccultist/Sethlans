@@ -10,14 +10,14 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 class TextureSampler {
 
     private static final int MAX_ANISOTROPY = 16;
-    
+
     private final LogicalDevice device;
 
     private long handle = VK10.VK_NULL_HANDLE;
 
     TextureSampler(LogicalDevice device, int mipLevels, boolean anisotropic) {
         this.device = device;
-        
+
         try (var stack = MemoryStack.stackPush()) {
             var createInfo = VkSamplerCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO)
@@ -36,7 +36,7 @@ class TextureSampler {
                     .mipLodBias(0.0f)
                     .anisotropyEnable(anisotropic)
                     .maxAnisotropy(MAX_ANISOTROPY);
-            
+
             var pHandle = stack.mallocLong(1);
             var err = VK10.vkCreateSampler(device.handle(), createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create texture sampler");
