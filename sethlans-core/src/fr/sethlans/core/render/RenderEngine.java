@@ -11,6 +11,8 @@ public interface RenderEngine {
     int beginRender();
 
     void endRender();
+    
+    void resize();
 
     void swapFrames();
 

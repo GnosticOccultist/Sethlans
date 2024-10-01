@@ -92,7 +92,9 @@ public abstract class SethlansApplication {
     protected abstract void initialize();
 
     public void resize() {
-
+        if (renderEngine != null) {
+            renderEngine.resize();
+        }
     }
 
     protected void update() {
@@ -102,7 +104,8 @@ public abstract class SethlansApplication {
     protected void updateWindowTitle(FrameTimer timer) {
         var window = getWindow();
         var formatter = new DecimalFormat("#.###");
-        window.appendTitle(" | " + timer.averageFps() + " fps @ " + formatter.format(timer.averageTpf() * 1000.0) + " ms");
+        window.appendTitle(
+                " | " + timer.averageFps() + " fps @ " + formatter.format(timer.averageTpf() * 1000.0) + " ms");
     }
 
     protected abstract void render(int imageIndex);

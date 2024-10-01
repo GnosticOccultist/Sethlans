@@ -3,6 +3,7 @@ package fr.sethlans.core.render.vk.command;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 
+import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkBufferCopy;
@@ -163,16 +164,24 @@ public class CommandBuffer {
     }
 
     public CommandBuffer bindDescriptorSets(long pipelineLayoutHandle, LongBuffer pDescriptorSets) {
-        try (var stack = MemoryStack.stackPush()) {
-            VK10.vkCmdBindDescriptorSets(handle, VK10.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutHandle, 0,
-                    pDescriptorSets, null);
-
-            return this;
-        }
+        VK10.vkCmdBindDescriptorSets(handle, VK10.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutHandle, 0,
+                pDescriptorSets, null);
+        return this;
     }
 
-    public CommandBuffer pushConstants(long pipelineLayoutHandle, int stageFlags, ByteBuffer constantBuffer) {
-        VK10.vkCmdPushConstants(handle, pipelineLayoutHandle, stageFlags, 0, constantBuffer);
+    public CommandBuffer pushConstants(long pipelineLayoutHandle, int stageFlags, int offset, Matrix4f matrix) {
+        try (var stack = MemoryStack.stackPush()) {
+            var buffer = stack.malloc(16 * Float.BYTES);
+            matrix.get(buffer);
+            VK10.vkCmdPushConstants(handle, pipelineLayoutHandle, stageFlags, offset, buffer);
+        }
+
+        return this;
+    }
+
+    public CommandBuffer pushConstants(long pipelineLayoutHandle, int stageFlags, int offset,
+            ByteBuffer constantBuffer) {
+        VK10.vkCmdPushConstants(handle, pipelineLayoutHandle, stageFlags, offset, constantBuffer);
         return this;
     }
 

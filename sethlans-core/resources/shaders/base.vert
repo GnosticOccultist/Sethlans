@@ -11,7 +11,7 @@ layout(set = 0, binding = 0) uniform Global {
 } global;
 
 layout(push_constant) uniform matrices {
-    mat4 modelMatrix;
+    mat4 modelViewMatrix;
 	
 } push_constants;
 
@@ -20,5 +20,5 @@ void main() {
 	
 	fragUV = uv;
 
-	gl_Position = global.projectionMatrix * push_constants.modelMatrix * vec4(pos, 1.0);
+	gl_Position = global.projectionMatrix * push_constants.modelViewMatrix * vec4(pos, 1.0);
 }

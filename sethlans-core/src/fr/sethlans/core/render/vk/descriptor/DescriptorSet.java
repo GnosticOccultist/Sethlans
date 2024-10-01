@@ -36,12 +36,16 @@ public class DescriptorSet {
             this.handle = pSetHandles.get(0);
         }
     }
+    
+    public DescriptorSet updateBufferDescriptorSet(VulkanBuffer buffer, int binding, long size) {
+        return updateBufferDescriptorSet(buffer, binding, 0, size);
+    }
 
-    public void updateBufferDescriptorSet(VulkanBuffer buffer, long size, int binding) {
+    public DescriptorSet updateBufferDescriptorSet(VulkanBuffer buffer, int binding, long offset, long size) {
         try (var stack = MemoryStack.stackPush()) {
             var bufferInfo = VkDescriptorBufferInfo.calloc(1, stack)
                     .buffer(buffer.handle())
-                    .offset(0)
+                    .offset(offset)
                     .range(size);
 
             var writeDescriptor = VkWriteDescriptorSet.calloc(1, stack)
@@ -54,9 +58,11 @@ public class DescriptorSet {
 
             VK10.vkUpdateDescriptorSets(device.handle(), writeDescriptor, null);
         }
+        
+        return this;
     }
 
-    public void updateTextureDescriptorSet(Texture texture, int binding) {
+    public DescriptorSet updateTextureDescriptorSet(Texture texture, int binding) {
         try (var stack = MemoryStack.stackPush()) {
             var imageInfo = VkDescriptorImageInfo.calloc(1, stack)
                     .imageLayout(VK10.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
@@ -73,6 +79,8 @@ public class DescriptorSet {
 
             VK10.vkUpdateDescriptorSets(device.handle(), writeDescriptor, null);
         }
+        
+        return this;
     }
 
     public long handle() {

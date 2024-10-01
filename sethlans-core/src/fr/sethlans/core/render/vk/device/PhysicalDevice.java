@@ -31,7 +31,7 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class PhysicalDevice {
 
-    private static final Logger logger = FactoryLogger.getLogger("sethlans-core.vk.device");
+    private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.device");
 
     private VkPhysicalDevice handle;
 
@@ -42,6 +42,8 @@ public class PhysicalDevice {
     private int maxSamplesCount = -1;
 
     private float minSampleShading = 0f;
+    
+    private int maxPushConstantsSize;
 
     private Set<String> availableExtensions;
 
@@ -232,6 +234,7 @@ public class PhysicalDevice {
         VK10.vkGetPhysicalDeviceProperties(handle, properties);
 
         this.name = properties.deviceNameString();
+        this.maxPushConstantsSize = properties.limits().maxPushConstantsSize();
 
         this.type = properties.deviceType();
 
@@ -385,6 +388,10 @@ public class PhysicalDevice {
         assert minSampleShading <= 1f : minSampleShading;
 
         return minSampleShading;
+    }
+    
+    public int maxPushConstantsSize() {
+        return maxPushConstantsSize;
     }
 
     public String name() {

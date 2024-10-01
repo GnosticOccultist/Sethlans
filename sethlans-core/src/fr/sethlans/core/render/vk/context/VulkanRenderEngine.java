@@ -4,22 +4,29 @@ import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.glfwVulkanSupported;
 
 import java.io.IOException;
+import java.nio.LongBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.util.shaderc.Shaderc;
 import org.lwjgl.vulkan.VK10;
 
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.GlfwBasedRenderEngine;
+import fr.sethlans.core.render.Projection;
 import fr.sethlans.core.render.Window;
+import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
+import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.device.PhysicalDevice;
+import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineCache;
 import fr.sethlans.core.render.vk.shader.ShaderProgram;
@@ -49,7 +56,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
     private DescriptorPool descriptorPool;
 
-    private DescriptorSetLayout uniformDescriptorSetLayout;
+    private DescriptorSetLayout globalDescriptorSetLayout;
 
     private DescriptorSetLayout samplerDescriptorSetLayout;
 
@@ -64,6 +71,16 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
     private PipelineCache pipelineCache;
 
     private Pipeline pipeline;
+
+    private Projection projection;
+
+    public Matrix4f viewMatrix;
+
+    private VulkanBuffer globalUniform;
+
+    private DescriptorSet globalDescriptorSet;
+
+    private LongBuffer descriptorSets;
 
     public VulkanRenderEngine(SethlansApplication application) {
         super(application);
@@ -100,7 +117,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
         this.descriptorPool = new DescriptorPool(logicalDevice, 16);
 
-        this.uniformDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0,
+        this.globalDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0,
                 VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK10.VK_SHADER_STAGE_VERTEX_BIT);
         this.samplerDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0,
                 VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK10.VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -122,7 +139,22 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
         this.pipelineCache = new PipelineCache(logicalDevice);
         this.pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program,
-                new DescriptorSetLayout[] { uniformDescriptorSetLayout, samplerDescriptorSetLayout });
+                new DescriptorSetLayout[] { globalDescriptorSetLayout, samplerDescriptorSetLayout });
+
+        this.projection = new Projection(window.getWidth(), window.getHeight());
+        this.viewMatrix = new Matrix4f();
+
+        this.globalUniform = new VulkanBuffer(logicalDevice, 16 * Float.BYTES, VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        this.globalUniform.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        var matrixBuffer = globalUniform.map();
+        projection.store(0, matrixBuffer);
+        globalUniform.unmap();
+
+        this.globalDescriptorSet = new DescriptorSet(logicalDevice, descriptorPool(), globalDescriptorSetLayout)
+                .updateBufferDescriptorSet(globalUniform, 0, 16 * Float.BYTES);
+
+        this.descriptorSets = MemoryUtil.memAllocLong(2);
+        putDescriptorSets(0, globalDescriptorSet);
     }
 
     @Override
@@ -182,6 +214,10 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         }
     }
 
+    public void putDescriptorSets(int index, DescriptorSet descriptorSet) {
+        this.descriptorSets.put(index, descriptorSet.handle());
+    }
+
     private void recreateSwapchain() {
         try (var stack = MemoryStack.stackPush()) {
             var windowHandle = window.handle();
@@ -218,12 +254,26 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
         this.swapChain = new SwapChain(logicalDevice, surface, config, window.getWidth(), window.getHeight());
         this.pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program,
-                new DescriptorSetLayout[] { uniformDescriptorSetLayout, samplerDescriptorSetLayout });
+                new DescriptorSetLayout[] { globalDescriptorSetLayout, samplerDescriptorSetLayout });
         try (var stack = MemoryStack.stackPush()) {
             window.resize(swapChain.framebufferExtent(stack));
         }
 
         application.resize();
+    }
+
+    @Override
+    public void resize() {
+        projection.update(getWindow().getWidth(), getWindow().getHeight());
+
+        var matrixBuffer = globalUniform.map();
+        projection.store(0, matrixBuffer);
+        globalUniform.unmap();
+    }
+
+    public CommandBuffer bindDescriptorSets(CommandBuffer command) {
+        command.bindDescriptorSets(pipeline.layoutHandle(), descriptorSets);
+        return command;
     }
 
     public VulkanInstance getVulkanInstance() {
@@ -247,7 +297,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
     }
 
     public DescriptorSetLayout uniformDescriptorSetLayout() {
-        return uniformDescriptorSetLayout;
+        return globalDescriptorSetLayout;
     }
 
     public DescriptorSetLayout samplerDescriptorSetLayout() {
@@ -258,6 +308,11 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
     public void terminate() {
 
         logger.info("Destroying Vulkan resources");
+
+        globalUniform.destroy();
+        globalDescriptorSet.destroy();
+
+        MemoryUtil.memFree(descriptorSets);
 
         if (pipeline != null) {
             pipeline.destroy();
@@ -280,8 +335,8 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
             swapChain = null;
         }
 
-        if (uniformDescriptorSetLayout != null) {
-            uniformDescriptorSetLayout.destroy();
+        if (globalDescriptorSetLayout != null) {
+            globalDescriptorSetLayout.destroy();
         }
 
         if (samplerDescriptorSetLayout != null) {

@@ -2,7 +2,6 @@ package fr.sethlans.core;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.LongBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
@@ -16,12 +15,10 @@ import org.lwjgl.vulkan.VK10;
 
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
-import fr.sethlans.core.render.Projection;
 import fr.sethlans.core.render.vk.context.VulkanRenderEngine;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.image.Texture;
 import fr.sethlans.core.render.vk.memory.DeviceBuffer;
-import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 
 public class SethlansTest extends SethlansApplication {
 
@@ -32,29 +29,30 @@ public class SethlansTest extends SethlansApplication {
     private ByteBuffer buffer;
     private Quaternionf rotation;
     private Matrix4f modelMatrix;
-    private LongBuffer descriptorSets;
     private DeviceBuffer vertexBuffer;
     private DeviceBuffer indexBuffer;
-    private DescriptorSet projMatrixDescriptorSet;
     private DescriptorSet samplerDescriptorSet;
     private double angle;
     private Texture texture;
-    private VulkanBuffer projMatrixUniform;
-    private Projection projection;
 
     @Override
     protected void prepare(ConfigFile appConfig) {
-        appConfig.addString(APP_NAME_PROP, "Sethlans Demo").addInteger(APP_MAJOR_PROP, 1).addInteger(APP_MINOR_PROP, 0)
-                .addInteger(APP_PATCH_PROP, 0).addBoolean(GRAPHICS_DEBUG_PROP, true).addBoolean(VSYNC_PROP, false)
-                .addInteger(MSAA_SAMPLES_PROP, 4).addString(WINDOW_TITLE_PROP, "Sethlans Demo")
-                .addInteger(WINDOW_WIDTH_PROP, 800).addInteger(WINDOW_HEIGHT_PROP, 600);
+        appConfig.addString(APP_NAME_PROP, "Sethlans Demo")
+                .addInteger(APP_MAJOR_PROP, 1)
+                .addInteger(APP_MINOR_PROP, 0)
+                .addInteger(APP_PATCH_PROP, 0)
+                .addBoolean(GRAPHICS_DEBUG_PROP, true)
+                .addBoolean(VSYNC_PROP, false)
+                .addInteger(MSAA_SAMPLES_PROP, 4)
+                .addString(WINDOW_TITLE_PROP, "Sethlans Demo")
+                .addInteger(WINDOW_WIDTH_PROP, 800)
+                .addInteger(WINDOW_HEIGHT_PROP, 600);
     }
 
     @Override
     protected void initialize() {
         var renderEngine = ((VulkanRenderEngine) getRenderEngine());
         var logicalDevice = renderEngine.getLogicalDevice();
-        var window = getWindow();
 
         vertexBuffer = new DeviceBuffer(logicalDevice, 40 * Float.BYTES,
                 VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) {
@@ -136,78 +134,49 @@ public class SethlansTest extends SethlansApplication {
             throw new RuntimeException(ex);
         }
 
-        projection = new Projection(window.getWidth(), window.getHeight());
-
-        projMatrixUniform = new VulkanBuffer(logicalDevice, 16 * Float.BYTES, VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-        projMatrixUniform.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        var matrixBuffer = projMatrixUniform.map();
-        projection.store(0, matrixBuffer);
-        projMatrixUniform.unmap();
-
-        projMatrixDescriptorSet = new DescriptorSet(logicalDevice, renderEngine.descriptorPool(),
-                renderEngine.uniformDescriptorSetLayout());
-        projMatrixDescriptorSet.updateBufferDescriptorSet(projMatrixUniform, 16 * Float.BYTES, 0);
-
         samplerDescriptorSet = new DescriptorSet(logicalDevice, renderEngine.descriptorPool(),
-                renderEngine.samplerDescriptorSetLayout());
-        samplerDescriptorSet.updateTextureDescriptorSet(texture, 0);
+                renderEngine.samplerDescriptorSetLayout()).updateTextureDescriptorSet(texture, 0);
 
         buffer = MemoryUtil.memAlloc(16 * Float.BYTES);
         rotation = new Quaternionf();
         modelMatrix = new Matrix4f();
 
-        descriptorSets = MemoryUtil.memAllocLong(2);
-    }
-
-    @Override
-    public void resize() {
-        super.resize();
-
-        projection.update(getWindow().getWidth(), getWindow().getHeight());
-
-        var matrixBuffer = projMatrixUniform.map();
-        projection.store(0, matrixBuffer);
-        projMatrixUniform.unmap();
+        renderEngine.putDescriptorSets(1, samplerDescriptorSet);
     }
 
     @Override
     protected void render(int imageIndex) {
-        var swapChain = ((VulkanRenderEngine) getRenderEngine()).getSwapChain();
-        var pipeline = ((VulkanRenderEngine) getRenderEngine()).getPipeline();
+        var renderEngine = (VulkanRenderEngine) getRenderEngine();
+        var swapChain = renderEngine.getSwapChain();
+        var pipeline = renderEngine.getPipeline();
 
         angle += 0.1f;
         angle %= 360;
 
-        buffer.clear();
-
         rotation.identity().rotateAxis((float) Math.toRadians(angle), new Vector3f(0, 1, 0));
         modelMatrix.identity().translationRotateScale(new Vector3f(0, 0, -3f), rotation, 1);
 
-        modelMatrix.get(0, buffer);
-
-        descriptorSets.put(0, projMatrixDescriptorSet.handle());
-        descriptorSets.put(1, samplerDescriptorSet.handle());
-
         swapChain.commandBuffer(imageIndex).reset().beginRecording()
                 .beginRenderPass(swapChain, swapChain.frameBuffer(imageIndex), swapChain.renderPass())
-                .bindPipeline(pipeline.handle()).bindVertexBuffer(vertexBuffer).bindIndexBuffer(indexBuffer)
-                .bindDescriptorSets(pipeline.layoutHandle(), descriptorSets)
-                .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, buffer).drawIndexed(36)
-                .endRenderPass().end();
+                .bindPipeline(pipeline.handle());
+        renderEngine.bindDescriptorSets(swapChain.commandBuffer(imageIndex))
+                .bindVertexBuffer(vertexBuffer)
+                .bindIndexBuffer(indexBuffer)
+                .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, modelMatrix.mul(renderEngine.viewMatrix))
+                .drawIndexed(36)
+                .endRenderPass()
+                .end();
     }
 
     @Override
     protected void cleanup() {
         MemoryUtil.memFree(buffer);
-        MemoryUtil.memFree(descriptorSets);
 
         texture.destroy();
 
         vertexBuffer.destroy();
         indexBuffer.destroy();
 
-        projMatrixUniform.destroy();
-        projMatrixDescriptorSet.destroy();
         samplerDescriptorSet.destroy();
     }
 }

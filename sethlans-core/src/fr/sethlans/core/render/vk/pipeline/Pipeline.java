@@ -19,6 +19,8 @@ import org.lwjgl.vulkan.VkVertexInputAttributeDescription;
 import org.lwjgl.vulkan.VkVertexInputBindingDescription;
 import org.lwjgl.vulkan.VkViewport;
 
+import fr.alchemy.utilities.logging.FactoryLogger;
+import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.shader.ShaderProgram;
@@ -26,6 +28,8 @@ import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class Pipeline {
+    
+    private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.pipeline");
 
     private final LogicalDevice device;
 
@@ -44,7 +48,9 @@ public class Pipeline {
             pAttribs.get(1).binding(0).location(1).format(VK10.VK_FORMAT_R32G32B32_SFLOAT).offset(3 * Float.BYTES);
 
             var pBindings = VkVertexInputBindingDescription.calloc(1, stack);
-            pBindings.get(0).binding(0).stride(3 * Float.BYTES + 2 * Float.BYTES)
+            pBindings.get(0)
+                    .binding(0)
+                    .stride(3 * Float.BYTES + 2 * Float.BYTES)
                     .inputRate(VK10.VK_VERTEX_INPUT_RATE_VERTEX);
 
             var visCreateInfo = VkPipelineVertexInputStateCreateInfo.calloc(stack)
@@ -119,10 +125,18 @@ public class Pipeline {
                     .pAttachments(cbaState);
 
             // Create a push constant state.
+            var pushSize = 16 * Float.BYTES; // 4x4 floating point matrix.
+            var maxPush = device.physicalDevice().maxPushConstantsSize();
+            if (pushSize > device.physicalDevice().maxPushConstantsSize()) {
+                logger.warning("Physical device " + device.physicalDevice() + " only support up to " + maxPush
+                        + " bytes as push constants, but requested " + pushSize + " bytes!");
+                pushSize = maxPush;
+            }
+            
             var vpcr = VkPushConstantRange.calloc(1, stack)
                     .stageFlags(VK10.VK_SHADER_STAGE_VERTEX_BIT)
                     .offset(0)
-                    .size(16 * Float.BYTES); // 4x4 floating point matrices.
+                    .size(pushSize);
 
             // Define descriptor-set layouts.
             var numLayouts = descriptorSetLayouts != null ? descriptorSetLayouts.length : 0;
