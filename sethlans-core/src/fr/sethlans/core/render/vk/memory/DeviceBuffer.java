@@ -9,8 +9,6 @@ import fr.sethlans.core.render.vk.sync.Fence;
 
 public class DeviceBuffer {
 
-    private final LogicalDevice device;
-
     private final long size;
 
     private final int usage;
@@ -20,7 +18,6 @@ public class DeviceBuffer {
     private VulkanBuffer buffer;
 
     public DeviceBuffer(LogicalDevice device, long size, int usage) {
-        this.device = device;
         this.size = size;
         this.usage = usage;
 
@@ -60,6 +57,14 @@ public class DeviceBuffer {
 
     protected void populate(ByteBuffer data) {
 
+    }
+
+    public long size() {
+        return size;
+    }
+
+    public int usage() {
+        return usage;
     }
 
     public long handle() {

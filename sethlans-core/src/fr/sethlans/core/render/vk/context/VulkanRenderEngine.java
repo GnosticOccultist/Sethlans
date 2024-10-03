@@ -288,8 +288,8 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         }
 
         this.swapChain = new SwapChain(logicalDevice, surface, config, window.getWidth(), window.getHeight());
-        this.pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program,
-                new DescriptorSetLayout[] { globalDescriptorSetLayout, samplerDescriptorSetLayout });
+        this.pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program, new DescriptorSetLayout[] {
+                globalDescriptorSetLayout, dynamicDescriptorSetLayout, samplerDescriptorSetLayout });
         try (var stack = MemoryStack.stackPush()) {
             window.resize(swapChain.framebufferExtent(stack));
         }
@@ -371,6 +371,10 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
         if (globalDescriptorSetLayout != null) {
             globalDescriptorSetLayout.destroy();
+        }
+
+        if (dynamicDescriptorSetLayout != null) {
+            dynamicDescriptorSetLayout.destroy();
         }
 
         if (samplerDescriptorSetLayout != null) {
