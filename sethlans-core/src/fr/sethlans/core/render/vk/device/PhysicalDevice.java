@@ -47,16 +47,18 @@ public class PhysicalDevice {
     private int maxSamplesCount = -1;
 
     private float minSampleShading = 0f;
-    
+
     private long minUboAlignment = -1;
-    
+
     private int maxPushConstantsSize = -1;
+
+    private boolean byteIndexSupported;
+
+    private float maxAnisotropy;
 
     private Set<String> availableExtensions;
 
     private Set<String> availableToolProperties;
-
-    private boolean byteIndexSupported;
 
     public PhysicalDevice(long handle, VulkanInstance instance) {
         this.handle = new VkPhysicalDevice(handle, instance.handle());
@@ -132,8 +134,14 @@ public class PhysicalDevice {
                 features.sampleRateShading(enableSampleShading);
                 this.minSampleShading = Math.min(minSampleShading, 1.0f);
             }
-
-            features.samplerAnisotropy(true);
+            
+            if (!features.samplerAnisotropy()) {
+                logger.warning(
+                        "Physical device " + this + " doesn't support anisotropic filtering for texture sampling.");
+                this.maxAnisotropy = 0;
+            } else {
+                features.samplerAnisotropy(true);
+            }
 
             createInfo.pEnabledFeatures(features);
             
@@ -270,6 +278,7 @@ public class PhysicalDevice {
         this.name = properties.deviceNameString();
         this.maxPushConstantsSize = properties.limits().maxPushConstantsSize();
         this.minUboAlignment = properties.limits().minUniformBufferOffsetAlignment();
+        this.maxAnisotropy = properties.limits().maxSamplerAnisotropy();
 
         this.type = properties.deviceType();
 
@@ -447,6 +456,14 @@ public class PhysicalDevice {
 
     public boolean supportsByteIndex() {
         return byteIndexSupported;
+    }
+
+    public float maxAnisotropy() {
+        return maxAnisotropy;
+    }
+    
+    public boolean supportsAnisotropicFiltering() {
+        return maxAnisotropy > 0.0f;
     }
 
     public String name() {

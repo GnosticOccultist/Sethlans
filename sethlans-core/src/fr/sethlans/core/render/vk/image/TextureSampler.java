@@ -9,16 +9,17 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 
 class TextureSampler {
 
-    private static final int MAX_ANISOTROPY = 16;
-
-    private final LogicalDevice device;
+    private final LogicalDevice logicalDevice;
 
     private long handle = VK10.VK_NULL_HANDLE;
 
-    TextureSampler(LogicalDevice device, int mipLevels, boolean anisotropic) {
-        this.device = device;
+    TextureSampler(LogicalDevice logicalDevice, int mipLevels, boolean anisotropic) {
+        this.logicalDevice = logicalDevice;
 
         try (var stack = MemoryStack.stackPush()) {
+            var physicalDevice = logicalDevice.physicalDevice();
+            var useAnisotropicFilter = anisotropic && physicalDevice.supportsAnisotropicFiltering();
+            
             var createInfo = VkSamplerCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO)
                     .magFilter(VK10.VK_FILTER_LINEAR)
@@ -34,11 +35,11 @@ class TextureSampler {
                     .minLod(0.0f)
                     .maxLod(mipLevels)
                     .mipLodBias(0.0f)
-                    .anisotropyEnable(anisotropic)
-                    .maxAnisotropy(MAX_ANISOTROPY);
+                    .anisotropyEnable(useAnisotropicFilter)
+                    .maxAnisotropy(physicalDevice.maxAnisotropy());
 
             var pHandle = stack.mallocLong(1);
-            var err = VK10.vkCreateSampler(device.handle(), createInfo, null, pHandle);
+            var err = VK10.vkCreateSampler(logicalDevice.handle(), createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create texture sampler");
             this.handle = pHandle.get(0);
         }
@@ -50,7 +51,7 @@ class TextureSampler {
 
     public void destroy() {
         if (handle != VK10.VK_NULL_HANDLE) {
-            VK10.vkDestroySampler(device.handle(), handle, null);
+            VK10.vkDestroySampler(logicalDevice.handle(), handle, null);
             this.handle = VK10.VK_NULL_HANDLE;
         }
     }

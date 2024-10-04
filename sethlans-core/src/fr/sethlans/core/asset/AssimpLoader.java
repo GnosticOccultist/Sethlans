@@ -24,7 +24,7 @@ public class AssimpLoader {
         if (debug) {
             var logStream = AILogStream.create();
             String filename = null;
-            logStream = Assimp.aiGetPredefinedLogStream(Assimp.aiDefaultLogStream_STDOUT, filename, logStream);
+            logStream = Assimp.aiGetPredefinedLogStream(Assimp.aiDefaultLogStream_STDERR, filename, logStream);
             Assimp.aiAttachLogStream(logStream);
             Assimp.aiEnableVerboseLogging(true);
         }
