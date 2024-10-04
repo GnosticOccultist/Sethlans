@@ -4,9 +4,11 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.KHRIndexTypeUint8;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
+import org.lwjgl.vulkan.VK11;
 import org.lwjgl.vulkan.VK13;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkDeviceCreateInfo;
@@ -15,6 +17,8 @@ import org.lwjgl.vulkan.VkExtensionProperties;
 import org.lwjgl.vulkan.VkFormatProperties;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures;
+import org.lwjgl.vulkan.VkPhysicalDeviceFeatures2;
+import org.lwjgl.vulkan.VkPhysicalDeviceIndexTypeUint8FeaturesKHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties;
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
 import org.lwjgl.vulkan.VkPhysicalDeviceToolProperties;
@@ -51,6 +55,8 @@ public class PhysicalDevice {
 
     private Set<String> availableToolProperties;
 
+    private boolean byteIndexSupported;
+
     public PhysicalDevice(long handle, VulkanInstance instance) {
         this.handle = new VkPhysicalDevice(handle, instance.handle());
     }
@@ -70,12 +76,17 @@ public class PhysicalDevice {
             logger.error("Swapchain support isn't adequate for " + this);
             return 0f;
         }
-
+        
         try (var stack = MemoryStack.stackPush()) {
             var properties = gatherQueueFamilyProperties(stack, surfaceHandle);
             if (!properties.hasGraphics() || !properties.hasPresentation()) {
                 return 0f;
             }
+        }
+        
+        // This is a plus if the device supports extension for uint8 index value.
+        if (hasExtension(KHRIndexTypeUint8.VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME)) {
+            score += 10f;
         }
 
         // Discrete GPUs have a significant performance advantage over integrated GPUs.
@@ -123,6 +134,20 @@ public class PhysicalDevice {
             features.samplerAnisotropy(true);
 
             createInfo.pEnabledFeatures(features);
+            
+            var uint8Features = VkPhysicalDeviceIndexTypeUint8FeaturesKHR.calloc(stack)
+                    .sType(KHRIndexTypeUint8.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_KHR);
+            
+            var features2 = VkPhysicalDeviceFeatures2.calloc(stack)
+                    .sType(VK11.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2)
+                    .pNext(uint8Features)
+                    .features(features);
+            
+            // Request features2 for the physical device.
+            VK11.vkGetPhysicalDeviceFeatures2(handle, features2);
+            
+            this.byteIndexSupported = uint8Features.indexTypeUint8();
+            createInfo.pNext(features2);
 
             // Enable all available queue families.
             var properties = gatherQueueFamilyProperties(stack, surfaceHandle);
@@ -411,6 +436,10 @@ public class PhysicalDevice {
         }
 
         return minUboAlignment;
+    }
+
+    public boolean supportsByteIndex() {
+        return byteIndexSupported;
     }
 
     public String name() {

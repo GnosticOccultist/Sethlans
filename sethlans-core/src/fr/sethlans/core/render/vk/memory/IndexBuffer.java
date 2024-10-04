@@ -14,7 +14,7 @@ public class IndexBuffer {
     private final DeviceBuffer deviceBuffer;
 
     private final int elementType;
-    
+
     private final int elementCount;
 
     public IndexBuffer(LogicalDevice logicalDevice, Collection<Integer> indices) {
@@ -23,17 +23,17 @@ public class IndexBuffer {
         var maxVertices = 1 + maxIndex;
 
         var bytesPerElement = 1;
-        if (maxVertices > (1 << 16)) {
-            this.elementType = VK10.VK_INDEX_TYPE_UINT32;
-            bytesPerElement = Integer.BYTES;
+        if (logicalDevice.physicalDevice().supportsByteIndex() && maxVertices <= (1 << 8)) {
+            this.elementType = KHRIndexTypeUint8.VK_INDEX_TYPE_UINT8_KHR;
+            bytesPerElement = 1;
 
-        } else if (maxVertices > (1 << 8)) {
+        } else if (maxVertices <= (1 << 16)) {
             this.elementType = VK10.VK_INDEX_TYPE_UINT16;
             bytesPerElement = Short.BYTES;
 
         } else {
-            this.elementType = KHRIndexTypeUint8.VK_INDEX_TYPE_UINT8_KHR;
-            bytesPerElement = 1;
+            this.elementType = VK10.VK_INDEX_TYPE_UINT32;
+            bytesPerElement = Integer.BYTES;
         }
 
         this.deviceBuffer = new DeviceBuffer(logicalDevice, indices.size() * bytesPerElement,
