@@ -161,7 +161,7 @@ public class SethlansTest extends SethlansApplication {
                 .bindPipeline(pipeline.handle());
         renderEngine.bindDescriptorSets(swapChain.commandBuffer(imageIndex))
                 .bindVertexBuffer(vertexBuffer)
-                .bindIndexBuffer(indexBuffer)
+                .bindIndexBuffer(indexBuffer, VK10.VK_INDEX_TYPE_UINT32)
                 .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, modelMatrix)
                 .drawIndexed(36)
                 .endRenderPass()

@@ -22,7 +22,8 @@ import fr.sethlans.core.asset.Vertex;
 import fr.sethlans.core.render.vk.context.VulkanRenderEngine;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.image.Texture;
-import fr.sethlans.core.render.vk.memory.DeviceBuffer;
+import fr.sethlans.core.render.vk.memory.IndexBuffer;
+import fr.sethlans.core.render.vk.memory.VertexBuffer;
 
 public class AssimpTest extends SethlansApplication {
 
@@ -30,9 +31,9 @@ public class AssimpTest extends SethlansApplication {
 
     private Texture texture;
 
-    private DeviceBuffer vertexBuffer;
+    private VertexBuffer vertexBuffer;
 
-    private DeviceBuffer indexBuffer;
+    private IndexBuffer indexBuffer;
 
     private ByteBuffer buffer;
 
@@ -69,33 +70,9 @@ public class AssimpTest extends SethlansApplication {
         var indices = new ArrayList<Integer>();
         AssimpLoader.load("resources/models/viking_room/viking_room.obj", Assimp.aiProcess_FlipUVs, true, vertices, indices);
 
-        vertexBuffer = new DeviceBuffer(logicalDevice, vertices.size() * (2 + 3) * Float.BYTES,
-                VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) {
+        vertexBuffer = new VertexBuffer(logicalDevice, vertices, 2 + 3);
 
-            @Override
-            protected void populate(ByteBuffer data) {
-                for (var i = 0; i < vertices.size(); ++i) {
-                    var pos = vertices.get(i).position();
-                    var texCoord = vertices.get(i).texCoords();
-                    data.putFloat(pos.x()).putFloat(pos.y()).putFloat(pos.z());
-                    data.putFloat(texCoord.x()).putFloat(texCoord.y());
-                }
-            }
-
-        };
-
-        indexBuffer = new DeviceBuffer(logicalDevice, indices.size() * Integer.BYTES,
-                VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_INDEX_BUFFER_BIT) {
-
-            @Override
-            protected void populate(ByteBuffer data) {
-                for (var i = 0; i < indices.size(); ++i) {
-                    var index = indices.get(i);
-                    data.putInt(index);
-                }
-            }
-
-        };
+        indexBuffer = new IndexBuffer(logicalDevice, indices);
 
         ImageIO.setUseCache(false);
         try (var is = Files.newInputStream(Paths.get("resources/models/viking_room/viking_room.png"))) {
@@ -156,10 +133,12 @@ public class AssimpTest extends SethlansApplication {
         swapChain.commandBuffer(imageIndex).reset().beginRecording()
                 .beginRenderPass(swapChain, swapChain.frameBuffer(imageIndex), swapChain.renderPass())
                 .bindPipeline(pipeline.handle());
-        renderEngine.bindDescriptorSets(swapChain.commandBuffer(imageIndex)).bindVertexBuffer(vertexBuffer)
+        renderEngine.bindDescriptorSets(swapChain.commandBuffer(imageIndex))
+                .bindVertexBuffer(vertexBuffer)
                 .bindIndexBuffer(indexBuffer)
                 .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, modelMatrix)
-                .drawIndexed((int) indexBuffer.size() / 4).endRenderPass().end();
+                .drawIndexed(indexBuffer.elementCount())
+                .endRenderPass().end();
     }
 
     @Override

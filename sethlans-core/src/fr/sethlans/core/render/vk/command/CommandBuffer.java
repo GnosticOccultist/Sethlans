@@ -23,6 +23,8 @@ import org.lwjgl.vulkan.VkSubmitInfo;
 
 import fr.sethlans.core.render.vk.image.Image;
 import fr.sethlans.core.render.vk.memory.DeviceBuffer;
+import fr.sethlans.core.render.vk.memory.IndexBuffer;
+import fr.sethlans.core.render.vk.memory.VertexBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.swapchain.FrameBuffer;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
@@ -141,6 +143,10 @@ public class CommandBuffer {
 
         return this;
     }
+    
+    public CommandBuffer bindVertexBuffer(VertexBuffer buffer) {
+        return bindVertexBuffer(buffer.deviceBuffer());
+    }
 
     public CommandBuffer bindVertexBuffer(DeviceBuffer buffer) {
         try (var stack = MemoryStack.stackPush()) {
@@ -153,9 +159,13 @@ public class CommandBuffer {
 
         return this;
     }
+    
+    public CommandBuffer bindIndexBuffer(IndexBuffer indexBuffer) {
+        return bindIndexBuffer(indexBuffer.deviceBuffer(), indexBuffer.elementType());
+    }
 
-    public CommandBuffer bindIndexBuffer(DeviceBuffer buffer) {
-        VK10.vkCmdBindIndexBuffer(handle, buffer.handle(), 0, VK10.VK_INDEX_TYPE_UINT32);
+    public CommandBuffer bindIndexBuffer(DeviceBuffer buffer, int indexType) {
+        VK10.vkCmdBindIndexBuffer(handle, buffer.handle(), 0, indexType);
         return this;
     }
 
