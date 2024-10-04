@@ -14,6 +14,18 @@ public final class VertexBuffer {
 
     private final int fpv;
 
+    public VertexBuffer(LogicalDevice logicalDevice, float[] vertexData, int fpv) {
+        this.fpv = fpv;
+        this.deviceBuffer = new DeviceBuffer(logicalDevice, vertexData.length * Float.BYTES,
+                VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) {
+
+            @Override
+            protected void populate(ByteBuffer data) {
+                data.asFloatBuffer().put(vertexData);
+            }
+        };
+    }
+
     public VertexBuffer(LogicalDevice logicalDevice, Collection<Vertex> vertices, int fpv) {
         this.fpv = fpv;
         this.deviceBuffer = new DeviceBuffer(logicalDevice, vertices.size() * fpv * Float.BYTES,

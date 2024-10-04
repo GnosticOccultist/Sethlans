@@ -202,6 +202,11 @@ public class CommandBuffer {
         VK10.vkCmdPushConstants(handle, pipelineLayoutHandle, stageFlags, offset, constantBuffer);
         return this;
     }
+    
+    public CommandBuffer drawIndexed(IndexBuffer indexBuffer) {
+        VK10.vkCmdDrawIndexed(handle, indexBuffer.elementCount(), 1, 0, 0, 0);
+        return this;
+    }
 
     public CommandBuffer drawIndexed(int indicesCount) {
         VK10.vkCmdDrawIndexed(handle, indicesCount, 1, 0, 0, 0);

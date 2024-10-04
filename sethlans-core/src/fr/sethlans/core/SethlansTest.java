@@ -18,7 +18,8 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.vk.context.VulkanRenderEngine;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.image.Texture;
-import fr.sethlans.core.render.vk.memory.DeviceBuffer;
+import fr.sethlans.core.render.vk.memory.IndexBuffer;
+import fr.sethlans.core.render.vk.memory.VertexBuffer;
 
 public class SethlansTest extends SethlansApplication {
 
@@ -29,11 +30,39 @@ public class SethlansTest extends SethlansApplication {
     private ByteBuffer buffer;
     private Quaternionf rotation;
     private Matrix4f modelMatrix;
-    private DeviceBuffer vertexBuffer;
-    private DeviceBuffer indexBuffer;
+    private VertexBuffer vertexBuffer;
+    private IndexBuffer indexBuffer;
     private DescriptorSet samplerDescriptorSet;
     private double angle;
     private Texture texture;
+    
+    private static final float[] VERTEX_DATA = new float[] {
+            -0.5f, 0.5f, 0.5f,
+            0.0f, 1.0f,
+            -0.5f, -0.5f, 0.5f,
+            0.0f, 0.0f,
+            0.5f, -0.5f, 0.5f,
+            1.0f, 0.0f,
+            0.5f, 0.5f, 0.5f,
+            1.0f, 1.0f,
+            -0.5f, 0.5f, -0.5f,
+            0.0f, 1.0f,
+            0.5f, 0.5f, -0.5f,
+            1.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f,
+            0.0f, 0.0f,
+            0.5f, -0.5f, -0.5f,
+            1.0f, 0.0f
+    };
+    
+    private static final int[] INDICES = new int[] {
+            0, 1, 3, 3, 1, 2,
+            4, 0, 3, 5, 4, 3,
+            3, 2, 7, 5, 3, 7,
+            6, 1, 0, 6, 0, 4, 
+            2, 1, 6, 2, 6, 7, 
+            7, 6, 4, 7, 4, 5
+    };
 
     @Override
     protected void prepare(ConfigFile appConfig) {
@@ -54,52 +83,8 @@ public class SethlansTest extends SethlansApplication {
         var renderEngine = ((VulkanRenderEngine) getRenderEngine());
         var logicalDevice = renderEngine.getLogicalDevice();
 
-        vertexBuffer = new DeviceBuffer(logicalDevice, 40 * Float.BYTES,
-                VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) {
-
-            @Override
-            protected void populate(ByteBuffer data) {
-                data.putFloat(-0.5f).putFloat(0.5f).putFloat(0.5f);
-                data.putFloat(0.0f).putFloat(1.0f);
-
-                data.putFloat(-0.5f).putFloat(-0.5f).putFloat(0.5f);
-                data.putFloat(0.0f).putFloat(0.0f);
-
-                data.putFloat(0.5f).putFloat(-0.5f).putFloat(0.5f);
-                data.putFloat(1.0f).putFloat(0.0f);
-
-                data.putFloat(0.5f).putFloat(0.5f).putFloat(0.5f);
-                data.putFloat(1.0f).putFloat(1.0f);
-
-                data.putFloat(-0.5f).putFloat(0.5f).putFloat(-0.5f);
-                data.putFloat(0.0f).putFloat(1.0f);
-
-                data.putFloat(0.5f).putFloat(0.5f).putFloat(-0.5f);
-                data.putFloat(1.0f).putFloat(1.0f);
-
-                data.putFloat(-0.5f).putFloat(-0.5f).putFloat(-0.5f);
-                data.putFloat(0.0f).putFloat(0.0f);
-
-                data.putFloat(0.5f).putFloat(-0.5f).putFloat(-0.5f);
-                data.putFloat(1.0f).putFloat(0.0f);
-            }
-
-        };
-        indexBuffer = new DeviceBuffer(logicalDevice, 36 * Integer.BYTES,
-                VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_INDEX_BUFFER_BIT) {
-
-            @Override
-            protected void populate(ByteBuffer data) {
-                data.putInt(0).putInt(1).putInt(3).putInt(3).putInt(1).putInt(2);
-                data.putInt(4).putInt(0).putInt(3).putInt(5).putInt(4).putInt(3);
-                data.putInt(3).putInt(2).putInt(7).putInt(5).putInt(3).putInt(7);
-
-                data.putInt(6).putInt(1).putInt(0).putInt(6).putInt(0).putInt(4);
-                data.putInt(2).putInt(1).putInt(6).putInt(2).putInt(6).putInt(7);
-                data.putInt(7).putInt(6).putInt(4).putInt(7).putInt(4).putInt(5);
-            }
-
-        };
+        vertexBuffer = new VertexBuffer(logicalDevice, VERTEX_DATA, 5);
+        indexBuffer = new IndexBuffer(logicalDevice, INDICES);
 
         ImageIO.setUseCache(false);
         try (var is = Files.newInputStream(Paths.get("resources/textures/vulkan-logo.png"))) {
@@ -161,9 +146,9 @@ public class SethlansTest extends SethlansApplication {
                 .bindPipeline(pipeline.handle());
         renderEngine.bindDescriptorSets(swapChain.commandBuffer(imageIndex))
                 .bindVertexBuffer(vertexBuffer)
-                .bindIndexBuffer(indexBuffer, VK10.VK_INDEX_TYPE_UINT32)
+                .bindIndexBuffer(indexBuffer)
                 .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, modelMatrix)
-                .drawIndexed(36)
+                .drawIndexed(indexBuffer)
                 .endRenderPass()
                 .end();
     }

@@ -4,6 +4,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.EXTIndexTypeUint8;
 import org.lwjgl.vulkan.KHRIndexTypeUint8;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
@@ -85,7 +86,8 @@ public class PhysicalDevice {
         }
         
         // This is a plus if the device supports extension for uint8 index value.
-        if (hasExtension(KHRIndexTypeUint8.VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME)) {
+        if (hasExtension(EXTIndexTypeUint8.VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME)
+                || hasExtension(KHRIndexTypeUint8.VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME)) {
             score += 10f;
         }
 
@@ -137,18 +139,21 @@ public class PhysicalDevice {
             
             var uint8Features = VkPhysicalDeviceIndexTypeUint8FeaturesKHR.calloc(stack)
                     .sType(KHRIndexTypeUint8.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_KHR);
-            
+
             var features2 = VkPhysicalDeviceFeatures2.calloc(stack)
                     .sType(VK11.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2)
-                    .pNext(uint8Features)
-                    .features(features);
-            
+                    .pNext(uint8Features);
+
             // Request features2 for the physical device.
             VK11.vkGetPhysicalDeviceFeatures2(handle, features2);
-            
-            this.byteIndexSupported = uint8Features.indexTypeUint8();
-            createInfo.pNext(features2);
+            if (uint8Features.indexTypeUint8()) {
+                uint8Features.indexTypeUint8(true);
+                this.byteIndexSupported = true;
 
+                // Request uint8 indices support.
+                createInfo.pNext(uint8Features);
+            }
+            
             // Enable all available queue families.
             var properties = gatherQueueFamilyProperties(stack, surfaceHandle);
             var familiesBuff = properties.listFamilies(stack);
@@ -166,8 +171,10 @@ public class PhysicalDevice {
 
             var requiredExtensions = stack.mallocPointer(1);
             requiredExtensions.put(stack.UTF8Safe(KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME));
-            requiredExtensions.rewind();
-
+            if (supportsByteIndex()) {
+                requiredExtensions = VkUtil.appendStringPointer(requiredExtensions,
+                        EXTIndexTypeUint8.VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME, stack);
+            }
             createInfo.ppEnabledExtensionNames(requiredExtensions);
 
             var debug = config.getBoolean(SethlansApplication.GRAPHICS_DEBUG_PROP,
