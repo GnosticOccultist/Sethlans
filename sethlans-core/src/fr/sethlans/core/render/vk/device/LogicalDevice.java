@@ -1,5 +1,8 @@
 package fr.sethlans.core.render.vk.device;
 
+import java.util.Map;
+import java.util.WeakHashMap;
+
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkDevice;
@@ -12,10 +15,12 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class LogicalDevice {
 
-    private PhysicalDevice physicalDevice;
+    private final PhysicalDevice physicalDevice;
+    
+    private final Map<VulkanResource, Object> resources = new WeakHashMap<>();
 
     private VkDevice handle;
-
+    
     private VkQueue graphicsQueue;
     private VkQueue presentationQueue;
 
@@ -36,6 +41,16 @@ public class LogicalDevice {
 
             this.commandPool = new CommandPool(this, graphics);
         }
+    }
+    
+    protected void register(VulkanResource resource) {
+        this.resources.put(resource, null);
+    }
+
+    protected void unregister(VulkanResource resource) {
+        assert resources.containsKey(resource) : resource;
+        
+        this.resources.remove(resource);
     }
 
     public void waitIdle() {
@@ -81,6 +96,11 @@ public class LogicalDevice {
     }
 
     public void destroy() {
+        System.out.println(resources);
+        for (var resource : resources.keySet()) {
+            resource.destroy();
+        }
+        
         if (commandPool != null) {
             commandPool.destroy();
             this.commandPool = null;

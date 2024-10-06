@@ -339,10 +339,8 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
         logger.info("Destroying Vulkan resources");
 
-        globalUniform.destroy();
         globalDescriptorSet.destroy();
 
-        dynamicUniform.destroy();
         dynamicDescriptorSet.destroy();
 
         MemoryUtil.memFree(dynDescriptorOffset);

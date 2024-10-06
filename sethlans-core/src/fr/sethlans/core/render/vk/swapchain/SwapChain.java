@@ -426,5 +426,10 @@ public class SwapChain {
             super(logicalDevice, imageHandle, framebufferExtent.width(), framebufferExtent.height(), imageFormat(),
                     imageUsage);
         }
+
+        @Override
+        public void destroy() {
+            // No need to destroy swap-chain image.
+        }
     }
 }

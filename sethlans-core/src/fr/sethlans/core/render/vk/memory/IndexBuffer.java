@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 
-import org.lwjgl.vulkan.EXTIndexTypeUint8;
 import org.lwjgl.vulkan.KHRIndexTypeUint8;
 import org.lwjgl.vulkan.VK10;
 

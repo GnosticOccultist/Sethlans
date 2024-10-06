@@ -5,18 +5,14 @@ import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkImageCreateInfo;
 import org.lwjgl.vulkan.VkImageMemoryBarrier;
-import org.lwjgl.vulkan.VkMemoryAllocateInfo;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.device.MemoryResource;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class Image {
-
-    private final LogicalDevice device;
-
-    private long handle = VK10.VK_NULL_HANDLE;
+public class Image extends MemoryResource {
 
     private int width;
 
@@ -28,19 +24,18 @@ public class Image {
 
     private int sampleCount;
 
-    private long memoryHandle;
-
     private int usage;
 
     protected Image(LogicalDevice device, long imageHandle, int width, int height, int format, int usage) {
-        this.device = device;
-        this.handle = imageHandle;
         this.width = width;
         this.height = height;
         this.format = format;
         this.mipLevels = 1;
         this.sampleCount = VK10.VK_SAMPLE_COUNT_1_BIT;
         this.usage = usage;
+        
+        setLogicalDevice(device);
+        assignHandle(imageHandle);
     }
 
     public Image(LogicalDevice device, int width, int height, int format, int usage) {
@@ -54,15 +49,32 @@ public class Image {
 
     public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int sampleCount, int usage,
             int requiredProperties) {
-        this.device = device;
         this.width = width;
         this.height = height;
         this.format = format;
         this.mipLevels = mipLevels;
         this.sampleCount = sampleCount;
         this.usage = usage;
+        
+        assignToDevice(device);
+        allocate(requiredProperties);
+    }
+    
+    @Override
+    protected void assignToDevice(LogicalDevice newDevice) {
+        destroy();
 
+        setLogicalDevice(newDevice);
+
+        if (newDevice != null) {
+            create();
+        }
+    }
+
+    private void create() {
         try (var stack = MemoryStack.stackPush()) {
+
+            // Create buffer info struct.
             var createInfo = VkImageCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO)
                     .imageType(VK10.VK_IMAGE_TYPE_2D)
@@ -79,32 +91,28 @@ public class Image {
                     .tiling(VK10.VK_IMAGE_TILING_OPTIMAL)
                     .usage(usage);
 
+            var vkDevice = logicalDeviceHandle();
             var pHandle = stack.mallocLong(1);
-            var err = VK10.vkCreateImage(device.handle(), createInfo, null, pHandle);
+            var err = VK10.vkCreateImage(vkDevice, createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create image");
-            this.handle = pHandle.get(0);
-
-            // Query the memory requirements for the buffer.
-            var memRequirements = VkMemoryRequirements.malloc(stack);
-            VK10.vkGetImageMemoryRequirements(device.handle(), handle, memRequirements);
-
-            // Create allocation info struct.
-            var typeFilter = memRequirements.memoryTypeBits();
-            var memoryType = device.physicalDevice().gatherMemoryType(typeFilter, requiredProperties);
-            var allocInfo = VkMemoryAllocateInfo.calloc(stack)
-                    .sType(VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
-                    .allocationSize(memRequirements.size())
-                    .memoryTypeIndex(memoryType);
-
-            var pMemory = stack.mallocLong(1);
-            err = VK10.vkAllocateMemory(device.handle(), allocInfo, null, pMemory);
-            VkUtil.throwOnFailure(err, "allocate memory for an image");
-            this.memoryHandle = pMemory.get(0);
-
-            // Bind allocated memory to the image object.
-            err = VK10.vkBindImageMemory(device.handle(), handle, memoryHandle, 0);
-            VkUtil.throwOnFailure(err, "bind memory to an image");
+            var handle = pHandle.get(0);
+            assignHandle(handle);
         }
+    }
+    
+    @Override
+    protected VkMemoryRequirements queryMemoryRequirements(VkMemoryRequirements memRequirements) {
+        var vkDevice = logicalDeviceHandle();
+        VK10.vkGetImageMemoryRequirements(vkDevice, handle(), memRequirements);
+        return memRequirements;
+    }
+    
+    @Override
+    protected void bindMemory(long memoryHandle) {
+        // Bind allocated memory to the image object.
+        var vkDevice = logicalDeviceHandle();
+        var err = VK10.vkBindImageMemory(vkDevice, handle(), memoryHandle, 0);
+        VkUtil.throwOnFailure(err, "bind memory to an image");
     }
 
     public CommandBuffer transitionImageLayout(int oldLayout, int newLayout) {
@@ -136,7 +144,7 @@ public class Image {
                     .oldLayout(oldLayout)
                     .srcQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
                     .dstQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
-                    .image(handle)
+                    .image(handle())
                     .subresourceRange(it -> it
                             .aspectMask(mask)
                             .baseMipLevel(0)
@@ -213,7 +221,7 @@ public class Image {
             }
 
             // Create a one-time submit command buffer.
-            var command = existingCommand != null ? existingCommand : device.commandPool().createCommandBuffer();
+            var command = existingCommand != null ? existingCommand : getLogicalDevice().commandPool().createCommandBuffer();
             if (existingCommand == null) {
                 command.beginRecording(VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
             }
@@ -248,19 +256,14 @@ public class Image {
         return usage;
     }
 
-    public long handle() {
-        return handle;
-    }
-
+    @Override
     public void destroy() {
-        if (memoryHandle != VK10.VK_NULL_HANDLE) {
-            VK10.vkFreeMemory(device.handle(), memoryHandle, null);
-            this.memoryHandle = VK10.VK_NULL_HANDLE;
-        }
+        super.destroy();
 
-        if (handle != VK10.VK_NULL_HANDLE) {
-            VK10.vkDestroyImage(device.handle(), handle, null);
-            this.handle = VK10.VK_NULL_HANDLE;
+        if (hasAssignedHandle()) {
+            var vkDevice = logicalDeviceHandle();
+            VK10.vkDestroyImage(vkDevice, handle(), null);
+            unassignHandle();
         }
     }
 }
