@@ -25,7 +25,10 @@ public abstract class SethlansApplication {
     public static final String MIN_SAMPLE_SHADING_PROP = "MinSampleShading";
     public static final String WINDOW_WIDTH_PROP = "WindowWidth";
     public static final String WINDOW_HEIGHT_PROP = "WindowHeight";
+    public static final String WINDOW_POS_X_PROP = "WindowPosX";
+    public static final String WINDOW_POS_Y_PROP = "WindowPosY";
     public static final String WINDOW_TITLE_PROP = "WindowTitle";
+    public static final String WINDOW_FULLSCREEN_PROP = "WindowFullscreen";
 
     public static final String DEFAULT_APP_NAME = "Sethlans Application";
     public static final int DEFAULT_APP_VARIANT = 0;
