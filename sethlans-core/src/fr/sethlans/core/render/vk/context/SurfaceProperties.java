@@ -16,46 +16,46 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class SurfaceProperties {
 
-    private static final Logger logger = FactoryLogger.getLogger("sethlans-core.vk.context");
+    private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.context");
 
     private final VkSurfaceCapabilitiesKHR capabilities;
     private final VkSurfaceFormatKHR.Buffer formats;
     private final IntBuffer presentationModes;
 
     public SurfaceProperties(PhysicalDevice physicalDevice, long surfaceHandle, MemoryStack stack) {
-        // Obtain the capabilities of the VkSurfaceKHR:
+        // Obtain the capabilities of the VkSurfaceKHR.
         this.capabilities = VkSurfaceCapabilitiesKHR.malloc(stack);
-        int retCode = KHRSurface.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice.handle(), surfaceHandle,
+        var err = KHRSurface.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice.handle(), surfaceHandle,
                 capabilities);
-        VkUtil.throwOnFailure(retCode, "obtain surface capabilities");
+        VkUtil.throwOnFailure(err, "obtain surface capabilities");
 
-        // Count the available surface formats:
-        IntBuffer storeInt = stack.mallocInt(1);
-        retCode = KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice.handle(), surfaceHandle, storeInt,
+        // Count the available surface formats.
+        var storeInt = stack.mallocInt(1);
+        err = KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice.handle(), surfaceHandle, storeInt,
                 null);
-        VkUtil.throwOnFailure(retCode, "count surface formats");
-        int numFormats = storeInt.get(0);
+        VkUtil.throwOnFailure(err, "count surface formats");
+        var numFormats = storeInt.get(0);
 
-        // Enumerate the available surface formats:
+        // Enumerate the available surface formats.
         this.formats = VkSurfaceFormatKHR.malloc(numFormats, stack);
         if (numFormats > 0) {
-            retCode = KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice.handle(), surfaceHandle, storeInt,
+            err = KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice.handle(), surfaceHandle, storeInt,
                     formats);
-            VkUtil.throwOnFailure(retCode, "enumerate surface formats");
+            VkUtil.throwOnFailure(err, "enumerate surface formats");
         }
 
-        // Count the available surface-presentation modes:
-        retCode = KHRSurface.vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice.handle(), surfaceHandle, storeInt,
+        // Count the available surface-presentation modes.
+        err = KHRSurface.vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice.handle(), surfaceHandle, storeInt,
                 null);
-        VkUtil.throwOnFailure(retCode, "count presentation modes");
-        int numModes = storeInt.get(0);
+        VkUtil.throwOnFailure(err, "count presentation modes");
+        var numModes = storeInt.get(0);
 
-        // Enumerate the available surface-presentation modes:
+        // Enumerate the available surface-presentation modes.
         this.presentationModes = stack.mallocInt(numModes);
         if (numModes > 0) {
-            retCode = KHRSurface.vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice.handle(), surfaceHandle,
+            err = KHRSurface.vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice.handle(), surfaceHandle,
                     storeInt, presentationModes);
-            VkUtil.throwOnFailure(retCode, "enumerate presentation modes");
+            VkUtil.throwOnFailure(err, "enumerate presentation modes");
         }
     }
 
