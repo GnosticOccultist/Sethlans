@@ -14,7 +14,7 @@ public class VkUtil {
     }
 
     public static PointerBuffer appendStringPointer(PointerBuffer bufferIn, String string, MemoryStack stack) {
-        var oldCapacity = bufferIn.capacity();
+        var oldCapacity = bufferIn != null ? bufferIn.capacity() : 0;
         var newCapacity = oldCapacity + 1;
         var result = stack.mallocPointer(newCapacity);
         for (var i = 0; i < oldCapacity; ++i) {

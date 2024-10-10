@@ -21,7 +21,7 @@ public class VulkanBuffer extends MemoryResource {
     }
 
     @Override
-    protected void assignToDevice(LogicalDevice newDevice) {
+    public void assignToDevice(LogicalDevice newDevice) {
         destroy();
 
         setLogicalDevice(newDevice);

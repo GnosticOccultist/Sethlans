@@ -167,7 +167,7 @@ public class Pipeline {
                     .pMultisampleState(msCreateInfo)
                     .pColorBlendState(cbsCreateInfo)
                     .layout(pipelineLayoutHandle)
-                    .renderPass(swapChain.renderPass().handle());
+                    .renderPass(swapChain.renderPassHandle());
 
             err = VK10.vkCreateGraphicsPipelines(device.handle(), pipelineCache.handle(), createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create graphics pipeline");

@@ -145,11 +145,6 @@ public class AssimpTest extends SethlansApplication {
     protected void cleanup() {
         MemoryUtil.memFree(buffer);
 
-        texture.destroy();
-
-        vertexBuffer.destroy();
-        indexBuffer.destroy();
-
         samplerDescriptorSet.destroy();
     }
 }

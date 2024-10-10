@@ -46,8 +46,4 @@ public final class VertexBuffer {
     public DeviceBuffer deviceBuffer() {
         return deviceBuffer;
     }
-
-    public void destroy() {
-        this.deviceBuffer.destroy();
-    }
 }

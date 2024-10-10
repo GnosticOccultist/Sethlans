@@ -35,47 +35,21 @@ public class SethlansTest extends SethlansApplication {
     private DescriptorSet samplerDescriptorSet;
     private double angle;
     private Texture texture;
-    
-    private static final float[] VERTEX_DATA = new float[] {
-            -0.5f, 0.5f, 0.5f,
-            0.0f, 1.0f,
-            -0.5f, -0.5f, 0.5f,
-            0.0f, 0.0f,
-            0.5f, -0.5f, 0.5f,
-            1.0f, 0.0f,
-            0.5f, 0.5f, 0.5f,
-            1.0f, 1.0f,
-            -0.5f, 0.5f, -0.5f,
-            0.0f, 1.0f,
-            0.5f, 0.5f, -0.5f,
-            1.0f, 1.0f,
-            -0.5f, -0.5f, -0.5f,
-            0.0f, 0.0f,
-            0.5f, -0.5f, -0.5f,
-            1.0f, 0.0f
-    };
-    
-    private static final int[] INDICES = new int[] {
-            0, 1, 3, 3, 1, 2,
-            4, 0, 3, 5, 4, 3,
-            3, 2, 7, 5, 3, 7,
-            6, 1, 0, 6, 0, 4, 
-            2, 1, 6, 2, 6, 7, 
-            7, 6, 4, 7, 4, 5
-    };
+
+    private static final float[] VERTEX_DATA = new float[] { -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, -0.5f, -0.5f, 0.5f, 0.0f,
+            0.0f, 0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.5f, 0.5f, 0.5f, 1.0f, 1.0f, -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.5f,
+            0.5f, -0.5f, 1.0f, 1.0f, -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.5f, -0.5f, -0.5f, 1.0f, 0.0f };
+
+    private static final int[] INDICES = new int[] { 0, 1, 3, 3, 1, 2, 4, 0, 3, 5, 4, 3, 3, 2, 7, 5, 3, 7, 6, 1, 0, 6,
+            0, 4, 2, 1, 6, 2, 6, 7, 7, 6, 4, 7, 4, 5 };
 
     @Override
     protected void prepare(ConfigFile appConfig) {
-        appConfig.addString(APP_NAME_PROP, "Sethlans Demo")
-                .addInteger(APP_MAJOR_PROP, 1)
-                .addInteger(APP_MINOR_PROP, 0)
-                .addInteger(APP_PATCH_PROP, 0)
-                .addBoolean(GRAPHICS_DEBUG_PROP, true)
-                .addBoolean(VSYNC_PROP, false)
-                .addInteger(MSAA_SAMPLES_PROP, 4)
-                .addString(WINDOW_TITLE_PROP, "Sethlans Demo")
-                .addInteger(WINDOW_WIDTH_PROP, 800)
-                .addInteger(WINDOW_HEIGHT_PROP, 600);
+        appConfig.addString(APP_NAME_PROP, "Sethlans Demo").addInteger(APP_MAJOR_PROP, 1).addInteger(APP_MINOR_PROP, 0)
+                .addInteger(APP_PATCH_PROP, 0).addBoolean(GRAPHICS_DEBUG_PROP, true).addBoolean(VSYNC_PROP, false)
+                .addInteger(MSAA_SAMPLES_PROP, 4).addString(WINDOW_TITLE_PROP, "Sethlans Demo")
+                .addInteger(WINDOW_WIDTH_PROP, 800).addInteger(WINDOW_HEIGHT_PROP, 600)
+                .addBoolean(WINDOW_FULLSCREEN_PROP, false);
     }
 
     @Override
@@ -144,23 +118,15 @@ public class SethlansTest extends SethlansApplication {
         swapChain.commandBuffer(imageIndex).reset().beginRecording()
                 .beginRenderPass(swapChain, swapChain.frameBuffer(imageIndex), swapChain.renderPass())
                 .bindPipeline(pipeline.handle());
-        renderEngine.bindDescriptorSets(swapChain.commandBuffer(imageIndex))
-                .bindVertexBuffer(vertexBuffer)
+        renderEngine.bindDescriptorSets(swapChain.commandBuffer(imageIndex)).bindVertexBuffer(vertexBuffer)
                 .bindIndexBuffer(indexBuffer)
                 .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, modelMatrix)
-                .drawIndexed(indexBuffer)
-                .endRenderPass()
-                .end();
+                .drawIndexed(indexBuffer).endRenderPass().end();
     }
 
     @Override
     protected void cleanup() {
         MemoryUtil.memFree(buffer);
-
-        texture.destroy();
-
-        vertexBuffer.destroy();
-        indexBuffer.destroy();
 
         samplerDescriptorSet.destroy();
     }

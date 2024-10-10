@@ -8,6 +8,8 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkQueue;
 
+import fr.alchemy.utilities.logging.FactoryLogger;
+import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.render.vk.command.CommandPool;
 import fr.sethlans.core.render.vk.context.VulkanInstance;
@@ -15,12 +17,14 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class LogicalDevice {
 
+    private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.device");
+
     private final PhysicalDevice physicalDevice;
-    
+
     private final Map<VulkanResource, Object> resources = new WeakHashMap<>();
 
     private VkDevice handle;
-    
+
     private VkQueue graphicsQueue;
     private VkQueue presentationQueue;
 
@@ -42,14 +46,14 @@ public class LogicalDevice {
             this.commandPool = new CommandPool(this, graphics);
         }
     }
-    
+
     protected void register(VulkanResource resource) {
         this.resources.put(resource, null);
     }
 
     protected void unregister(VulkanResource resource) {
         assert resources.containsKey(resource) : resource;
-        
+
         this.resources.remove(resource);
     }
 
@@ -96,11 +100,12 @@ public class LogicalDevice {
     }
 
     public void destroy() {
-        System.out.println(resources);
+        logger.info("Destroying Vulkan resources from " + physicalDevice);
+
         for (var resource : resources.keySet()) {
             resource.destroy();
         }
-        
+
         if (commandPool != null) {
             commandPool.destroy();
             this.commandPool = null;

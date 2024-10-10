@@ -5,20 +5,43 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkImageViewCreateInfo;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.device.VulkanResource;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class ImageView {
+public class ImageView extends VulkanResource {
 
-    private final LogicalDevice device;
+    private long imageHandle;
 
-    private long handle = VK10.VK_NULL_HANDLE;
+    private int format;
 
-    public ImageView(LogicalDevice device, long imageHandle, int format, int aspectMask) {
-        this.device = device;
+    private int aspectMask;
 
+    public ImageView(LogicalDevice logicalDevice, long imageHandle, int format, int aspectMask) {
+        this.imageHandle = imageHandle;
+        this.format = format;
+        this.aspectMask = aspectMask;
+
+        assignToDevice(logicalDevice);
+    }
+
+    @Override
+    protected void assignToDevice(LogicalDevice newDevice) {
+        destroy();
+
+        setLogicalDevice(newDevice);
+
+        if (newDevice != null) {
+            create();
+        }
+    }
+
+    private void create() {
         try (var stack = MemoryStack.stackPush()) {
-            var createInfo = VkImageViewCreateInfo.calloc(stack).sType(VK10.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO)
-                    .format(format).image(imageHandle).viewType(VK10.VK_IMAGE_VIEW_TYPE_2D);
+            var createInfo = VkImageViewCreateInfo.calloc(stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO)
+                    .format(format)
+                    .image(imageHandle)
+                    .viewType(VK10.VK_IMAGE_VIEW_TYPE_2D);
 
             // Don't swizzle color channels.
             var components = createInfo.components();
@@ -35,21 +58,21 @@ public class ImageView {
             range.layerCount(1);
             range.levelCount(1);
 
+            var vkDevice = logicalDeviceHandle();
             var pHandle = stack.mallocLong(1);
-            var err = VK10.vkCreateImageView(device.handle(), createInfo, null, pHandle);
+            var err = VK10.vkCreateImageView(vkDevice, createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create image view");
-            this.handle = pHandle.get(0);
+            var handle = pHandle.get(0);
+            assignHandle(handle);
         }
     }
 
-    public long handle() {
-        return handle;
-    }
-
     public void destroy() {
-        if (handle != VK10.VK_NULL_HANDLE) {
-            VK10.vkDestroyImageView(device.handle(), handle, null);
-            this.handle = VK10.VK_NULL_HANDLE;
+        if (hasAssignedHandle()) {
+            var vkDevice = logicalDeviceHandle();
+
+            VK10.vkDestroyImageView(vkDevice, handle(), null);
+            unassignHandle();
         }
     }
 }

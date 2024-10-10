@@ -65,7 +65,7 @@ public class Texture {
         command.destroy();
 
         // Destroy the staging buffer.
-        stagingBuffer.destroy();
+        stagingBuffer.assignToDevice(null);
 
         this.imageView = new ImageView(device, image.handle(), image.format(), VK10.VK_IMAGE_ASPECT_COLOR_BIT);
         this.sampler = new TextureSampler(device, image.mipLevels(), true);
@@ -172,19 +172,5 @@ public class Texture {
 
     public long samplerHandle() {
         return sampler.handle();
-    }
-
-    public void destroy() {
-        if (sampler != null) {
-            sampler.destroy();
-        }
-
-        if (imageView != null) {
-            imageView.destroy();
-        }
-
-        if (image != null) {
-            image.destroy();
-        }
     }
 }

@@ -20,6 +20,7 @@ public abstract class SethlansApplication {
     public static final String APP_PATCH_PROP = "ApplicationVersionPatch";
     public static final String GRAPHICS_API_PROP = "GraphicsApi";
     public static final String GRAPHICS_DEBUG_PROP = "GraphicsDebug";
+    public static final String RENDER_MODE_PROP = "RenderMode";
     public static final String VSYNC_PROP = "VSync";
     public static final String MSAA_SAMPLES_PROP = "MssaSamples";
     public static final String MIN_SAMPLE_SHADING_PROP = "MinSampleShading";
@@ -42,6 +43,9 @@ public abstract class SethlansApplication {
     public static final String VK_1_3_GRAPHICS_API = "Vulkan13";
     public static final String DEFAULT_GRAPHICS_API = VK_1_3_GRAPHICS_API;
     public static final boolean DEFAULT_GRAPHICS_DEBUG = false;
+    public static final String SURFACE_RENDER_MODE = "SurfaceRenderMode";
+    public static final String OFFSCREEN_RENDER_MODE = "OffscreenRenderMode";
+    public static final String DEFAULT_RENDER_MODE = SURFACE_RENDER_MODE;
     public static final boolean DEFAULT_VSYNC = true;
     public static final int DEFAULT_MSSA_SAMPLES = 4;
     public static final float DEFAULT_MIN_SAMPLE_SHADING = 0.2f;

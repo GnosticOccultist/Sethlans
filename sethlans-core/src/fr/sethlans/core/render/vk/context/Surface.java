@@ -15,6 +15,8 @@ public class Surface {
 
     Surface(VulkanInstance instance, long windowHandle) {
         this.instance = instance;
+        this.instance.setSurface(this);
+        
         try (var stack = MemoryStack.stackPush()) {
             var pSurface = stack.mallocLong(1);
             var err = GLFWVulkan.glfwCreateWindowSurface(instance.handle(), windowHandle, null, pSurface);

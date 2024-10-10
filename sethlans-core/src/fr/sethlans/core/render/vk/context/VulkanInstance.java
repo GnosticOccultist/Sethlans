@@ -25,8 +25,8 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
-import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.device.PhysicalDevice;
+import fr.sethlans.core.render.vk.device.PhysicalDeviceComparator;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class VulkanInstance {
@@ -38,8 +38,10 @@ public class VulkanInstance {
     private VkDebugUtilsMessengerCallbackEXT debugMessengerCallback;
 
     private long vkDebugHandle;
+    
+    private Surface surface;
 
-    public VulkanInstance(ConfigFile config, Window window) {
+    public VulkanInstance(ConfigFile config) {
         try (var stack = MemoryStack.stackPush()) {
 
             var appName = config.getString(SethlansApplication.APP_NAME_PROP, SethlansApplication.DEFAULT_APP_NAME);
@@ -59,10 +61,8 @@ public class VulkanInstance {
                     .pEngineName(stack.UTF8("Sethlans"))
                     .engineVersion(VK10.VK_MAKE_API_VERSION(0, 0, 1, 0))
                     .apiVersion(apiVersion);
-
-            var debug = config.getBoolean(SethlansApplication.GRAPHICS_DEBUG_PROP,
-                    SethlansApplication.DEFAULT_GRAPHICS_DEBUG);
-            var ppEnabledExtensionNames = getRequiredExtensions(debug, stack);
+            
+            var ppEnabledExtensionNames = getRequiredExtensions(config, stack);
 
             // Create the instance-creation info.
             var createInfo = VkInstanceCreateInfo.calloc(stack)
@@ -70,6 +70,8 @@ public class VulkanInstance {
                     .pApplicationInfo(appInfo)
                     .ppEnabledExtensionNames(ppEnabledExtensionNames);
 
+            var debug = config.getBoolean(SethlansApplication.GRAPHICS_DEBUG_PROP,
+                    SethlansApplication.DEFAULT_GRAPHICS_DEBUG);
             VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo = null;
             if (debug) {
                 // Acquire required validation layers if available.
@@ -83,9 +85,9 @@ public class VulkanInstance {
             var pPointer = stack.mallocPointer(1);
             var err = VK10.vkCreateInstance(createInfo, null, pPointer);
             VkUtil.throwOnFailure(err, "create Vulkan instance");
-            var h = pPointer.get(0);
+            var vkHandle = pPointer.get(0);
 
-            this.handle = new VkInstance(h, createInfo);
+            this.handle = new VkInstance(vkHandle, createInfo);
 
             if (debug) {
                 var pMessenger = stack.mallocLong(1);
@@ -95,8 +97,8 @@ public class VulkanInstance {
             }
         }
     }
-
-    public PhysicalDevice choosePhysicalDevice(ConfigFile config, long surfaceHandle) {
+    
+    public PhysicalDevice choosePhysicalDevice(ConfigFile config, PhysicalDeviceComparator comparator) {
         try (var stack = MemoryStack.stackPush()) {
             var pDevices = getPhysicalDevices(stack);
             var numDevices = pDevices.capacity();
@@ -111,7 +113,7 @@ public class VulkanInstance {
                 var handle = pDevices.get(i);
                 var pd = new PhysicalDevice(handle, this);
 
-                var score = pd.evaluate(surfaceHandle);
+                var score = comparator.evaluate(pd);
 
                 if (score > bestScore) {
                     bestScore = score;
@@ -184,16 +186,25 @@ public class VulkanInstance {
         return VK10.VK_FALSE;
     }
 
-    private PointerBuffer getRequiredExtensions(boolean debug, MemoryStack stack) {
-        var result = GLFWVulkan.glfwGetRequiredInstanceExtensions();
+    private PointerBuffer getRequiredExtensions(ConfigFile config, MemoryStack stack) {
+        PointerBuffer result = null;
 
+        var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
+                SethlansApplication.DEFAULT_RENDER_MODE);
+        var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
+        if (needsSurface) {
+            // Request GLFW surface extensions.
+            result = GLFWVulkan.glfwGetRequiredInstanceExtensions();
+        }
+        
+        var debug = config.getBoolean(SethlansApplication.GRAPHICS_DEBUG_PROP,
+                SethlansApplication.DEFAULT_GRAPHICS_DEBUG);
         if (debug) {
             // Vulkan debug utils messenger require an extra extension.
             result = VkUtil.appendStringPointer(result, EXTDebugUtils.VK_EXT_DEBUG_UTILS_EXTENSION_NAME, stack);
         }
 
         // TODO: Add support for more required extensions.
-
         return result;
     }
 
@@ -256,6 +267,15 @@ public class VulkanInstance {
         VkUtil.throwOnFailure(err, "enumerate physical devices");
 
         return pPointers;
+    }
+
+    public Surface getSurface() {
+        return surface;
+    }
+
+    void setSurface(Surface surface) {
+        assert this.surface == null : this.surface;
+        this.surface = surface;
     }
 
     public VkInstance handle() {

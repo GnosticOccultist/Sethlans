@@ -37,6 +37,71 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 public class PhysicalDevice {
 
     private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.device");
+    
+    public static final PhysicalDeviceComparator SURFACE_SUPPORT_COMPARATOR = pd -> {
+
+        var score = 0f;
+        var surfaceHandle = pd.getInstance().getSurface().handle();
+
+        // Check that the device support the swap-chain extension.
+        if (!pd.hasExtension(KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
+            logger.error("Swapchain extension isn't supported by " + pd);
+            return 0f;
+        }
+
+        // Check that the device has adequate swap-chain support for the surface.
+        if (!pd.hasAdequateSwapChainSupport(surfaceHandle)) {
+            logger.error("Swapchain support isn't adequate for " + pd);
+            return 0f;
+        }
+
+        try (var stack = MemoryStack.stackPush()) {
+            var properties = pd.gatherQueueFamilyProperties(stack, surfaceHandle);
+            if (!properties.hasGraphics() || !properties.hasPresentation()) {
+                return 0f;
+            }
+        }
+
+        // This is a plus if the device supports extension for uint8 index value.
+        if (pd.hasExtension(EXTIndexTypeUint8.VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME)
+                || pd.hasExtension(KHRIndexTypeUint8.VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME)) {
+            score += 10f;
+        }
+
+        // Discrete GPUs have a significant performance advantage over integrated GPUs.
+        if (pd.type() == VK10.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+            score += 100f;
+        }
+
+        return score;
+    };
+    
+    public static final PhysicalDeviceComparator OFFSCREEN_SUPPORT_COMPARATOR = pd -> {
+
+        var score = 0f;
+
+        try (var stack = MemoryStack.stackPush()) {
+            var properties = pd.gatherQueueFamilyProperties(stack, VK10.VK_NULL_HANDLE);
+            if (!properties.hasGraphics()) {
+                return 0f;
+            }
+        }
+
+        // This is a plus if the device supports extension for uint8 index value.
+        if (pd.hasExtension(EXTIndexTypeUint8.VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME)
+                || pd.hasExtension(KHRIndexTypeUint8.VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME)) {
+            score += 10f;
+        }
+
+        // Discrete GPUs have a significant performance advantage over integrated GPUs.
+        if (pd.type() == VK10.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+            score += 100f;
+        }
+
+        return score;
+    };
+
+    private final VulkanInstance instance;
 
     private VkPhysicalDevice handle;
 
@@ -61,6 +126,7 @@ public class PhysicalDevice {
     private Set<String> availableToolProperties;
 
     public PhysicalDevice(long handle, VulkanInstance instance) {
+        this.instance = instance;
         this.handle = new VkPhysicalDevice(handle, instance.handle());
     }
 
@@ -401,13 +467,15 @@ public class PhysicalDevice {
                 properties.setGraphics(i);
             }
 
-            // Check that presentation is supported for the surface.
-            var err = KHRSurface.vkGetPhysicalDeviceSurfaceSupportKHR(handle, i, surfaceHandle, pCount);
-            VkUtil.throwOnFailure(err, "test for presentation support");
-            var supported = pCount.get(0);
-            if (supported == VK10.VK_TRUE) {
-                properties.setPresentation(i);
-                break;
+            // Check that presentation is supported for the surface, if it was requested.
+            if (surfaceHandle != VK10.VK_NULL_HANDLE) {
+                var err = KHRSurface.vkGetPhysicalDeviceSurfaceSupportKHR(handle, i, surfaceHandle, pCount);
+                VkUtil.throwOnFailure(err, "test for presentation support");
+                var supported = pCount.get(0);
+                if (supported == VK10.VK_TRUE) {
+                    properties.setPresentation(i);
+                    break;
+                }
             }
         }
 
@@ -466,6 +534,16 @@ public class PhysicalDevice {
         return maxAnisotropy > 0.0f;
     }
 
+    public int type() {
+        if (type == -1) {
+            try (var stack = MemoryStack.stackPush()) {
+                gatherDeviceProperties(stack);
+            }
+        }
+
+        return type;
+    }
+
     public String name() {
         if (name == null) {
             try (var stack = MemoryStack.stackPush()) {
@@ -474,6 +552,10 @@ public class PhysicalDevice {
         }
 
         return name;
+    }
+    
+    public VulkanInstance getInstance() {
+        return instance;
     }
 
     public VkPhysicalDevice handle() {

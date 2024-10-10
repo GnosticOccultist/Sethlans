@@ -52,7 +52,7 @@ public class DeviceBuffer {
         command.destroy();
 
         // Destroy the staging buffer.
-        stagingBuffer.destroy();
+        stagingBuffer.assignToDevice(null);
     }
 
     protected void populate(ByteBuffer data) {
@@ -69,12 +69,5 @@ public class DeviceBuffer {
 
     public long handle() {
         return buffer.handle();
-    }
-
-    public void destroy() {
-        if (buffer != null) {
-            buffer.destroy();
-            this.buffer = null;
-        }
     }
 }

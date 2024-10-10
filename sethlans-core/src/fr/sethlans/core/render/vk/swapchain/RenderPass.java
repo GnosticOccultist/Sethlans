@@ -9,20 +9,21 @@ import org.lwjgl.vulkan.VkRenderPassCreateInfo;
 import org.lwjgl.vulkan.VkSubpassDependency;
 import org.lwjgl.vulkan.VkSubpassDescription;
 
+import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class RenderPass {
 
-    private final SwapChain swapChain;
+    private final LogicalDevice logicalDevice;
 
     private long handle = VK10.VK_NULL_HANDLE;
 
-    RenderPass(SwapChain swapChain) {
-        this.swapChain = swapChain;
+    RenderPass(LogicalDevice logicalDevice, int imageFormat, int sampleCount, int depthFormat, boolean present) {
+        this.logicalDevice = logicalDevice;
 
         try (var stack = MemoryStack.stackPush()) {
 
-            var attachmentCount = swapChain.sampleCount() == VK10.VK_SAMPLE_COUNT_1_BIT ? 2 : 3;
+            var attachmentCount = (present && sampleCount > VK10.VK_SAMPLE_COUNT_1_BIT) ? 3 : 2;
 
             var pDescription = VkAttachmentDescription.calloc(attachmentCount, stack);
             var pReferences = VkAttachmentReference.calloc(attachmentCount, stack);
@@ -30,7 +31,7 @@ public class RenderPass {
             if (attachmentCount == 2) {
                 // Describe color attachment for presentation.
                 pDescription.get(0)
-                        .format(swapChain.imageFormat())
+                        .format(imageFormat)
                         .samples(VK10.VK_SAMPLE_COUNT_1_BIT)
                         .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR) // Clear content of the attachment.
                         .storeOp(VK10.VK_ATTACHMENT_STORE_OP_STORE) // Store content of the attachment.
@@ -42,8 +43,8 @@ public class RenderPass {
             } else {
                 // Describe transient color attachment for multisampling.
                 pDescription.get(0)
-                        .format(swapChain.imageFormat())
-                        .samples(swapChain.sampleCount())
+                        .format(imageFormat)
+                        .samples(sampleCount)
                         .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR) // Clear content of the attachment.
                         .storeOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE) // Ignore storing content of the attachment.
                         .stencilLoadOp(VK10.VK_ATTACHMENT_LOAD_OP_DONT_CARE) // Ignore stencil operations.
@@ -61,8 +62,8 @@ public class RenderPass {
             pColorRefs.put(0, colorAttachmentRef);
 
             pDescription.get(1)
-                    .format(swapChain.depthFormat())
-                    .samples(swapChain.sampleCount())
+                    .format(depthFormat)
+                    .samples(sampleCount)
                     .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR)
                     .storeOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE)
                     .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
@@ -77,7 +78,7 @@ public class RenderPass {
             if (attachmentCount == 3) {
                 // Resolve the multisampled attachment for presentation.
                 pDescription.get(2)
-                        .format(swapChain.imageFormat())
+                        .format(imageFormat)
                         .samples(VK10.VK_SAMPLE_COUNT_1_BIT)
                         .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_DONT_CARE) // Clear content of the attachment.
                         .storeOp(VK10.VK_ATTACHMENT_STORE_OP_STORE) // Store content of the attachment.
@@ -122,7 +123,7 @@ public class RenderPass {
                     .pSubpasses(subpass);
 
             var pHandle = stack.mallocLong(1);
-            var err = VK10.vkCreateRenderPass(swapChain.logicalDevice().handle(), createInfo, null, pHandle);
+            var err = VK10.vkCreateRenderPass(logicalDevice.handle(), createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create render pass");
             this.handle = pHandle.get(0);
         }
@@ -135,7 +136,7 @@ public class RenderPass {
     public void destroy() {
 
         if (handle != VK10.VK_NULL_HANDLE) {
-            VK10.vkDestroyRenderPass(swapChain.logicalDevice().handle(), handle, null);
+            VK10.vkDestroyRenderPass(logicalDevice.handle(), handle, null);
             this.handle = VK10.VK_NULL_HANDLE;
         }
     }

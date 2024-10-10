@@ -99,8 +99,4 @@ public class IndexBuffer {
     public int elementType() {
         return elementType;
     }
-
-    public void destroy() {
-        this.deviceBuffer.destroy();
-    }
 }

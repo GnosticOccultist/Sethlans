@@ -5,19 +5,36 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkSamplerCreateInfo;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.device.VulkanResource;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-class TextureSampler {
+class TextureSampler extends VulkanResource {
 
-    private final LogicalDevice logicalDevice;
+    private int mipLevels;
 
-    private long handle = VK10.VK_NULL_HANDLE;
+    private boolean anisotropic;
 
     TextureSampler(LogicalDevice logicalDevice, int mipLevels, boolean anisotropic) {
-        this.logicalDevice = logicalDevice;
+        this.mipLevels = mipLevels;
+        this.anisotropic = anisotropic;
 
+        assignToDevice(logicalDevice);
+    }
+
+    @Override
+    protected void assignToDevice(LogicalDevice newDevice) {
+        destroy();
+
+        setLogicalDevice(newDevice);
+
+        if (newDevice != null) {
+            create();
+        }
+    }
+
+    private void create() {
         try (var stack = MemoryStack.stackPush()) {
-            var physicalDevice = logicalDevice.physicalDevice();
+            var physicalDevice = getLogicalDevice().physicalDevice();
             var useAnisotropicFilter = anisotropic && physicalDevice.supportsAnisotropicFiltering();
             
             var createInfo = VkSamplerCreateInfo.calloc(stack)
@@ -38,21 +55,22 @@ class TextureSampler {
                     .anisotropyEnable(useAnisotropicFilter)
                     .maxAnisotropy(physicalDevice.maxAnisotropy());
 
+            var vkDevice = logicalDeviceHandle();
             var pHandle = stack.mallocLong(1);
-            var err = VK10.vkCreateSampler(logicalDevice.handle(), createInfo, null, pHandle);
+            var err = VK10.vkCreateSampler(vkDevice, createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create texture sampler");
-            this.handle = pHandle.get(0);
+            var handle = pHandle.get(0);
+            assignHandle(handle);
         }
     }
 
-    public long handle() {
-        return handle;
-    }
-
+    @Override
     public void destroy() {
-        if (handle != VK10.VK_NULL_HANDLE) {
-            VK10.vkDestroySampler(logicalDevice.handle(), handle, null);
-            this.handle = VK10.VK_NULL_HANDLE;
+        if (hasAssignedHandle()) {
+            var vkDevice = logicalDeviceHandle();
+            
+            VK10.vkDestroySampler(vkDevice, handle(), null);
+            unassignHandle();
         }
     }
 }

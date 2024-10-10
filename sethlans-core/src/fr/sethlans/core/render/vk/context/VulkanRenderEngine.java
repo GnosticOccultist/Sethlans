@@ -31,7 +31,7 @@ import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineCache;
 import fr.sethlans.core.render.vk.shader.ShaderProgram;
-import fr.sethlans.core.render.vk.swapchain.SwapChain;
+import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain;
 import fr.sethlans.core.render.vk.swapchain.SyncFrame;
 
 public class VulkanRenderEngine extends GlfwBasedRenderEngine {
@@ -49,7 +49,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
     private LogicalDevice logicalDevice;
 
-    private SwapChain swapChain;
+    private PresentationSwapChain swapChain;
 
     private SyncFrame[] syncFrames;
 
@@ -111,16 +111,25 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
     @Override
     public void initialize(ConfigFile config) {
-        initializeGlfw(config);
         this.config = config;
 
-        this.window = new Window(application, config);
+        var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
+                SethlansApplication.DEFAULT_RENDER_MODE);
+        var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
-        this.vulkanInstance = new VulkanInstance(config, window);
+        if (needsSurface) {
+            initializeGlfw(config);
+            this.window = new Window(application, config);
+        }
 
-        this.surface = new Surface(vulkanInstance, window.handle());
+        this.vulkanInstance = new VulkanInstance(config);
+        if (needsSurface) {
+            this.surface = new Surface(vulkanInstance, window.handle());
+        }
 
-        this.physicalDevice = vulkanInstance.choosePhysicalDevice(config, surface.handle());
+        var comparator = needsSurface ? PhysicalDevice.SURFACE_SUPPORT_COMPARATOR
+                : PhysicalDevice.OFFSCREEN_SUPPORT_COMPARATOR;
+        this.physicalDevice = vulkanInstance.choosePhysicalDevice(config, comparator);
 
         this.logicalDevice = new LogicalDevice(vulkanInstance, physicalDevice, surface.handle(), config);
 
@@ -147,7 +156,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
             ex.printStackTrace();
         }
 
-        this.swapChain = new SwapChain(logicalDevice, surface, config, window.getWidth(), window.getHeight());
+        this.swapChain = new PresentationSwapChain(logicalDevice, surface, config, window.getWidth(), window.getHeight());
         this.framesInFlight = new HashMap<>(swapChain.imageCount());
         this.syncFrames = new SyncFrame[MAX_FRAMES_IN_FLIGHT];
         Arrays.fill(syncFrames, new SyncFrame(logicalDevice));
@@ -287,7 +296,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
             syncFrames[i] = new SyncFrame(logicalDevice);
         }
 
-        this.swapChain = new SwapChain(logicalDevice, surface, config, window.getWidth(), window.getHeight());
+        this.swapChain = new PresentationSwapChain(logicalDevice, surface, config, window.getWidth(), window.getHeight());
         this.pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program, new DescriptorSetLayout[] {
                 globalDescriptorSetLayout, dynamicDescriptorSetLayout, samplerDescriptorSetLayout });
         try (var stack = MemoryStack.stackPush()) {
@@ -314,7 +323,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         return logicalDevice;
     }
 
-    public SwapChain getSwapChain() {
+    public PresentationSwapChain getSwapChain() {
         return swapChain;
     }
 
@@ -336,8 +345,6 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
     @Override
     public void terminate() {
-
-        logger.info("Destroying Vulkan resources");
 
         globalDescriptorSet.destroy();
 
