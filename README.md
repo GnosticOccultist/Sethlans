@@ -12,6 +12,10 @@ It is first and foremost a learning hobby project, but might be involved with co
 
 There is no public release of the project yet, but you can still clone the repo or fork it.
 
+## JavaFX integration
+
+![til](./docs/jfx-vulkan-integration.gif)
+
 ## Documentation 
 
 - [Vulkan Documentation](https://docs.vulkan.org/)
