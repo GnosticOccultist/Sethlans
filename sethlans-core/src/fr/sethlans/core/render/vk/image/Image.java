@@ -39,12 +39,16 @@ public class Image extends MemoryResource {
     }
 
     public Image(LogicalDevice device, int width, int height, int format, int usage) {
-        this(device, width, height, format, 1, VK10.VK_SAMPLE_COUNT_1_BIT, usage, 0x0);
+        this(device, width, height, format, 1, VK10.VK_SAMPLE_COUNT_1_BIT, usage);
+    }
+    
+    public Image(LogicalDevice device, int width, int height, int format, int usage, int requiredProperties) {
+        this(device, width, height, format, 1, VK10.VK_SAMPLE_COUNT_1_BIT, usage, requiredProperties);
     }
 
     public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int usage,
             int requiredProperties) {
-        this(device, width, height, format, mipLevels, 1, usage, requiredProperties);
+        this(device, width, height, format, mipLevels, VK10.VK_SAMPLE_COUNT_1_BIT, usage, requiredProperties);
     }
 
     public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int sampleCount, int usage,
@@ -55,7 +59,7 @@ public class Image extends MemoryResource {
         this.mipLevels = mipLevels;
         this.sampleCount = sampleCount;
         this.usage = usage;
-        
+
         assignToDevice(device);
         allocate(requiredProperties);
     }
@@ -211,6 +215,26 @@ public class Image extends MemoryResource {
                 // TRANSFER_SRC to PRESENT_SRC_KHR
                 pBarrier.srcAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
                 pBarrier.dstAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
+                srcStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
+                dstStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+                    && newLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+
+                // COLOR_ATTACHMENT_OPTIMAL to TRANSFER_SRC
+                pBarrier.srcAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+                pBarrier.dstAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
+
+                srcStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                dstStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+                    && newLayout == VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+
+                // TRANSFER_SRC to COLOR_ATTACHMENT_OPTIMAL
+                pBarrier.srcAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
+                pBarrier.dstAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 
                 srcStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
                 dstStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;

@@ -18,6 +18,7 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
+import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.sync.Fence;
@@ -30,11 +31,15 @@ public abstract class SwapChain {
 
     protected final VkExtent2D framebufferExtent = VkExtent2D.create();
 
+    protected Attachment[] presentationAttachments;
+    
     protected Attachment[] colorAttachments;
 
     protected Attachment[] depthAttachments;
 
     protected FrameBuffer[] frameBuffers;
+
+    protected CommandBuffer[] commandBuffers;
 
     protected RenderPass renderPass;
 
@@ -61,12 +66,9 @@ public abstract class SwapChain {
                 + ").");
     }
 
-    public VkExtent2D framebufferExtent(MemoryStack stack) {
-        var result = VkExtent2D.malloc(stack);
-        result.set(framebufferExtent);
+    public abstract int acquireNextImage(SyncFrame frame);
 
-        return result;
-    }
+    public abstract boolean presentImage(SyncFrame frame, int imageIndex);
 
     public void captureFrame(int frameIndex) {
         assert frameIndex >= 0 : frameIndex;
@@ -86,11 +88,11 @@ public abstract class SwapChain {
         var height = framebufferExtent.height();
         var channels = 4;
         var size = width * height * channels;
-        var vkBuffer = new VulkanBuffer(logicalDevice, size, VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        vkBuffer.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        var destination = new VulkanBuffer(logicalDevice, size, VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+        destination.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
         // Copy the data from the presentation image to a buffer.
-        command.copyImage(image, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vkBuffer);
+        command.copyImage(image, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, destination);
 
         // Re-transition image layout back for future presentation.
         image.transitionImageLayout(command, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, attachment.finalLayout());
@@ -104,7 +106,7 @@ public abstract class SwapChain {
         command.destroy();
 
         // Map buffer memory and decode BGRA pixel data.
-        var data = vkBuffer.map();
+        var data = destination.map();
         var img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         for (var y = 0; y < height; ++y) {
             for (var x = 0; x < width; ++x) {
@@ -121,8 +123,8 @@ public abstract class SwapChain {
         }
 
         // Free memory and buffer.
-        vkBuffer.unmap();
-        vkBuffer.destroy();
+        destination.unmap();
+        destination.assignToDevice(null);
 
         var date = new SimpleDateFormat("dd.MM.yy_HH.mm.ss").format(new Date());
         var outputPath = Paths.get("resources/" + date + ".png");
@@ -141,6 +143,29 @@ public abstract class SwapChain {
 
     public abstract int imageCount();
 
+    public VkExtent2D framebufferExtent(MemoryStack stack) {
+        var result = VkExtent2D.malloc(stack);
+        result.set(framebufferExtent);
+
+        return result;
+    }
+
+    public int width() {
+        return framebufferExtent.width();
+    }
+
+    public int height() {
+        return framebufferExtent.height();
+    }
+
+    public CommandBuffer commandBuffer(int imageIndex) {
+        return commandBuffers[imageIndex];
+    }
+
+    public FrameBuffer frameBuffer(int imageIndex) {
+        return frameBuffers[imageIndex];
+    }
+
     public int imageFormat() {
         return imageFormat;
     }
@@ -153,8 +178,8 @@ public abstract class SwapChain {
         return depthFormat;
     }
 
-    public long renderPassHandle() {
-        return renderPass.handle();
+    public RenderPass renderPass() {
+        return renderPass;
     }
 
     LogicalDevice logicalDevice() {

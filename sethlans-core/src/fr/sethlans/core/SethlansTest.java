@@ -36,19 +36,53 @@ public class SethlansTest extends SethlansApplication {
     private double angle;
     private Texture texture;
 
-    private static final float[] VERTEX_DATA = new float[] { -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, -0.5f, -0.5f, 0.5f, 0.0f,
-            0.0f, 0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.5f, 0.5f, 0.5f, 1.0f, 1.0f, -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.5f,
-            0.5f, -0.5f, 1.0f, 1.0f, -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.5f, -0.5f, -0.5f, 1.0f, 0.0f };
+    private static final float[] VERTEX_DATA = new float[] { 
+            -0.5f, 0.5f, 0.5f, 
+            0.0f, 1.0f, 
+            -0.5f, -0.5f, 0.5f, 
+            0.0f, 0.0f, 
+            0.5f, -0.5f, 0.5f, 
+            1.0f, 0.0f, 
+            0.5f, 0.5f, 0.5f, 
+            1.0f, 1.0f, 
+            -0.5f, 0.5f, -0.5f, 
+            0.0f, 1.0f, 
+            0.5f, 0.5f, -0.5f, 
+            1.0f, 1.0f, 
+            -0.5f, -0.5f, -0.5f, 
+            0.0f, 0.0f, 
+            0.5f, -0.5f, -0.5f, 
+            1.0f, 0.0f 
+    };
 
-    private static final int[] INDICES = new int[] { 0, 1, 3, 3, 1, 2, 4, 0, 3, 5, 4, 3, 3, 2, 7, 5, 3, 7, 6, 1, 0, 6,
-            0, 4, 2, 1, 6, 2, 6, 7, 7, 6, 4, 7, 4, 5 };
+    private static final int[] INDICES = new int[] { 
+            0, 1, 3, 
+            3, 1, 2, 
+            4, 0, 3, 
+            5, 4, 3, 
+            3, 2, 7, 
+            5, 3, 7, 
+            6, 1, 0, 
+            6, 0, 4, 
+            2, 1, 6, 
+            2, 6, 7, 
+            7, 6, 4, 
+            7, 4, 5 
+    };
 
     @Override
     protected void prepare(ConfigFile appConfig) {
-        appConfig.addString(APP_NAME_PROP, "Sethlans Demo").addInteger(APP_MAJOR_PROP, 1).addInteger(APP_MINOR_PROP, 0)
-                .addInteger(APP_PATCH_PROP, 0).addBoolean(GRAPHICS_DEBUG_PROP, true).addBoolean(VSYNC_PROP, false)
-                .addInteger(MSAA_SAMPLES_PROP, 4).addString(WINDOW_TITLE_PROP, "Sethlans Demo")
-                .addInteger(WINDOW_WIDTH_PROP, 800).addInteger(WINDOW_HEIGHT_PROP, 600)
+        appConfig.addString(APP_NAME_PROP, "Sethlans Demo")
+                .addInteger(APP_MAJOR_PROP, 1)
+                .addInteger(APP_MINOR_PROP, 0)
+                .addInteger(APP_PATCH_PROP, 0)
+                .addBoolean(GRAPHICS_DEBUG_PROP, true)
+                .addString(RENDER_MODE_PROP, OFFSCREEN_RENDER_MODE)
+                .addBoolean(VSYNC_PROP, false)
+                .addInteger(MSAA_SAMPLES_PROP, 4)
+                .addString(WINDOW_TITLE_PROP, "Sethlans Demo")
+                .addInteger(WINDOW_WIDTH_PROP, 800)
+                .addInteger(WINDOW_HEIGHT_PROP, 600)
                 .addBoolean(WINDOW_FULLSCREEN_PROP, false);
     }
 
@@ -71,10 +105,10 @@ public class SethlansTest extends SethlansApplication {
 
             var pixels = MemoryUtil.memAlloc(numBytes);
 
-            for (int uu = 0; uu < h; ++uu) { // row index starting from U=0
+            for (int uu = 0; uu < h; ++uu) {
                 int y = uu;
 
-                for (int x = 0; x < w; ++x) { // column index
+                for (int x = 0; x < w; ++x) {
                     int argb = image.getRGB(x, y);
                     int red = (argb >> 16) & 0xFF;
                     int green = (argb >> 8) & 0xFF;

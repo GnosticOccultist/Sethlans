@@ -11,6 +11,7 @@ import org.lwjgl.vulkan.VkQueue;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
+import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.vk.command.CommandPool;
 import fr.sethlans.core.render.vk.context.VulkanInstance;
 import fr.sethlans.core.render.vk.util.VkUtil;
@@ -34,14 +35,20 @@ public class LogicalDevice {
             ConfigFile config) {
         this.physicalDevice = physicalDevice;
         this.handle = physicalDevice.createLogicalDevice(instance, surfaceHandle, config);
+        
+        var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
+                SethlansApplication.DEFAULT_RENDER_MODE);
+        var needsPresentation = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
         try (var stack = MemoryStack.stackPush()) {
             var props = physicalDevice.gatherQueueFamilyProperties(stack, surfaceHandle);
             var graphics = props.graphics();
             this.graphicsQueue = getQueue(stack, graphics);
-
-            var presentation = props.presentation();
-            this.presentationQueue = getQueue(stack, presentation);
+            
+            if (needsPresentation) {
+                var presentation = props.presentation();
+                this.presentationQueue = getQueue(stack, presentation);
+            }
 
             this.commandPool = new CommandPool(this, graphics);
         }

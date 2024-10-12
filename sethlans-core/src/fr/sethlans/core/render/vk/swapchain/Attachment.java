@@ -18,13 +18,17 @@ public class Attachment {
 
     final int finalLayout;
 
+    final int storeOp;
+
     public Attachment(LogicalDevice device, PresentationImage image) {
         this.image = image;
         this.imageView = new ImageView(device, image.handle(), image.format(), VK10.VK_IMAGE_ASPECT_COLOR_BIT);
         this.finalLayout = KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_STORE;
     }
 
     public Attachment(LogicalDevice device, VkExtent2D extent, int format, int aspectMask, int sampleCount, int usage) {
+        this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE;
         if (aspectMask == VK10.VK_IMAGE_ASPECT_COLOR_BIT) {
             // Transient color buffer attachment.
             this.finalLayout = VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -57,6 +61,7 @@ public class Attachment {
     }
 
     public Attachment(LogicalDevice device, VkExtent2D extent, int format, int aspectMask, int sampleCount) {
+        this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE;
         var usage = VK10.VK_IMAGE_USAGE_SAMPLED_BIT;
         if (aspectMask == VK10.VK_IMAGE_ASPECT_COLOR_BIT) {
             // Transient color buffer attachment.
@@ -90,12 +95,20 @@ public class Attachment {
         fence.destroy();
         command.destroy();
     }
-    
+
     int finalLayout() {
         return finalLayout;
     }
 
     public int imageFormat() {
         return image.format();
+    }
+
+    int sampleCount() {
+        return image.sampleCount();
+    }
+
+    int storeOp() {
+        return storeOp;
     }
 }

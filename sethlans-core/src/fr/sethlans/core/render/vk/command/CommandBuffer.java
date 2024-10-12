@@ -28,7 +28,7 @@ import fr.sethlans.core.render.vk.memory.VertexBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.swapchain.FrameBuffer;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
-import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain;
+import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.SyncFrame;
 import fr.sethlans.core.render.vk.sync.Fence;
 import fr.sethlans.core.render.vk.util.VkUtil;
@@ -143,7 +143,7 @@ public class CommandBuffer {
 
         return this;
     }
-    
+
     public CommandBuffer bindVertexBuffer(VertexBuffer buffer) {
         return bindVertexBuffer(buffer.deviceBuffer());
     }
@@ -213,7 +213,7 @@ public class CommandBuffer {
         return this;
     }
 
-    public CommandBuffer beginRenderPass(PresentationSwapChain swapChain, FrameBuffer frameBuffer, RenderPass renderPass) {
+    public CommandBuffer beginRenderPass(SwapChain swapChain, FrameBuffer frameBuffer, RenderPass renderPass) {
         try (var stack = MemoryStack.stackPush()) {
             var clearValues = VkClearValue.calloc(2, stack);
             clearValues.apply(0, v -> v.color().float32(0, 0.5f).float32(1, 0.7f).float32(2, 0.9f).float32(3, 1.0f));
@@ -251,15 +251,21 @@ public class CommandBuffer {
     }
 
     public CommandBuffer submit(VkQueue queue, SyncFrame frame) {
+        var signalHandle = frame.renderCompleteSemaphore() != null ? frame.renderCompleteSemaphore().handle() : VK10.VK_NULL_HANDLE;
+        var waitHandle = frame.imageAvailableSemaphore() != null ? frame.imageAvailableSemaphore().handle() : VK10.VK_NULL_HANDLE;
+        
         try (var stack = MemoryStack.stackPush()) {
             // Create submit info.
             var submitInfo = VkSubmitInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_SUBMIT_INFO)
                     .pCommandBuffers(stack.pointers(handle))
-                    .pSignalSemaphores(stack.longs(frame.renderCompleteSemaphore().handle()))
-                    .waitSemaphoreCount(1)
-                    .pWaitSemaphores(stack.longs(frame.imageAvailableSemaphore().handle()))
+                    .waitSemaphoreCount(frame.imageAvailableSemaphore() != null ? 1 : 0)
+                    .pWaitSemaphores(stack.longs(waitHandle))
                     .pWaitDstStageMask(stack.ints(VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT));
+            
+            if (frame.renderCompleteSemaphore() != null) {
+                submitInfo.pSignalSemaphores(stack.longs(signalHandle));
+            }
 
             frame.fence().reset();
 

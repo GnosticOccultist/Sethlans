@@ -1,5 +1,7 @@
 package fr.sethlans.core.render.vk.swapchain;
 
+import java.util.ArrayList;
+
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
@@ -24,12 +26,6 @@ public class PresentationSwapChain extends SwapChain {
     private static final long NO_TIMEOUT = 0xFFFFFFFFFFFFFFFFL;
 
     private long handle = VK10.VK_NULL_HANDLE;
-    
-    private Attachment[] presentationAttachments;
-    
-    private CommandBuffer[] commandBuffers;
-
-    private FrameBuffer[] frameBuffers;
 
     public PresentationSwapChain(LogicalDevice logicalDevice, Surface surface, ConfigFile config, int desiredWidth,
             int desiredHeight) {
@@ -49,19 +45,13 @@ public class PresentationSwapChain extends SwapChain {
             var imageUsage = getImageUsage(surfaceProperties);
             create(stack, surface, config, desiredWidth, desiredHeight, surfaceFormat, imageUsage);
 
-            this.renderPass = new RenderPass(logicalDevice, imageFormat(), sampleCount, depthFormat, true);
-
             var imageHandles = getImages(stack);
             this.commandBuffers = new CommandBuffer[imageHandles.length];
             this.presentationAttachments = new Attachment[imageHandles.length];
-            if (sampleCount > 1) {
-                this.colorAttachments = new Attachment[imageHandles.length];
-            }
+            this.colorAttachments = new Attachment[imageHandles.length];
             this.depthAttachments = new Attachment[imageHandles.length];
             this.frameBuffers = new FrameBuffer[imageHandles.length];
-
-            var pAttachments = stack.mallocLong(sampleCount == 1 ? 2 : 3);
-
+            
             for (var i = 0; i < imageHandles.length; ++i) {
                 var image = new PresentationImage(imageHandles[i], imageUsage);
                 presentationAttachments[i] = new Attachment(logicalDevice, image);
@@ -73,7 +63,22 @@ public class PresentationSwapChain extends SwapChain {
                 }
                 depthAttachments[i] = new Attachment(logicalDevice, framebufferExtent, depthFormat,
                         VK10.VK_IMAGE_ASPECT_DEPTH_BIT, sampleCount);
+            }
+            
+            var dependencies = new ArrayList<SubpassDependency>(1);
+            dependencies.add(new SubpassDependency(VK10.VK_SUBPASS_EXTERNAL, 0,
+                    VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+                            | VK10.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+                    VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+                            | VK10.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+                    0, VK10.VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+                            | VK10.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT));
 
+            this.renderPass = new RenderPass(logicalDevice, dependencies, colorAttachments[0], depthAttachments[0],
+                    presentationAttachments[0]);
+
+            var pAttachments = stack.mallocLong(sampleCount == 1 ? 2 : 3);
+            for (var i = 0; i < imageHandles.length; ++i) {
                 pAttachments.put(0, sampleCount > 1 ? colorAttachments[i].imageView.handle() : presentationAttachments[i].imageView.handle());
                 pAttachments.put(1, depthAttachments[i].imageView.handle());
                 if (sampleCount > 1) {
@@ -153,7 +158,8 @@ public class PresentationSwapChain extends SwapChain {
 
     public boolean presentImage(SyncFrame frame, int imageIndex) {
         try (var stack = MemoryStack.stackPush()) {
-            var presentInfo = VkPresentInfoKHR.calloc(stack).sType(KHRSwapchain.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR)
+            var presentInfo = VkPresentInfoKHR.calloc(stack)
+                    .sType(KHRSwapchain.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR)
                     .pImageIndices(stack.ints(imageIndex))
                     .swapchainCount(1)
                     .pSwapchains(stack.longs(handle))
@@ -232,14 +238,6 @@ public class PresentationSwapChain extends SwapChain {
 
         logger.info("Requested " + numImages + " images for the swapchain.");
         return numImages;
-    }
-
-    public CommandBuffer commandBuffer(int imageIndex) {
-        return commandBuffers[imageIndex];
-    }
-
-    public FrameBuffer frameBuffer(int imageIndex) {
-        return frameBuffers[imageIndex];
     }
     
     @Override

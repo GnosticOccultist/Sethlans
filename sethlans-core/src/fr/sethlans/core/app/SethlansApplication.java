@@ -52,9 +52,13 @@ public abstract class SethlansApplication {
 
     private static SethlansApplication application;
 
+    private boolean running;
+
     public static void launch(Class<? extends SethlansApplication> appClass, String[] args) {
         logger.info("Launching " + appClass.getSimpleName() + "...");
         application = Instantiator.fromClass(appClass);
+        logger.info(application);
+        application.running = true;
 
         try {
             var config = new ConfigFile();
@@ -66,7 +70,13 @@ public abstract class SethlansApplication {
 
             application.initialize();
 
-            while (!renderEngine.getWindow().shouldClose()) {
+            while (application.running) {
+
+                var window = application.getWindow();
+                if (window != null && window.shouldClose()) {
+                    application.exit();
+                    break;
+                }
 
                 application.update();
 
@@ -76,6 +86,8 @@ public abstract class SethlansApplication {
                 renderEngine.endRender();
 
                 renderEngine.swapFrames();
+                
+                application.postRender();
             }
 
         } catch (Exception ex) {
@@ -110,14 +122,25 @@ public abstract class SethlansApplication {
 
     protected void updateWindowTitle(FrameTimer timer) {
         var window = getWindow();
-        var formatter = new DecimalFormat("#.###");
-        window.appendTitle(
-                " | " + timer.averageFps() + " fps @ " + formatter.format(timer.averageTpf() * 1000.0) + " ms");
+        if (window != null) {
+            var formatter = new DecimalFormat("#.###");
+            window.appendTitle(
+                    " | " + timer.averageFps() + " fps @ " + formatter.format(timer.averageTpf() * 1000.0) + " ms");
+        }
     }
 
     protected abstract void render(int imageIndex);
+    
+    protected void postRender() {
+        
+    }
 
     protected abstract void cleanup();
+
+    public void exit() {
+        logger.info("Requested exiting application " + getClass().getSimpleName());
+        running = false;
+    }
 
     public RenderEngine getRenderEngine() {
         return renderEngine;

@@ -3,6 +3,7 @@ package fr.sethlans.core.render.vk.device;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.EXTIndexTypeUint8;
 import org.lwjgl.vulkan.KHRIndexTypeUint8;
@@ -242,9 +243,16 @@ public class PhysicalDevice {
                         .pQueuePriorities(priorities);
             }
             createInfo.pQueueCreateInfos(queueCreationInfo);
+            
+            PointerBuffer requiredExtensions = null;
+            var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
+                    SethlansApplication.DEFAULT_RENDER_MODE);
+            var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
+            if (needsSurface) {
+                requiredExtensions = stack.mallocPointer(1);
+                requiredExtensions.put(stack.UTF8Safe(KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME));
+            }
 
-            var requiredExtensions = stack.mallocPointer(1);
-            requiredExtensions.put(stack.UTF8Safe(KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME));
             if (supportsByteIndex()) {
                 requiredExtensions = VkUtil.appendStringPointer(requiredExtensions,
                         EXTIndexTypeUint8.VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME, stack);
@@ -422,7 +430,7 @@ public class PhysicalDevice {
     }
 
     public Integer gatherMemoryType(int typeFilter, int requiredProperties) {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
+        try (var stack = MemoryStack.stackPush()) {
             // Gather the available memory types.
             var memProperties = VkPhysicalDeviceMemoryProperties.malloc(stack);
             VK10.vkGetPhysicalDeviceMemoryProperties(handle, memProperties);
@@ -433,6 +441,7 @@ public class PhysicalDevice {
                 if ((typeFilter & bitPosition) != 0x0) {
                     var memType = memProperties.memoryTypes(typeIndex);
                     var props = memType.propertyFlags();
+                   
                     if ((props & requiredProperties) == requiredProperties) {
                         return typeIndex;
                     }

@@ -12,10 +12,13 @@ public class SyncFrame {
 
     private Semaphore renderCompleteSemaphore;
 
-    public SyncFrame(LogicalDevice logicalDevice) {
+    public SyncFrame(LogicalDevice logicalDevice, boolean sync) {
         this.fence = new Fence(logicalDevice, true);
-        this.imageAvailableSemaphore = new Semaphore(logicalDevice);
-        this.renderCompleteSemaphore = new Semaphore(logicalDevice);
+
+        if (sync) {
+            this.imageAvailableSemaphore = new Semaphore(logicalDevice);
+            this.renderCompleteSemaphore = new Semaphore(logicalDevice);
+        }
     }
 
     public SyncFrame fenceWait() {
@@ -37,7 +40,13 @@ public class SyncFrame {
 
     public void destroy() {
         fence.destroy();
-        imageAvailableSemaphore.destroy();
-        renderCompleteSemaphore.destroy();
+
+        if (imageAvailableSemaphore != null) {
+            imageAvailableSemaphore.destroy();
+        }
+
+        if (renderCompleteSemaphore != null) {
+            renderCompleteSemaphore.destroy();
+        }
     }
 }

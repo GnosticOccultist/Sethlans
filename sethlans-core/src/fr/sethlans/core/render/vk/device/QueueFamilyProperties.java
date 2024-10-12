@@ -18,7 +18,7 @@ public class QueueFamilyProperties {
         assert hasGraphics();
 
         IntBuffer result;
-        if (graphics == presentation) {
+        if (graphics == presentation || presentation == null) {
             result = stack.ints(graphics);
         } else {
             result = stack.ints(graphics, presentation);
