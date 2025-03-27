@@ -2,6 +2,8 @@ package fr.sethlans.core.render.vk.swapchain;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import fr.sethlans.core.app.ConfigFile;
@@ -16,6 +18,8 @@ public class OffscreenSwapChain extends SwapChain {
 
     int index = 0;
     private VulkanBuffer screenBuffer;
+
+    private final AtomicBoolean resizeNeeded = new AtomicBoolean(false);
 
     public OffscreenSwapChain(LogicalDevice logicalDevice, ConfigFile config, int imageCount) {
         super(logicalDevice, config);
@@ -78,7 +82,10 @@ public class OffscreenSwapChain extends SwapChain {
         var channels = 4;
         var size = width * height * channels;
         this.screenBuffer = new VulkanBuffer(logicalDevice, size, VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        screenBuffer.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK10.VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+        screenBuffer.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+                | VK10.VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+
+        logger.info("Requested " + width + " " + height + "  images for the swapchain.");
     }
 
     @Override
@@ -89,7 +96,7 @@ public class OffscreenSwapChain extends SwapChain {
 
     @Override
     public boolean presentImage(SyncFrame frame, int imageIndex) {
-        return true;
+        return !resizeNeeded.get();
     }
 
     public ByteBuffer readImageData(ByteBuffer store) {
@@ -132,6 +139,10 @@ public class OffscreenSwapChain extends SwapChain {
         return presentationAttachments[frameIndex];
     }
 
+    public void requestResize() {
+        this.resizeNeeded.set(true);
+    }
+
     @Override
     public int imageCount() {
         return presentationAttachments.length;
@@ -142,6 +153,14 @@ public class OffscreenSwapChain extends SwapChain {
 
         for (var frameBuffer : frameBuffers) {
             frameBuffer.destroy();
+        }
+
+        for (var commandBuff : commandBuffers) {
+            commandBuff.destroy();
+        }
+
+        if (screenBuffer != null) {
+            screenBuffer.destroy();
         }
 
         super.destroy();

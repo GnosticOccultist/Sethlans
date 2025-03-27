@@ -1,22 +1,54 @@
 package fr.sethlans.core.render;
 
 import fr.sethlans.core.app.ConfigFile;
+import fr.sethlans.core.app.SethlansApplication;
 
-public interface RenderEngine {
+public class RenderEngine {
 
-    void initialize(ConfigFile config);
+    private final SethlansApplication application;
 
-    void waitIdle();
+    private GraphicsBackend backend;
 
-    int beginRender();
+    private long frameNumber = 0L;
 
-    void endRender();
-    
-    void resize();
+    public RenderEngine(SethlansApplication application) {
+        this.application = application;
+    }
 
-    void swapFrames();
+    public void initialize(ConfigFile config) {
+        var backendType = GraphicsBackends.chooseBackend(config);
 
-    Window getWindow();
+        this.backend = backendType.create(application);
 
-    void terminate();
+        this.backend.initialize(config);
+    }
+
+    public void render(ConfigFile config) {
+        var imageIndex = backend.beginRender(frameNumber);
+        application.render(imageIndex);
+
+        backend.endRender(frameNumber);
+
+        backend.swapFrames();
+    }
+
+    public void resize() {
+        backend.resize();
+    }
+
+    public void waitIdle() {
+        backend.waitIdle();
+    }
+
+    public void terminate() {
+        backend.terminate();
+    }
+
+    public GraphicsBackend getBackend() {
+        return backend;
+    }
+
+    public Window getWindow() {
+        return backend.getWindow();
+    }
 }

@@ -5,6 +5,7 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.VK10;
 
+import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class Surface {
@@ -13,13 +14,13 @@ public class Surface {
 
     private long handle;
 
-    Surface(VulkanInstance instance, long windowHandle) {
+    Surface(VulkanInstance instance, Window window) {
         this.instance = instance;
         this.instance.setSurface(this);
-        
+
         try (var stack = MemoryStack.stackPush()) {
             var pSurface = stack.mallocLong(1);
-            var err = GLFWVulkan.glfwCreateWindowSurface(instance.handle(), windowHandle, null, pSurface);
+            var err = GLFWVulkan.glfwCreateWindowSurface(instance.handle(), window.handle(), null, pSurface);
             VkUtil.throwOnFailure(err, "create window surface");
             handle = pSurface.get(0);
         }

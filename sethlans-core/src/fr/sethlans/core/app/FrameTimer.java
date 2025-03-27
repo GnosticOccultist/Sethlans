@@ -2,9 +2,9 @@ package fr.sethlans.core.app;
 
 import java.util.function.Consumer;
 
-public final class FrameTimer {
+public final class FrameTimer implements Timer {
 
-    private static final long TIMER_RESOLUTION = 1000000000L;
+    private static final long TIMER_RESOLUTION = 1_000_000_000L;
     private static final double INVERSE_TIMER_RESOLUTION = 1.0 / TIMER_RESOLUTION;
 
     private final int averageMillisDelta;
@@ -12,6 +12,8 @@ public final class FrameTimer {
     private final Consumer<FrameTimer> averageUpdate;
 
     private long frameCount;
+
+    private long startTime;
 
     private Long previousFrameTime = null;
 
@@ -31,6 +33,7 @@ public final class FrameTimer {
     public void update() {
         var current = System.nanoTime();
         if (previousFrameTime == null) {
+            startTime = System.nanoTime();
             previousFrameTime = current;
             previousAverageTime = current;
 
@@ -60,10 +63,27 @@ public final class FrameTimer {
         this.frameCount = 0;
     }
 
+    @Override
+    public double getTimeInSeconds() {
+        return getTime() * INVERSE_TIMER_RESOLUTION;
+    }
+
+    @Override
+    public long getTime() {
+        return System.nanoTime() - startTime;
+    }
+
+    @Override
+    public long getResolution() {
+        return TIMER_RESOLUTION;
+    }
+
+    @Override
     public double tpf() {
         return tpf;
     }
 
+    @Override
     public int fps() {
         return fps;
     }
@@ -80,6 +100,7 @@ public final class FrameTimer {
         this.frameCount = 0;
         this.previousFrameTime = null;
         this.previousAverageTime = null;
+        this.startTime = 0;
         this.averageFps = 0;
         this.tpf = 0;
         this.fps = 0;

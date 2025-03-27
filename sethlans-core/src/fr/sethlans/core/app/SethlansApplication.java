@@ -7,7 +7,6 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.render.RenderEngine;
 import fr.sethlans.core.render.Window;
-import fr.sethlans.core.render.vk.context.VulkanRenderEngine;
 
 public abstract class SethlansApplication {
 
@@ -41,7 +40,9 @@ public abstract class SethlansApplication {
     public static final String VK_1_1_GRAPHICS_API = "Vulkan11";
     public static final String VK_1_2_GRAPHICS_API = "Vulkan12";
     public static final String VK_1_3_GRAPHICS_API = "Vulkan13";
+    public static final String GL_3_3_GRAPHICS_API = "OpenGL33";
     public static final String DEFAULT_GRAPHICS_API = VK_1_3_GRAPHICS_API;
+
     public static final boolean DEFAULT_GRAPHICS_DEBUG = false;
     public static final String SURFACE_RENDER_MODE = "SurfaceRenderMode";
     public static final String OFFSCREEN_RENDER_MODE = "OffscreenRenderMode";
@@ -57,14 +58,13 @@ public abstract class SethlansApplication {
     public static void launch(Class<? extends SethlansApplication> appClass, String[] args) {
         logger.info("Launching " + appClass.getSimpleName() + "...");
         application = Instantiator.fromClass(appClass);
-        logger.info(application);
         application.running = true;
 
         try {
             var config = new ConfigFile();
             application.prepare(config);
 
-            var renderEngine = application.renderEngine = new VulkanRenderEngine(application);
+            var renderEngine = application.renderEngine = new RenderEngine(application);
 
             renderEngine.initialize(config);
 
@@ -80,13 +80,8 @@ public abstract class SethlansApplication {
 
                 application.update();
 
-                var imageIndex = renderEngine.beginRender();
-                application.render(imageIndex);
+                renderEngine.render(config);
 
-                renderEngine.endRender();
-
-                renderEngine.swapFrames();
-                
                 application.postRender();
             }
 
@@ -100,13 +95,17 @@ public abstract class SethlansApplication {
 
     private RenderEngine renderEngine;
 
-    private final FrameTimer timer = new FrameTimer(400, this::updateWindowTitle);
+    private final FrameTimer timer = new FrameTimer(600, this::updateWindowTitle);
+
+    private ConfigFile config;
 
     protected SethlansApplication() {
 
     }
 
-    protected abstract void prepare(ConfigFile appConfig);
+    protected void prepare(ConfigFile appConfig) {
+        config = appConfig;
+    }
 
     protected abstract void initialize();
 
@@ -129,10 +128,10 @@ public abstract class SethlansApplication {
         }
     }
 
-    protected abstract void render(int imageIndex);
-    
+    public abstract void render(int imageIndex);
+
     protected void postRender() {
-        
+
     }
 
     protected abstract void cleanup();
@@ -144,6 +143,10 @@ public abstract class SethlansApplication {
 
     public RenderEngine getRenderEngine() {
         return renderEngine;
+    }
+
+    public ConfigFile getConfig() {
+        return config;
     }
 
     public Window getWindow() {

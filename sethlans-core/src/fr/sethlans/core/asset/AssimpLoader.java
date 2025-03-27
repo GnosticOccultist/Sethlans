@@ -130,7 +130,7 @@ public class AssimpLoader {
                         indices.add(vertexIndex);
                     }
                 } else {
-                    System.out.printf("skipped a mesh face with %d indices%n", numIndices);
+                    logger.info("Skipped a mesh face with " + numIndices + " indices.");
                 }
             }
         }

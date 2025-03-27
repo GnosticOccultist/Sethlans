@@ -1,7 +1,6 @@
 package fr.sethlans.core.render;
 
 import org.lwjgl.glfw.GLFW;
-import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.system.Configuration;
 
 import fr.alchemy.utilities.logging.FactoryLogger;
@@ -9,7 +8,7 @@ import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 
-public abstract class GlfwBasedRenderEngine implements RenderEngine {
+public abstract class GlfwBasedGraphicsBackend implements GraphicsBackend {
 
     protected static final Logger logger = FactoryLogger.getLogger("sethlans-core.render");
 
@@ -17,7 +16,7 @@ public abstract class GlfwBasedRenderEngine implements RenderEngine {
 
     protected Window window;
 
-    public GlfwBasedRenderEngine(SethlansApplication application) {
+    public GlfwBasedGraphicsBackend(SethlansApplication application) {
         this.application = application;
     }
 
@@ -25,6 +24,7 @@ public abstract class GlfwBasedRenderEngine implements RenderEngine {
 
         var debug = config.getBoolean(SethlansApplication.GRAPHICS_DEBUG_PROP,
                 SethlansApplication.DEFAULT_GRAPHICS_DEBUG);
+
         if (debug) {
             Configuration.DEBUG.set(true);
             Configuration.DEBUG_FUNCTIONS.set(true);
@@ -35,7 +35,8 @@ public abstract class GlfwBasedRenderEngine implements RenderEngine {
         }
 
         // Print GLFW errors to err print stream.
-        GLFWErrorCallback.createPrint(System.err).set();
+        GLFW.glfwSetErrorCallback(
+                (error, description) -> logger.error("An GLFW error has occured '" + error + "': " + description));
 
         // Initialize GLFW.
         if (!GLFW.glfwInit()) {
@@ -43,7 +44,6 @@ public abstract class GlfwBasedRenderEngine implements RenderEngine {
         }
     }
 
-    @Override
     public Window getWindow() {
         return window;
     }

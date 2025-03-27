@@ -12,6 +12,7 @@ import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
+import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.context.Surface;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
@@ -27,8 +28,7 @@ public class PresentationSwapChain extends SwapChain {
 
     private long handle = VK10.VK_NULL_HANDLE;
 
-    public PresentationSwapChain(LogicalDevice logicalDevice, Surface surface, ConfigFile config, int desiredWidth,
-            int desiredHeight) {
+    public PresentationSwapChain(LogicalDevice logicalDevice, Surface surface, ConfigFile config, Window window) {
         super(logicalDevice, config);
 
         try (var stack = MemoryStack.stackPush()) {
@@ -43,7 +43,7 @@ public class PresentationSwapChain extends SwapChain {
             this.imageFormat = surfaceFormat.format();
 
             var imageUsage = getImageUsage(surfaceProperties);
-            create(stack, surface, config, desiredWidth, desiredHeight, surfaceFormat, imageUsage);
+            create(stack, surface, config, window.getWidth(), window.getHeight(), surfaceFormat, imageUsage);
 
             var imageHandles = getImages(stack);
             this.commandBuffers = new CommandBuffer[imageHandles.length];
@@ -51,11 +51,11 @@ public class PresentationSwapChain extends SwapChain {
             this.colorAttachments = new Attachment[imageHandles.length];
             this.depthAttachments = new Attachment[imageHandles.length];
             this.frameBuffers = new FrameBuffer[imageHandles.length];
-            
+
             for (var i = 0; i < imageHandles.length; ++i) {
                 var image = new PresentationImage(imageHandles[i], imageUsage);
                 presentationAttachments[i] = new Attachment(logicalDevice, image);
-                
+
                 commandBuffers[i] = logicalDevice.commandPool().createCommandBuffer();
                 if (sampleCount > 1) {
                     colorAttachments[i] = new Attachment(logicalDevice, framebufferExtent, surfaceFormat.format(),
@@ -64,7 +64,7 @@ public class PresentationSwapChain extends SwapChain {
                 depthAttachments[i] = new Attachment(logicalDevice, framebufferExtent, depthFormat,
                         VK10.VK_IMAGE_ASPECT_DEPTH_BIT, sampleCount);
             }
-            
+
             var dependencies = new ArrayList<SubpassDependency>(1);
             dependencies.add(new SubpassDependency(VK10.VK_SUBPASS_EXTERNAL, 0,
                     VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
@@ -79,7 +79,8 @@ public class PresentationSwapChain extends SwapChain {
 
             var pAttachments = stack.mallocLong(sampleCount == 1 ? 2 : 3);
             for (var i = 0; i < imageHandles.length; ++i) {
-                pAttachments.put(0, sampleCount > 1 ? colorAttachments[i].imageView.handle() : presentationAttachments[i].imageView.handle());
+                pAttachments.put(0, sampleCount > 1 ? colorAttachments[i].imageView.handle()
+                        : presentationAttachments[i].imageView.handle());
                 pAttachments.put(1, depthAttachments[i].imageView.handle());
                 if (sampleCount > 1) {
                     pAttachments.put(2, presentationAttachments[i].imageView.handle());
@@ -87,6 +88,8 @@ public class PresentationSwapChain extends SwapChain {
 
                 frameBuffers[i] = new FrameBuffer(logicalDevice, renderPass(), framebufferExtent, pAttachments);
             }
+
+            window.resize(framebufferExtent(stack));
         }
     }
 
@@ -239,13 +242,13 @@ public class PresentationSwapChain extends SwapChain {
         logger.info("Requested " + numImages + " images for the swapchain.");
         return numImages;
     }
-    
+
     @Override
     protected Attachment getAttachment(int frameIndex) {
         if (frameIndex < 0 || frameIndex > imageCount()) {
             throw new IllegalArgumentException("The frame index is out of bounds " + frameIndex);
         }
-        
+
         return presentationAttachments[frameIndex];
     }
 

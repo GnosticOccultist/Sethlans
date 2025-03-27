@@ -18,7 +18,7 @@ import org.lwjgl.vulkan.VK10;
 
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
-import fr.sethlans.core.render.GlfwBasedRenderEngine;
+import fr.sethlans.core.render.GlfwBasedGraphicsBackend;
 import fr.sethlans.core.render.Projection;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
@@ -36,7 +36,7 @@ import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.SyncFrame;
 
-public class VulkanRenderEngine extends GlfwBasedRenderEngine {
+public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
     /**
      * The count of frames to process concurrently.
@@ -93,7 +93,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
     private IntBuffer dynDescriptorOffset;
 
-    public VulkanRenderEngine(SethlansApplication application) {
+    public VulkanGraphicsBackend(SethlansApplication application) {
         super(application);
     }
 
@@ -126,7 +126,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
         this.vulkanInstance = new VulkanInstance(config);
         if (needsSurface) {
-            this.surface = new Surface(vulkanInstance, window.handle());
+            this.surface = new Surface(vulkanInstance, window);
         }
 
         var comparator = needsSurface ? PhysicalDevice.SURFACE_SUPPORT_COMPARATOR
@@ -159,8 +159,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
             ex.printStackTrace();
         }
 
-        this.swapChain = needsSurface
-                ? new PresentationSwapChain(logicalDevice, surface, config, window.getWidth(), window.getHeight())
+        this.swapChain = needsSurface ? new PresentationSwapChain(logicalDevice, surface, config, window)
                 : new OffscreenSwapChain(logicalDevice, config, 2);
         this.framesInFlight = new HashMap<>(swapChain.imageCount());
         this.syncFrames = new SyncFrame[MAX_FRAMES_IN_FLIGHT];
@@ -201,7 +200,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
     }
 
     @Override
-    public int beginRender() {
+    public int beginRender(long frameNumber) {
         // Wait for completion of the previous frame.
         var frame = syncFrames[currentFrame];
         frame.fenceWait();
@@ -223,7 +222,7 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
     }
 
     @Override
-    public void endRender() {
+    public void endRender(long frameNumber) {
         
     }
 
@@ -251,7 +250,6 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
         }
     }
 
-    @Override
     public void waitIdle() {
         if (logicalDevice != null) {
             // Await termination of all pending commands.
@@ -270,19 +268,26 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
     }
 
     private void recreateSwapchain() {
-        try (var stack = MemoryStack.stackPush()) {
-            var windowHandle = window.handle();
-            var pWidth = stack.ints(0);
-            var pHeight = stack.ints(0);
-            glfwGetFramebufferSize(windowHandle, pWidth, pHeight);
-            if (pWidth.get(0) == 0 && pHeight.get(0) == 0) {
-                logger.info("The window is minimized");
+        var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
+                SethlansApplication.DEFAULT_RENDER_MODE);
+        var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
-                while (pWidth.get(0) == 0 && pHeight.get(0) == 0) {
-                    glfwWaitEvents();
-                    glfwGetFramebufferSize(windowHandle, pWidth, pHeight);
+        if (needsSurface) {
+            try (var stack = MemoryStack.stackPush()) {
+                var windowHandle = window.handle();
+                var pWidth = stack.ints(0);
+                var pHeight = stack.ints(0);
+                glfwGetFramebufferSize(windowHandle, pWidth, pHeight);
+                if (pWidth.get(0) == 0 && pHeight.get(0) == 0) {
+                    logger.info("The window is minimized");
+
+                    while (pWidth.get(0) == 0 && pHeight.get(0) == 0) {
+                        glfwWaitEvents();
+                        glfwGetFramebufferSize(windowHandle, pWidth, pHeight);
+                    }
+
+                    logger.info("The window has regain focus");
                 }
-                logger.info("The window has regain focus");
             }
         }
 
@@ -298,30 +303,22 @@ public class VulkanRenderEngine extends GlfwBasedRenderEngine {
 
         framesInFlight.clear();
 
-        var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
-                SethlansApplication.DEFAULT_RENDER_MODE);
-        var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
-
         for (var i = 0; i < syncFrames.length; ++i) {
             syncFrames[i].destroy();
             syncFrames[i] = new SyncFrame(logicalDevice, needsSurface);
         }
 
-        this.swapChain = needsSurface
-                ? new PresentationSwapChain(logicalDevice, surface, config, window.getWidth(), window.getHeight())
+        this.swapChain = needsSurface ? new PresentationSwapChain(logicalDevice, surface, config, window)
                 : new OffscreenSwapChain(logicalDevice, config, 2);
         this.pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program, new DescriptorSetLayout[] {
                 globalDescriptorSetLayout, dynamicDescriptorSetLayout, samplerDescriptorSetLayout });
-        try (var stack = MemoryStack.stackPush()) {
-            window.resize(swapChain.framebufferExtent(stack));
-        }
 
         application.resize();
     }
 
     @Override
     public void resize() {
-        projection.update(getWindow().getWidth(), getWindow().getHeight());
+        projection.update(swapChain.width(), swapChain.height());
 
         var matrixBuffer = globalUniform.map();
         projection.store(0, matrixBuffer);

@@ -10,7 +10,7 @@ import org.lwjgl.vulkan.VK10;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.TextureLoader;
-import fr.sethlans.core.render.vk.context.VulkanRenderEngine;
+import fr.sethlans.core.render.vk.context.VulkanGraphicsBackend;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.image.Texture;
 import fr.sethlans.core.render.vk.memory.IndexBuffer;
@@ -83,7 +83,7 @@ public class SethlansTest extends SethlansApplication {
 
     @Override
     protected void initialize() {
-        var renderEngine = ((VulkanRenderEngine) getRenderEngine());
+        var renderEngine = ((VulkanGraphicsBackend) (getRenderEngine().getBackend()));
         var logicalDevice = renderEngine.getLogicalDevice();
 
         vertexBuffer = new VertexBuffer(logicalDevice, VERTEX_DATA, 5);
@@ -102,8 +102,8 @@ public class SethlansTest extends SethlansApplication {
     }
 
     @Override
-    protected void render(int imageIndex) {
-        var renderEngine = (VulkanRenderEngine) getRenderEngine();
+    public void render(int imageIndex) {
+        var renderEngine = ((VulkanGraphicsBackend) (getRenderEngine().getBackend()));
         var swapChain = renderEngine.getSwapChain();
         var pipeline = renderEngine.getPipeline();
 

@@ -15,7 +15,7 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.AssimpLoader;
 import fr.sethlans.core.asset.TextureLoader;
 import fr.sethlans.core.asset.Vertex;
-import fr.sethlans.core.render.vk.context.VulkanRenderEngine;
+import fr.sethlans.core.render.vk.context.VulkanGraphicsBackend;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.image.Texture;
 import fr.sethlans.core.render.vk.memory.IndexBuffer;
@@ -59,7 +59,7 @@ public class AssimpTest extends SethlansApplication {
 
     @Override
     protected void initialize() {
-        var renderEngine = (VulkanRenderEngine) getRenderEngine();
+        var renderEngine = ((VulkanGraphicsBackend) (getRenderEngine().getBackend()));
         var logicalDevice = renderEngine.getLogicalDevice();
 
         var vertices = new ArrayList<Vertex>();
@@ -84,8 +84,8 @@ public class AssimpTest extends SethlansApplication {
     }
 
     @Override
-    protected void render(int imageIndex) {
-        var renderEngine = (VulkanRenderEngine) getRenderEngine();
+    public void render(int imageIndex) {
+        var renderEngine = ((VulkanGraphicsBackend) (getRenderEngine().getBackend()));
         var swapChain = renderEngine.getSwapChain();
         var pipeline = renderEngine.getPipeline();
 
