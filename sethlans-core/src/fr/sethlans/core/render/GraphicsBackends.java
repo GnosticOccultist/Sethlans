@@ -6,6 +6,7 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
+import fr.sethlans.core.render.backend.GraphicsBackend;
 
 public enum GraphicsBackends {
 

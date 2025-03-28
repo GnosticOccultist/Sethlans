@@ -18,9 +18,9 @@ import org.lwjgl.vulkan.VK10;
 
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
-import fr.sethlans.core.render.GlfwBasedGraphicsBackend;
 import fr.sethlans.core.render.Projection;
 import fr.sethlans.core.render.Window;
+import fr.sethlans.core.render.backend.GlfwBasedGraphicsBackend;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
@@ -28,6 +28,7 @@ import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.device.PhysicalDevice;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
+import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineCache;
 import fr.sethlans.core.render.vk.shader.ShaderProgram;
@@ -35,6 +36,7 @@ import fr.sethlans.core.render.vk.swapchain.OffscreenSwapChain;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.SyncFrame;
+import fr.sethlans.core.scenegraph.Geometry;
 
 public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
@@ -92,6 +94,8 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
     private DescriptorSet dynamicDescriptorSet;
 
     private IntBuffer dynDescriptorOffset;
+
+    private final VulkanMesh[] meshes = new VulkanMesh[50];
 
     public VulkanGraphicsBackend(SethlansApplication application) {
         super(application);
@@ -223,7 +227,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
     @Override
     public void endRender(long frameNumber) {
-        
+
     }
 
     @Override
@@ -255,6 +259,40 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
             // Await termination of all pending commands.
             logicalDevice.waitIdle();
         }
+    }
+
+    @Override
+    public void render(Geometry geometry) {
+        var mesh = geometry.getMesh();
+
+        VulkanMesh vkMesh = null;
+        if (mesh.hasBackendObject()) {
+            vkMesh = meshes[mesh.backendId()];
+
+        } else {
+            for (var i = 0; i < meshes.length; ++i) {
+                if (meshes[i] == null) {
+                    meshes[i] = new VulkanMesh(logicalDevice, mesh);
+                    vkMesh = meshes[i];
+                    mesh.assignId(i);
+                }
+            }
+        }
+
+        if (mesh.isDirty()) {
+            logger.info("Update mesh for " + geometry);
+            vkMesh.uploadData(mesh);
+            mesh.clean();
+        }
+        
+        swapChain.commandBuffer(imageIndex).reset().beginRecording()
+                .beginRenderPass(swapChain, swapChain.frameBuffer(imageIndex), swapChain.renderPass())
+                .bindPipeline(pipeline.handle());
+
+        bindDescriptorSets(swapChain.commandBuffer(imageIndex)).bindVertexBuffer(vkMesh.getVertexBuffer())
+                .bindIndexBuffer(vkMesh.getIndexBuffer())
+                .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, geometry.getModelMatrix())
+                .drawIndexed(vkMesh.getIndexBuffer()).endRenderPass().end();
     }
 
     public void putDescriptorSets(int index, DescriptorSet descriptorSet) {

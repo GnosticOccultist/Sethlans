@@ -14,6 +14,7 @@ import org.lwjgl.assimp.Assimp;
 
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
+import fr.sethlans.core.scenegraph.mesh.Vertex;
 
 public class AssimpLoader {
 

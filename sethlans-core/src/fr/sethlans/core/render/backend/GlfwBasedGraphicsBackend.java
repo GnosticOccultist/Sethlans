@@ -1,4 +1,4 @@
-package fr.sethlans.core.render;
+package fr.sethlans.core.render.backend;
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.system.Configuration;
@@ -7,6 +7,7 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
+import fr.sethlans.core.render.Window;
 
 public abstract class GlfwBasedGraphicsBackend implements GraphicsBackend {
 

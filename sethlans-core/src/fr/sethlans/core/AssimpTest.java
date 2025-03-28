@@ -14,12 +14,12 @@ import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.AssimpLoader;
 import fr.sethlans.core.asset.TextureLoader;
-import fr.sethlans.core.asset.Vertex;
 import fr.sethlans.core.render.vk.context.VulkanGraphicsBackend;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.image.Texture;
 import fr.sethlans.core.render.vk.memory.IndexBuffer;
 import fr.sethlans.core.render.vk.memory.VertexBuffer;
+import fr.sethlans.core.scenegraph.mesh.Vertex;
 
 public class AssimpTest extends SethlansApplication {
 

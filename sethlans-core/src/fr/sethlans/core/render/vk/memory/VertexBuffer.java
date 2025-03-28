@@ -1,12 +1,13 @@
 package fr.sethlans.core.render.vk.memory;
 
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.util.Collection;
 
 import org.lwjgl.vulkan.VK10;
 
-import fr.sethlans.core.asset.Vertex;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.scenegraph.mesh.Vertex;
 
 public final class VertexBuffer {
 
@@ -39,6 +40,19 @@ public final class VertexBuffer {
                     data.putFloat(pos.x()).putFloat(pos.y()).putFloat(pos.z());
                     data.putFloat(texCoord.x()).putFloat(texCoord.y());
                 }
+            }
+        };
+    }
+    
+    public VertexBuffer(LogicalDevice logicalDevice, FloatBuffer buffer, int fpv) {
+        buffer.rewind();
+        this.fpv = fpv;
+        this.deviceBuffer = new DeviceBuffer(logicalDevice, buffer.capacity() * Float.BYTES,
+                VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) {
+
+            @Override
+            protected void populate(ByteBuffer data) {
+                data.asFloatBuffer().put(buffer);
             }
         };
     }
