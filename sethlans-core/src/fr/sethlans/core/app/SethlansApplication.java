@@ -5,6 +5,8 @@ import java.text.DecimalFormat;
 import fr.alchemy.utilities.Instantiator;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
+import fr.sethlans.core.app.kernel.OS;
+import fr.sethlans.core.app.kernel.OSArch;
 import fr.sethlans.core.render.RenderEngine;
 import fr.sethlans.core.render.Window;
 
@@ -46,6 +48,7 @@ public abstract class SethlansApplication {
     public static final boolean DEFAULT_GRAPHICS_DEBUG = false;
     public static final String SURFACE_RENDER_MODE = "SurfaceRenderMode";
     public static final String OFFSCREEN_RENDER_MODE = "OffscreenRenderMode";
+    public static final String HEADLESS_RENDER_MODE = "HeadlessRenderMode";
     public static final String DEFAULT_RENDER_MODE = SURFACE_RENDER_MODE;
     public static final boolean DEFAULT_VSYNC = true;
     public static final int DEFAULT_MSSA_SAMPLES = 4;
@@ -99,12 +102,30 @@ public abstract class SethlansApplication {
 
     private ConfigFile config;
 
+    private OSArch osArch;
+
     protected SethlansApplication() {
 
     }
 
     protected void prepare(ConfigFile appConfig) {
-        config = appConfig;
+        this.osArch = OSArch.resolveFromJavaProperty();
+        this.config = appConfig;
+
+        logger.info("Preparing application on machine: \n* OS = " + osArch + "\n* OS_VERSION = "
+                + System.getProperty("os.version") + "\n* JAVA_RUNTIME_NAME = "
+                + System.getProperty("java.runtime.name") + "\n* JAVA_VERSION = " + System.getProperty("java.version"));
+
+        var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
+                SethlansApplication.DEFAULT_RENDER_MODE);
+        var headless = renderMode.equals(SethlansApplication.HEADLESS_RENDER_MODE);
+
+        // Force AWT to headless mode on Mac, to avoid conflict with GLFW.
+        if (osArch.os().equals(OS.MAC_OS) || headless) {
+            // Set AWT to headless mode.
+            logger.info("Set AWT to headless mode.");
+            System.setProperty("java.awt.headless", "true");
+        }
     }
 
     protected abstract void initialize();
@@ -147,6 +168,10 @@ public abstract class SethlansApplication {
 
     public ConfigFile getConfig() {
         return config;
+    }
+
+    public OSArch getOsArch() {
+        return osArch;
     }
 
     public Window getWindow() {

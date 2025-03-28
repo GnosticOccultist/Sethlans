@@ -45,6 +45,8 @@ public class AssimpTest extends SethlansApplication {
 
     @Override
     protected void prepare(ConfigFile appConfig) {
+        super.prepare(appConfig);
+        
         appConfig.addString(APP_NAME_PROP, "Assimp Demo")
                 .addInteger(APP_MAJOR_PROP, 1)
                 .addInteger(APP_MINOR_PROP, 0)
