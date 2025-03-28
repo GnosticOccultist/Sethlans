@@ -8,6 +8,8 @@ import org.lwjgl.PointerBuffer;
 import org.lwjgl.glfw.GLFWVulkan;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.EXTDebugUtils;
+import org.lwjgl.vulkan.KHRPortabilityEnumeration;
+import org.lwjgl.vulkan.KHRPortabilitySubset;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VK11;
 import org.lwjgl.vulkan.VK12;
@@ -25,6 +27,7 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
+import fr.sethlans.core.app.kernel.OS;
 import fr.sethlans.core.render.vk.device.PhysicalDevice;
 import fr.sethlans.core.render.vk.device.PhysicalDeviceComparator;
 import fr.sethlans.core.render.vk.util.VkUtil;
@@ -38,10 +41,10 @@ public class VulkanInstance {
     private VkDebugUtilsMessengerCallbackEXT debugMessengerCallback;
 
     private long vkDebugHandle;
-    
+
     private Surface surface;
 
-    public VulkanInstance(ConfigFile config) {
+    public VulkanInstance(SethlansApplication application, ConfigFile config) {
         try (var stack = MemoryStack.stackPush()) {
 
             var appName = config.getString(SethlansApplication.APP_NAME_PROP, SethlansApplication.DEFAULT_APP_NAME);
@@ -61,14 +64,20 @@ public class VulkanInstance {
                     .pEngineName(stack.UTF8("Sethlans"))
                     .engineVersion(VK10.VK_MAKE_API_VERSION(0, 0, 1, 0))
                     .apiVersion(apiVersion);
-            
-            var ppEnabledExtensionNames = getRequiredExtensions(config, stack);
+
+            var ppEnabledExtensionNames = getRequiredExtensions(application, config, stack);
 
             // Create the instance-creation info.
             var createInfo = VkInstanceCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO)
                     .pApplicationInfo(appInfo)
                     .ppEnabledExtensionNames(ppEnabledExtensionNames);
+
+            var osArch = application.getOsArch();
+            if (osArch.os().equals(OS.MAC_OS)) {
+                // Search for devices with the 'VK_KHR_portability_subset' extension.
+                createInfo.flags(KHRPortabilityEnumeration.VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR);
+            }
 
             var debug = config.getBoolean(SethlansApplication.GRAPHICS_DEBUG_PROP,
                     SethlansApplication.DEFAULT_GRAPHICS_DEBUG);
@@ -97,7 +106,7 @@ public class VulkanInstance {
             }
         }
     }
-    
+
     public PhysicalDevice choosePhysicalDevice(ConfigFile config, PhysicalDeviceComparator comparator) {
         try (var stack = MemoryStack.stackPush()) {
             var pDevices = getPhysicalDevices(stack);
@@ -186,7 +195,7 @@ public class VulkanInstance {
         return VK10.VK_FALSE;
     }
 
-    private PointerBuffer getRequiredExtensions(ConfigFile config, MemoryStack stack) {
+    private PointerBuffer getRequiredExtensions(SethlansApplication application, ConfigFile config, MemoryStack stack) {
         PointerBuffer result = null;
 
         var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
@@ -196,12 +205,18 @@ public class VulkanInstance {
             // Request GLFW surface extensions.
             result = GLFWVulkan.glfwGetRequiredInstanceExtensions();
         }
-        
+
         var debug = config.getBoolean(SethlansApplication.GRAPHICS_DEBUG_PROP,
                 SethlansApplication.DEFAULT_GRAPHICS_DEBUG);
         if (debug) {
             // Vulkan debug utils messenger require an extra extension.
             result = VkUtil.appendStringPointer(result, EXTDebugUtils.VK_EXT_DEBUG_UTILS_EXTENSION_NAME, stack);
+        }
+
+        var osArch = application.getOsArch();
+        if (osArch.os().equals(OS.MAC_OS)) {
+            result = VkUtil.appendStringPointer(result, KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
+                    stack);
         }
 
         // TODO: Add support for more required extensions.

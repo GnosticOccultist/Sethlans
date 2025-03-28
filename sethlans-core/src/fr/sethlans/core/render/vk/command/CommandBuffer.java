@@ -250,7 +250,7 @@ public class CommandBuffer {
         return this;
     }
 
-    public CommandBuffer submit(VkQueue queue, SyncFrame frame) {
+    public CommandBuffer submitFrame(SyncFrame frame) {
         var signalHandle = frame.renderCompleteSemaphore() != null ? frame.renderCompleteSemaphore().handle() : VK10.VK_NULL_HANDLE;
         var waitHandle = frame.imageAvailableSemaphore() != null ? frame.imageAvailableSemaphore().handle() : VK10.VK_NULL_HANDLE;
         
@@ -269,8 +269,9 @@ public class CommandBuffer {
 
             frame.fence().reset();
 
+            var graphicsQueue = commandPool.getLogicalDevice().graphicsQueue();
             var fenceHandle = frame.fence().handle();
-            var err = VK10.vkQueueSubmit(queue, submitInfo, fenceHandle);
+            var err = VK10.vkQueueSubmit(graphicsQueue, submitInfo, fenceHandle);
             VkUtil.throwOnFailure(err, "submit a command-buffer");
         }
 

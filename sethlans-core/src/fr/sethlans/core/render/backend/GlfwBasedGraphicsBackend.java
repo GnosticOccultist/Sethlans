@@ -49,6 +49,10 @@ public abstract class GlfwBasedGraphicsBackend implements GraphicsBackend {
         return window;
     }
 
+    public SethlansApplication getApplication() {
+        return application;
+    }
+
     public void terminateGlfw() {
 
         logger.info("Terminating GLFW library");

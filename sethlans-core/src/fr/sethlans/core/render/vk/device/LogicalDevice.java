@@ -10,10 +10,9 @@ import org.lwjgl.vulkan.VkQueue;
 
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
-import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.vk.command.CommandPool;
-import fr.sethlans.core.render.vk.context.VulkanInstance;
+import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class LogicalDevice {
@@ -31,10 +30,12 @@ public class LogicalDevice {
 
     private CommandPool commandPool;
 
-    public LogicalDevice(VulkanInstance instance, PhysicalDevice physicalDevice, long surfaceHandle,
-            ConfigFile config) {
-        this.physicalDevice = physicalDevice;
-        this.handle = physicalDevice.createLogicalDevice(instance, surfaceHandle, config);
+    public LogicalDevice(VulkanContext context) {
+        this.physicalDevice = context.getPhysicalDevice();
+        this.handle = physicalDevice.createLogicalDevice(context);
+        
+        var config = context.getBackend().getApplication().getConfig();
+        var surfaceHandle = context.surfaceHandle();
         
         var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
                 SethlansApplication.DEFAULT_RENDER_MODE);

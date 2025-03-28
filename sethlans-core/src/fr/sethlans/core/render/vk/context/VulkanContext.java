@@ -2,12 +2,12 @@ package fr.sethlans.core.render.vk.context;
 
 import org.lwjgl.vulkan.VK10;
 
-import fr.sethlans.core.app.ConfigFile;
-import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.device.PhysicalDevice;
 
 public class VulkanContext {
+
+    private final VulkanGraphicsBackend backend;
 
     private VulkanInstance vulkanInstance;
 
@@ -17,16 +17,69 @@ public class VulkanContext {
 
     private LogicalDevice logicalDevice;
 
-    public void initialize(ConfigFile config, Window window) {
+    public VulkanContext(VulkanGraphicsBackend backend) {
+        this.backend = backend;
+    }
 
-        this.vulkanInstance = new VulkanInstance(config);
+    public void initialize() {
+
+        var window = backend.getWindow();
+        var config = backend.getApplication().getConfig();
+
+        this.vulkanInstance = new VulkanInstance(backend.getApplication(), config);
         this.surface = window != null ? new Surface(vulkanInstance, window) : null;
 
         var comparator = surface != null ? PhysicalDevice.SURFACE_SUPPORT_COMPARATOR
                 : PhysicalDevice.OFFSCREEN_SUPPORT_COMPARATOR;
         this.physicalDevice = vulkanInstance.choosePhysicalDevice(config, comparator);
 
+        this.logicalDevice = new LogicalDevice(this);
+    }
+
+    public void waitIdle() {
+        if (logicalDevice != null) {
+            // Await termination of all pending commands.
+            logicalDevice.waitIdle();
+        }
+    }
+
+    public VulkanGraphicsBackend getBackend() {
+        return backend;
+    }
+
+    public VulkanInstance getVulkanInstance() {
+        return vulkanInstance;
+    }
+
+    public Surface getSurface() {
+        return surface;
+    }
+
+    public long surfaceHandle() {
         var surfaceHandle = surface != null ? surface.handle() : VK10.VK_NULL_HANDLE;
-        this.logicalDevice = new LogicalDevice(vulkanInstance, physicalDevice, surfaceHandle, config);
+        return surfaceHandle;
+    }
+
+    public PhysicalDevice getPhysicalDevice() {
+        return physicalDevice;
+    }
+
+    public LogicalDevice getLogicalDevice() {
+        return logicalDevice;
+    }
+
+    public void destroy() {
+        if (logicalDevice != null) {
+            logicalDevice.destroy();
+            logicalDevice = null;
+        }
+
+        if (surface != null) {
+            surface.destroy();
+        }
+
+        if (vulkanInstance != null) {
+            vulkanInstance.destroy();
+        }
     }
 }

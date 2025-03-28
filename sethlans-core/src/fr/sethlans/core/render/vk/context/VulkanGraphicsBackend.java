@@ -26,7 +26,6 @@ import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.device.PhysicalDevice;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
@@ -46,13 +45,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
      */
     private static final int MAX_FRAMES_IN_FLIGHT = 2;
 
-    private VulkanInstance vulkanInstance;
-
-    private Surface surface;
-
-    private PhysicalDevice physicalDevice;
-
-    private LogicalDevice logicalDevice;
+    private VulkanContext context;
 
     private SwapChain swapChain;
 
@@ -77,7 +70,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
     private PipelineCache pipelineCache;
 
     private Pipeline pipeline;
-    
+
     private PipelineLayout pipelineLayout;
 
     private Projection projection;
@@ -131,17 +124,11 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
             this.window = new Window(application, config);
         }
 
-        this.vulkanInstance = new VulkanInstance(config);
-        if (needsSurface) {
-            this.surface = new Surface(vulkanInstance, window);
-        }
+        this.context = new VulkanContext(this);
+        context.initialize();
 
-        var comparator = needsSurface ? PhysicalDevice.SURFACE_SUPPORT_COMPARATOR
-                : PhysicalDevice.OFFSCREEN_SUPPORT_COMPARATOR;
-        this.physicalDevice = vulkanInstance.choosePhysicalDevice(config, comparator);
-
-        var surfaceHandle = surface != null ? surface.handle() : VK10.VK_NULL_HANDLE;
-        this.logicalDevice = new LogicalDevice(vulkanInstance, physicalDevice, surfaceHandle, config);
+        var physicalDevice = context.getPhysicalDevice();
+        var logicalDevice = context.getLogicalDevice();
 
         this.descriptorPool = new DescriptorPool(logicalDevice, 16);
 
@@ -166,7 +153,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
             ex.printStackTrace();
         }
 
-        this.swapChain = needsSurface ? new PresentationSwapChain(logicalDevice, surface, config, window)
+        this.swapChain = needsSurface ? new PresentationSwapChain(logicalDevice, context.getSurface(), config, window)
                 : new OffscreenSwapChain(logicalDevice, config, 2);
         this.framesInFlight = new HashMap<>(swapChain.imageCount());
         this.syncFrames = new SyncFrame[MAX_FRAMES_IN_FLIGHT];
@@ -244,7 +231,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         framesInFlight.put(imageIndex, frame);
 
         var command = swapChain.commandBuffer(imageIndex);
-        command.submit(logicalDevice.graphicsQueue(), frame);
+        command.submitFrame(frame);
 
         if (!swapChain.presentImage(frame, imageIndex)) {
             recreateSwapchain();
@@ -256,16 +243,17 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
             window.update();
         }
     }
-
+    
+    @Override
     public void waitIdle() {
-        if (logicalDevice != null) {
-            // Await termination of all pending commands.
-            logicalDevice.waitIdle();
+        if (context != null) {
+            context.waitIdle();
         }
     }
 
     @Override
     public void render(Geometry geometry) {
+        var logicalDevice = context.getLogicalDevice();
         var mesh = geometry.getMesh();
 
         VulkanMesh vkMesh = null;
@@ -287,11 +275,11 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
             vkMesh.uploadData(mesh);
             mesh.clean();
         }
-        
+
         if (pipeline == null) {
             pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program, vkMesh, pipelineLayout);
         }
-        
+
         swapChain.commandBuffer(imageIndex).reset().beginRecording()
                 .beginRenderPass(swapChain, swapChain.frameBuffer(imageIndex), swapChain.renderPass())
                 .bindPipeline(pipeline.handle());
@@ -349,13 +337,14 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         }
 
         framesInFlight.clear();
-
+        
+        var logicalDevice = context.getLogicalDevice();
         for (var i = 0; i < syncFrames.length; ++i) {
             syncFrames[i].destroy();
             syncFrames[i] = new SyncFrame(logicalDevice, needsSurface);
         }
 
-        this.swapChain = needsSurface ? new PresentationSwapChain(logicalDevice, surface, config, window)
+        this.swapChain = needsSurface ? new PresentationSwapChain(logicalDevice, context.getSurface(), config, window)
                 : new OffscreenSwapChain(logicalDevice, config, 2);
 
         application.resize();
@@ -370,12 +359,12 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         globalUniform.unmap();
     }
 
-    public VulkanInstance getVulkanInstance() {
-        return vulkanInstance;
+    public VulkanContext getContext() {
+        return context;
     }
 
     public LogicalDevice getLogicalDevice() {
-        return logicalDevice;
+        return getContext().getLogicalDevice();
     }
 
     public SwapChain getSwapChain() {
@@ -415,7 +404,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         if (pipeline != null) {
             pipeline.destroy();
         }
-        
+
         if (pipelineLayout != null) {
             pipelineLayout.destroy();
         }
@@ -453,17 +442,8 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
             descriptorPool.destroy();
         }
 
-        if (logicalDevice != null) {
-            logicalDevice.destroy();
-            logicalDevice = null;
-        }
-
-        if (surface != null) {
-            surface.destroy();
-        }
-
-        if (vulkanInstance != null) {
-            vulkanInstance.destroy();
+        if (context != null) {
+            context.destroy();
         }
 
         terminateGlfw();

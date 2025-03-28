@@ -7,6 +7,7 @@ import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.EXTIndexTypeUint8;
 import org.lwjgl.vulkan.KHRIndexTypeUint8;
+import org.lwjgl.vulkan.KHRPortabilitySubset;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
@@ -30,9 +31,10 @@ import org.lwjgl.vulkan.VkQueueFamilyProperties;
 import fr.alchemy.utilities.collections.array.Array;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
-import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
+import fr.sethlans.core.app.kernel.OS;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
+import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.context.VulkanInstance;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
@@ -147,7 +149,11 @@ public class PhysicalDevice {
         return surfaceProperties;
     }
 
-    VkDevice createLogicalDevice(VulkanInstance instance, long surfaceHandle, ConfigFile config) {
+    VkDevice createLogicalDevice(VulkanContext context) {
+        var application = context.getBackend().getApplication();
+        var config = application.getConfig();
+        var surfaceHandle = context.surfaceHandle();
+        
         try (var stack = MemoryStack.stackPush()) {
             // Create the logical device creation info.
             var createInfo = VkDeviceCreateInfo.calloc(stack)
@@ -234,6 +240,13 @@ public class PhysicalDevice {
                 requiredExtensions = VkUtil.appendStringPointer(requiredExtensions,
                         EXTIndexTypeUint8.VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME, stack);
             }
+            
+            var osArch = application.getOsArch();
+            if (osArch.os().equals(OS.MAC_OS)) {
+                requiredExtensions = VkUtil.appendStringPointer(requiredExtensions, KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
+                        stack);
+            }
+            
             createInfo.ppEnabledExtensionNames(requiredExtensions);
 
             var debug = config.getBoolean(SethlansApplication.GRAPHICS_DEBUG_PROP,
