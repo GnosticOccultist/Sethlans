@@ -22,6 +22,7 @@ import org.lwjgl.vulkan.VkPhysicalDeviceFeatures;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures2;
 import org.lwjgl.vulkan.VkPhysicalDeviceIndexTypeUint8FeaturesKHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties;
+import org.lwjgl.vulkan.VkPhysicalDevicePortabilitySubsetFeaturesKHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
 import org.lwjgl.vulkan.VkPhysicalDeviceToolProperties;
 import org.lwjgl.vulkan.VkQueueFamilyProperties;
@@ -119,6 +120,8 @@ public class PhysicalDevice {
     private int maxPushConstantsSize = -1;
 
     private boolean byteIndexSupported;
+    
+    private boolean triangleFansSupported;
 
     private float maxAnisotropy;
 
@@ -129,43 +132,6 @@ public class PhysicalDevice {
     public PhysicalDevice(long handle, VulkanInstance instance) {
         this.instance = instance;
         this.handle = new VkPhysicalDevice(handle, instance.handle());
-    }
-
-    public float evaluate(long surfaceHandle) {
-
-        var score = 0f;
-
-        // Check that the device support the swap-chain extension.
-        if (!hasExtension(KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
-            logger.error("Swapchain extension isn't supported by " + this);
-            return 0f;
-        }
-
-        // Check that the device has adequate swap-chain support for the surface.
-        if (!hasAdequateSwapChainSupport(surfaceHandle)) {
-            logger.error("Swapchain support isn't adequate for " + this);
-            return 0f;
-        }
-        
-        try (var stack = MemoryStack.stackPush()) {
-            var properties = gatherQueueFamilyProperties(stack, surfaceHandle);
-            if (!properties.hasGraphics() || !properties.hasPresentation()) {
-                return 0f;
-            }
-        }
-        
-        // This is a plus if the device supports extension for uint8 index value.
-        if (hasExtension(EXTIndexTypeUint8.VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME)
-                || hasExtension(KHRIndexTypeUint8.VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME)) {
-            score += 10f;
-        }
-
-        // Discrete GPUs have a significant performance advantage over integrated GPUs.
-        if (type == VK10.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-            score += 100f;
-        }
-
-        return score;
     }
 
     private boolean hasAdequateSwapChainSupport(long surfaceHandle) {
@@ -214,10 +180,13 @@ public class PhysicalDevice {
             
             var uint8Features = VkPhysicalDeviceIndexTypeUint8FeaturesKHR.calloc(stack)
                     .sType(KHRIndexTypeUint8.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_KHR);
+            
+            var portabilityFeatures = VkPhysicalDevicePortabilitySubsetFeaturesKHR.calloc(stack);
 
             var features2 = VkPhysicalDeviceFeatures2.calloc(stack)
                     .sType(VK11.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2)
-                    .pNext(uint8Features);
+                    .pNext(uint8Features)
+                    .pNext(portabilityFeatures);
 
             // Request features2 for the physical device.
             VK11.vkGetPhysicalDeviceFeatures2(handle, features2);
@@ -228,7 +197,15 @@ public class PhysicalDevice {
                 // Request uint8 indices support.
                 createInfo.pNext(uint8Features);
             }
-            
+
+            if (portabilityFeatures.triangleFans()) {
+                portabilityFeatures.triangleFans(true);
+                this.triangleFansSupported = true;
+
+                // Request triangle fans support.
+                createInfo.pNext(portabilityFeatures);
+            }
+
             // Enable all available queue families.
             var properties = gatherQueueFamilyProperties(stack, surfaceHandle);
             var familiesBuff = properties.listFamilies(stack);
@@ -538,9 +515,13 @@ public class PhysicalDevice {
     public float maxAnisotropy() {
         return maxAnisotropy;
     }
-    
+
     public boolean supportsAnisotropicFiltering() {
         return maxAnisotropy > 0.0f;
+    }
+
+    public boolean supportsTriangleFans() {
+        return triangleFansSupported;
     }
 
     public int type() {

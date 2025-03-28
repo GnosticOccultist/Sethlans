@@ -31,6 +31,7 @@ import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineCache;
+import fr.sethlans.core.render.vk.pipeline.PipelineLayout;
 import fr.sethlans.core.render.vk.shader.ShaderProgram;
 import fr.sethlans.core.render.vk.swapchain.OffscreenSwapChain;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain;
@@ -76,6 +77,8 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
     private PipelineCache pipelineCache;
 
     private Pipeline pipeline;
+    
+    private PipelineLayout pipelineLayout;
 
     private Projection projection;
 
@@ -170,8 +173,8 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         Arrays.fill(syncFrames, new SyncFrame(logicalDevice, needsSurface));
 
         this.pipelineCache = new PipelineCache(logicalDevice);
-        this.pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program, new DescriptorSetLayout[] {
-                globalDescriptorSetLayout, dynamicDescriptorSetLayout, samplerDescriptorSetLayout });
+        this.pipelineLayout = new PipelineLayout(logicalDevice, new DescriptorSetLayout[] { globalDescriptorSetLayout,
+                dynamicDescriptorSetLayout, samplerDescriptorSetLayout });
 
         this.projection = new Projection(swapChain.width(), swapChain.height());
         this.viewMatrix = new Matrix4f();
@@ -285,13 +288,17 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
             mesh.clean();
         }
         
+        if (pipeline == null) {
+            pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program, vkMesh, pipelineLayout);
+        }
+        
         swapChain.commandBuffer(imageIndex).reset().beginRecording()
                 .beginRenderPass(swapChain, swapChain.frameBuffer(imageIndex), swapChain.renderPass())
                 .bindPipeline(pipeline.handle());
 
         bindDescriptorSets(swapChain.commandBuffer(imageIndex)).bindVertexBuffer(vkMesh.getVertexBuffer())
                 .bindIndexBuffer(vkMesh.getIndexBuffer())
-                .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, geometry.getModelMatrix())
+                .pushConstants(pipelineLayout.handle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, geometry.getModelMatrix())
                 .drawIndexed(vkMesh.getIndexBuffer()).endRenderPass().end();
     }
 
@@ -301,7 +308,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
     public CommandBuffer bindDescriptorSets(CommandBuffer command) {
         dynDescriptorOffset.put(0, currentFrame * 256);
-        command.bindDescriptorSets(pipeline.layoutHandle(), descriptorSets, dynDescriptorOffset);
+        command.bindDescriptorSets(pipelineLayout.handle(), descriptorSets, dynDescriptorOffset);
         return command;
     }
 
@@ -335,8 +342,10 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
             swapChain.destroy();
         }
 
+        // Invalidate current pipeline.
         if (pipeline != null) {
             pipeline.destroy();
+            pipeline = null;
         }
 
         framesInFlight.clear();
@@ -348,8 +357,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
         this.swapChain = needsSurface ? new PresentationSwapChain(logicalDevice, surface, config, window)
                 : new OffscreenSwapChain(logicalDevice, config, 2);
-        this.pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program, new DescriptorSetLayout[] {
-                globalDescriptorSetLayout, dynamicDescriptorSetLayout, samplerDescriptorSetLayout });
 
         application.resize();
     }
@@ -379,6 +386,10 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         return pipeline;
     }
 
+    public PipelineLayout getPipelineLayout() {
+        return pipelineLayout;
+    }
+
     public DescriptorPool descriptorPool() {
         return descriptorPool;
     }
@@ -403,6 +414,10 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
         if (pipeline != null) {
             pipeline.destroy();
+        }
+        
+        if (pipelineLayout != null) {
+            pipelineLayout.destroy();
         }
 
         if (pipelineCache != null) {

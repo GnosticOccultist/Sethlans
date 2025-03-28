@@ -88,6 +88,7 @@ public class AssimpTest extends SethlansApplication {
         var renderEngine = ((VulkanGraphicsBackend) (getRenderEngine().getBackend()));
         var swapChain = renderEngine.getSwapChain();
         var pipeline = renderEngine.getPipeline();
+        var pipelineLayout = renderEngine.getPipelineLayout();
 
         angle += 0.1f;
         angle %= 360;
@@ -101,7 +102,7 @@ public class AssimpTest extends SethlansApplication {
                 .bindPipeline(pipeline.handle());
         renderEngine.bindDescriptorSets(swapChain.commandBuffer(imageIndex)).bindVertexBuffer(vertexBuffer)
                 .bindIndexBuffer(indexBuffer)
-                .pushConstants(pipeline.layoutHandle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, modelMatrix)
+                .pushConstants(pipelineLayout.handle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, modelMatrix)
                 .drawIndexed(indexBuffer).endRenderPass().end();
     }
 

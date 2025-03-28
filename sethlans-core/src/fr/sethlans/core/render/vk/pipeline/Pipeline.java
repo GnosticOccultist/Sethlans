@@ -7,13 +7,10 @@ import org.lwjgl.vulkan.VkOffset2D;
 import org.lwjgl.vulkan.VkPipelineColorBlendAttachmentState;
 import org.lwjgl.vulkan.VkPipelineColorBlendStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineDepthStencilStateCreateInfo;
-import org.lwjgl.vulkan.VkPipelineInputAssemblyStateCreateInfo;
-import org.lwjgl.vulkan.VkPipelineLayoutCreateInfo;
 import org.lwjgl.vulkan.VkPipelineMultisampleStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineRasterizationStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineVertexInputStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineViewportStateCreateInfo;
-import org.lwjgl.vulkan.VkPushConstantRange;
 import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkVertexInputAttributeDescription;
 import org.lwjgl.vulkan.VkVertexInputBindingDescription;
@@ -21,8 +18,8 @@ import org.lwjgl.vulkan.VkViewport;
 
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
-import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.shader.ShaderProgram;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.util.VkUtil;
@@ -35,10 +32,8 @@ public class Pipeline {
 
     private long handle = VK10.VK_NULL_HANDLE;
 
-    private long pipelineLayoutHandle = VK10.VK_NULL_HANDLE;
-
     public Pipeline(LogicalDevice device, PipelineCache pipelineCache, SwapChain swapChain, ShaderProgram shaderProgram,
-            DescriptorSetLayout[] descriptorSetLayouts) {
+            VulkanMesh vkMesh, PipelineLayout layout) {
         this.device = device;
 
         try (var stack = MemoryStack.stackPush()) {
@@ -59,10 +54,7 @@ public class Pipeline {
                     .pVertexBindingDescriptions(pBindings);
 
             var shaderCreateInfo = shaderProgram.describeShaderPipeline(stack);
-
-            var iasCreateInfo = VkPipelineInputAssemblyStateCreateInfo.calloc(stack)
-                    .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO)
-                    .topology(VK10.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+            var iasCreateInfo = vkMesh.createInputAssemblyState(stack);
 
             var framebufferExtent = swapChain.framebufferExtent(stack);
 
@@ -124,38 +116,6 @@ public class Pipeline {
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO)
                     .pAttachments(cbaState);
 
-            // Create a push constant state.
-            var pushSize = 16 * Float.BYTES; // 4x4 floating point matrix.
-            var maxPush = device.physicalDevice().maxPushConstantsSize();
-            if (pushSize > device.physicalDevice().maxPushConstantsSize()) {
-                logger.warning("Physical device " + device.physicalDevice() + " only support up to " + maxPush
-                        + " bytes as push constants, but requested " + pushSize + " bytes!");
-                pushSize = maxPush;
-            }
-            
-            var vpcr = VkPushConstantRange.calloc(1, stack)
-                    .stageFlags(VK10.VK_SHADER_STAGE_VERTEX_BIT)
-                    .offset(0)
-                    .size(pushSize);
-
-            // Define descriptor-set layouts.
-            var numLayouts = descriptorSetLayouts != null ? descriptorSetLayouts.length : 0;
-            var pSetLayouts = stack.mallocLong(numLayouts);
-            for (var i = 0; i < numLayouts; ++i) {
-                pSetLayouts.put(i, descriptorSetLayouts[i].handle());
-            }
-
-            // Define pipeline layout info.
-            var layoutCreateInfo = VkPipelineLayoutCreateInfo.calloc(stack)
-                    .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO)
-                    .pSetLayouts(pSetLayouts)
-                    .pPushConstantRanges(vpcr);
-
-            var pHandle = stack.mallocLong(1);
-            var err = VK10.vkCreatePipelineLayout(device.handle(), layoutCreateInfo, null, pHandle);
-            VkUtil.throwOnFailure(err, "pipeline layout");
-            this.pipelineLayoutHandle = pHandle.get(0);
-
             var createInfo = VkGraphicsPipelineCreateInfo.calloc(1, stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO)
                     .pStages(shaderCreateInfo)
@@ -166,12 +126,15 @@ public class Pipeline {
                     .pRasterizationState(rsCreateInfo)
                     .pMultisampleState(msCreateInfo)
                     .pColorBlendState(cbsCreateInfo)
-                    .layout(pipelineLayoutHandle)
+                    .layout(layout.handle())
                     .renderPass(swapChain.renderPass().handle());
 
-            err = VK10.vkCreateGraphicsPipelines(device.handle(), pipelineCache.handle(), createInfo, null, pHandle);
+            var pHandle = stack.mallocLong(1);
+            var err = VK10.vkCreateGraphicsPipelines(device.handle(), pipelineCache.handle(), createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create graphics pipeline");
             this.handle = pHandle.get(0);
+            
+            logger.info("Created " + this + ".");
         }
     }
 
@@ -179,16 +142,7 @@ public class Pipeline {
         return handle;
     }
 
-    public long layoutHandle() {
-        return pipelineLayoutHandle;
-    }
-
     public void destroy() {
-        if (pipelineLayoutHandle != VK10.VK_NULL_HANDLE) {
-            VK10.vkDestroyPipelineLayout(device.handle(), pipelineLayoutHandle, null);
-            this.pipelineLayoutHandle = VK10.VK_NULL_HANDLE;
-        }
-
         if (handle != VK10.VK_NULL_HANDLE) {
             VK10.vkDestroyPipeline(device.handle(), handle, null);
             this.handle = VK10.VK_NULL_HANDLE;

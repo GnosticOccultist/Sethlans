@@ -23,6 +23,7 @@ public class Mesh extends BackendObject {
 
     public Mesh(Topology topology, Collection<Integer> indices, List<Vertex> vertices) {
         Validator.nonNull(topology, "The mesh topology can't be null!");
+        this.topology = topology;
         this.vertexCount = vertices.size();
 
         this.indices = BufferUtils.create(indices);
@@ -34,6 +35,7 @@ public class Mesh extends BackendObject {
 
     public Mesh(Topology topology, int[] indices, float[] vertices, int fpv) {
         Validator.nonNull(topology, "The mesh topology can't be null!");
+        this.topology = topology;
         this.vertexCount = vertices.length / fpv;
 
         this.indices = BufferUtils.create(indices);
@@ -44,7 +46,7 @@ public class Mesh extends BackendObject {
     public int vertexCount() {
         return vertexCount;
     }
-    
+
     public int fpv() {
         return fpv;
     }
