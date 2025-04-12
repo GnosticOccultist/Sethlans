@@ -125,7 +125,7 @@ public final class BufferUtils {
             return null;
         }
 
-        var capacity = reference.numFloats();
+        var capacity = vertices.size() * reference.numFloats();
         var result = Allocator.allocFloat(capacity);
 
         for (var v : vertices) {

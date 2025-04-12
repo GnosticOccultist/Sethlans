@@ -114,7 +114,7 @@ public class AssimpLoader {
                 texCoords = new Vector2f(aiTexCoords.x(), aiTexCoords.y());
             }
 
-            var vertex = new Vertex(position, color, normal, texCoords);
+            var vertex = new Vertex(position, null, null, texCoords);
             vertices.add(vertex);
         }
 

@@ -1,42 +1,28 @@
 package fr.sethlans.core;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
-import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.lwjgl.assimp.Assimp;
-import org.lwjgl.system.MemoryUtil;
-import org.lwjgl.vulkan.VK10;
-
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.AssimpLoader;
 import fr.sethlans.core.asset.TextureLoader;
 import fr.sethlans.core.material.Texture;
-import fr.sethlans.core.render.vk.context.VulkanGraphicsBackend;
-import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
-import fr.sethlans.core.render.vk.image.VulkanTexture;
-import fr.sethlans.core.render.vk.memory.IndexBuffer;
-import fr.sethlans.core.render.vk.memory.VertexBuffer;
+import fr.sethlans.core.material.Image.ColorSpace;
+import fr.sethlans.core.scenegraph.Geometry;
+import fr.sethlans.core.scenegraph.mesh.Mesh;
+import fr.sethlans.core.scenegraph.mesh.Topology;
 import fr.sethlans.core.scenegraph.mesh.Vertex;
 
 public class AssimpTest extends SethlansApplication {
 
-    private DescriptorSet samplerDescriptorSet;
-
     private Texture texture;
 
-    private VertexBuffer vertexBuffer;
-
-    private IndexBuffer indexBuffer;
-
-    private ByteBuffer buffer;
+    private Geometry vikingRoom;
 
     private Quaternionf rotation;
-
-    private Matrix4f modelMatrix;
 
     private float angle;
 
@@ -62,50 +48,36 @@ public class AssimpTest extends SethlansApplication {
 
     @Override
     protected void initialize() {
-        var renderEngine = ((VulkanGraphicsBackend) (getRenderEngine().getBackend()));
-        var logicalDevice = renderEngine.getLogicalDevice();
-
         var vertices = new ArrayList<Vertex>();
         var indices = new ArrayList<Integer>();
         AssimpLoader.load("resources/models/viking_room/viking_room.obj", Assimp.aiProcess_FlipUVs, true, vertices,
                 indices);
 
-        vertexBuffer = new VertexBuffer(logicalDevice, vertices, 2 + 3);
-
-        indexBuffer = new IndexBuffer(logicalDevice, indices);
+        var mesh = new Mesh(Topology.TRIANGLES, indices, vertices);
+        vikingRoom = new Geometry("Viking Room", mesh);
 
         texture = TextureLoader.load("resources/models/viking_room/viking_room.png");
+        texture.image().setColorSpace(ColorSpace.sRGB);
+        vikingRoom.setTexture(texture);
 
-        buffer = MemoryUtil.memAlloc(16 * Float.BYTES);
         rotation = new Quaternionf();
-        modelMatrix = new Matrix4f();
     }
 
     @Override
     public void render(int imageIndex) {
-        var renderEngine = ((VulkanGraphicsBackend) (getRenderEngine().getBackend()));
-        var swapChain = renderEngine.getSwapChain();
-        var pipeline = renderEngine.getPipeline();
-        var pipelineLayout = renderEngine.getPipelineLayout();
 
         angle += 0.1f;
         angle %= 360;
 
         rotation.identity().rotateAxis((float) Math.toRadians(90), new Vector3f(1, 0, 0))
                 .rotateAxis((float) Math.toRadians(angle), new Vector3f(0, 0, 1));
-        modelMatrix.identity().translationRotateScale(new Vector3f(0, 0.35f, -3f), rotation, 1);
+        vikingRoom.getModelMatrix().identity().translationRotateScale(new Vector3f(0, 0.35f, -3f), rotation, 1);
 
-        swapChain.commandBuffer(imageIndex).reset().beginRecording()
-                .beginRenderPass(swapChain, swapChain.frameBuffer(imageIndex), swapChain.renderPass())
-                .bindPipeline(pipeline.handle());
-        renderEngine.bindDescriptorSets(swapChain.commandBuffer(imageIndex)).bindVertexBuffer(vertexBuffer)
-                .bindIndexBuffer(indexBuffer)
-                .pushConstants(pipelineLayout.handle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, modelMatrix)
-                .drawIndexed(indexBuffer).endRenderPass().end();
+        getRenderEngine().render(vikingRoom);
     }
 
     @Override
     protected void cleanup() {
-        MemoryUtil.memFree(buffer);
+
     }
 }
