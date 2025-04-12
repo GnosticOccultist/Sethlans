@@ -8,7 +8,6 @@ import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.ImageView;
 import fr.sethlans.core.render.vk.image.VulkanImage;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.PresentationImage;
-import fr.sethlans.core.render.vk.sync.Fence;
 
 public class Attachment {
 
@@ -46,18 +45,9 @@ public class Attachment {
         this.imageView = new ImageView(device, image.handle(), format, aspectMask);
 
         // Transition the image to an optimal layout.
-        var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout);
-        command.end();
-
-        // Synchronize command execution.
-        var fence = new Fence(device, true);
-        fence.reset();
-        command.submit(device.graphicsQueue(), fence);
-        fence.fenceWait();
-
-        // Destroy fence and command once finished.
-        fence.destroy();
-        command.destroy();
+        try (var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout)) {
+            
+        }
     }
 
     public Attachment(LogicalDevice device, VkExtent2D extent, int format, int aspectMask, int sampleCount) {
@@ -82,18 +72,9 @@ public class Attachment {
         this.imageView = new ImageView(device, image.handle(), format, aspectMask);
 
         // Transition the image to an optimal layout.
-        var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout);
-        command.end();
-
-        // Synchronize command execution.
-        var fence = new Fence(device, true);
-        fence.reset();
-        command.submit(device.graphicsQueue(), fence);
-        fence.fenceWait();
-
-        // Destroy fence and command once finished.
-        fence.destroy();
-        command.destroy();
+        try (var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout)) {
+            
+        }
     }
 
     int finalLayout() {

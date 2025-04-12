@@ -35,7 +35,7 @@ public class DeviceBuffer {
         buffer.allocate(VK10.VK_MEMORY_HEAP_DEVICE_LOCAL_BIT);
 
         // Create a one-time submit command buffer.
-        try (var command = device.commandPool().singleUseCommand()) {
+        try (var command = device.singleUseTransferCommand()) {
             command.beginRecording();
             command.copyBuffer(stagingBuffer, buffer);
         }

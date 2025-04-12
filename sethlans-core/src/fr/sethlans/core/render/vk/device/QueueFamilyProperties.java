@@ -8,13 +8,15 @@ public class QueueFamilyProperties {
 
     private Integer graphics;
 
+    private Integer transfer;
+
     private Integer presentation;
 
     QueueFamilyProperties() {
 
     }
 
-    public IntBuffer listFamilies(MemoryStack stack) {
+    public IntBuffer listGraphicsAndPresentationFamilies(MemoryStack stack) {
         assert hasGraphics();
 
         IntBuffer result;
@@ -22,6 +24,25 @@ public class QueueFamilyProperties {
             result = stack.ints(graphics);
         } else {
             result = stack.ints(graphics, presentation);
+        }
+
+        return result;
+    }
+
+    public IntBuffer listFamilies(MemoryStack stack) {
+        assert hasGraphics();
+
+        IntBuffer result;
+        if ((graphics == presentation || presentation == null)) {
+            result = stack.ints(graphics);
+            if (transfer != null) {
+                result = stack.ints(graphics, transfer);
+            }
+        } else {
+            result = stack.ints(graphics, presentation);
+            if (transfer != null && presentation != transfer) {
+                result = stack.ints(graphics, presentation, transfer);
+            }
         }
 
         return result;
@@ -39,6 +60,18 @@ public class QueueFamilyProperties {
         this.graphics = index;
     }
 
+    public int transfer() {
+        return transfer;
+    }
+
+    public boolean hasTransfer() {
+        return transfer != null;
+    }
+
+    void setTransfer(int index) {
+        this.transfer = index;
+    }
+
     public int presentation() {
         return presentation;
     }
@@ -49,5 +82,11 @@ public class QueueFamilyProperties {
 
     void setPresentation(int index) {
         this.presentation = index;
+    }
+
+    @Override
+    public String toString() {
+        return "QueueFamilyProperties [graphics=" + graphics + ", transfer=" + transfer + ", presentation="
+                + presentation + "]";
     }
 }

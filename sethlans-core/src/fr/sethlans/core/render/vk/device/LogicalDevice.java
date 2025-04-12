@@ -11,7 +11,9 @@ import org.lwjgl.vulkan.VkQueue;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.SethlansApplication;
+import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.command.CommandPool;
+import fr.sethlans.core.render.vk.command.SingleUseCommand;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
@@ -26,17 +28,19 @@ public class LogicalDevice {
     private VkDevice handle;
 
     private VkQueue graphicsQueue;
+    private VkQueue transferQueue;
     private VkQueue presentationQueue;
 
     private CommandPool commandPool;
+    private CommandPool transferPool;
 
     public LogicalDevice(VulkanContext context) {
         this.physicalDevice = context.getPhysicalDevice();
         this.handle = physicalDevice.createLogicalDevice(context);
-        
+
         var config = context.getBackend().getApplication().getConfig();
         var surfaceHandle = context.surfaceHandle();
-        
+
         var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
                 SethlansApplication.DEFAULT_RENDER_MODE);
         var needsPresentation = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
@@ -45,13 +49,18 @@ public class LogicalDevice {
             var props = physicalDevice.gatherQueueFamilyProperties(stack, surfaceHandle);
             var graphics = props.graphics();
             this.graphicsQueue = getQueue(stack, graphics);
-            
+            this.commandPool = new CommandPool(this, VK10.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, graphics);
+
             if (needsPresentation) {
                 var presentation = props.presentation();
                 this.presentationQueue = getQueue(stack, presentation);
             }
 
-            this.commandPool = new CommandPool(this, graphics);
+            if (props.hasTransfer()) {
+                var transfer = props.transfer();
+                this.transferQueue = getQueue(stack, transfer);
+                this.transferPool = new CommandPool(this, VK10.VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, transfer);
+            }
         }
     }
 
@@ -91,12 +100,28 @@ public class LogicalDevice {
         return physicalDevice;
     }
 
-    public CommandPool commandPool() {
-        return commandPool;
+    public CommandBuffer createGraphicsCommand() {
+        return commandPool.createCommandBuffer();
+    }
+
+    public SingleUseCommand singleUseGraphicsCommand() {
+        return commandPool.singleUseCommand(graphicsQueue);
+    }
+
+    public SingleUseCommand singleUseTransferCommand() {
+        return transferPool().singleUseCommand(transferQueue());
+    }
+
+    private CommandPool transferPool() {
+        return transferPool == null ? commandPool : transferPool;
     }
 
     public VkQueue graphicsQueue() {
         return graphicsQueue;
+    }
+
+    private VkQueue transferQueue() {
+        return transferQueue == null ? graphicsQueue : transferQueue;
     }
 
     public VkQueue presentationQueue() {
@@ -112,6 +137,11 @@ public class LogicalDevice {
 
         for (var resource : resources.keySet()) {
             resource.destroy();
+        }
+
+        if (transferPool != null) {
+            transferPool.destroy();
+            this.transferPool = null;
         }
 
         if (commandPool != null) {

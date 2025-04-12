@@ -225,7 +225,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
     @Override
     public void endRender(long frameNumber) {
-
+        
     }
 
     @Override

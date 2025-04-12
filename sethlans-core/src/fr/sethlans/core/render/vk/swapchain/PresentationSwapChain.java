@@ -56,7 +56,7 @@ public class PresentationSwapChain extends SwapChain {
                 var image = new PresentationImage(imageHandles[i], imageUsage);
                 presentationAttachments[i] = new Attachment(logicalDevice, image);
 
-                commandBuffers[i] = logicalDevice.commandPool().createCommandBuffer();
+                commandBuffers[i] = logicalDevice.createGraphicsCommand();
                 if (sampleCount > 1) {
                     colorAttachments[i] = new Attachment(logicalDevice, framebufferExtent, surfaceFormat.format(),
                             VK10.VK_IMAGE_ASPECT_COLOR_BIT, sampleCount);
@@ -107,7 +107,7 @@ public class PresentationSwapChain extends SwapChain {
         var presentationMode = surfaceProperties.getPresentationMode(preferredMode);
 
         var queueFamilyProperties = physicalDevice.gatherQueueFamilyProperties(stack, surfaceHandle);
-        var queueFamilies = queueFamilyProperties.listFamilies(stack);
+        var queueFamilies = queueFamilyProperties.listGraphicsAndPresentationFamilies(stack);
         var familyCount = queueFamilies.capacity();
 
         var createInfo = VkSwapchainCreateInfoKHR.calloc(stack)

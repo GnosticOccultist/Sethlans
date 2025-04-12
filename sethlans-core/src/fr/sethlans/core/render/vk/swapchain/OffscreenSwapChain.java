@@ -12,7 +12,6 @@ import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
-import fr.sethlans.core.render.vk.sync.Fence;
 
 public class OffscreenSwapChain extends SwapChain {
 
@@ -39,7 +38,7 @@ public class OffscreenSwapChain extends SwapChain {
         // Allow to transfer image data to a buffer.
         var usage = VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         for (var i = 0; i < imageCount; ++i) {
-            commandBuffers[i] = logicalDevice.commandPool().createCommandBuffer();
+            commandBuffers[i] = logicalDevice.createGraphicsCommand();
 
             presentationAttachments[i] = new Attachment(logicalDevice, framebufferExtent, imageFormat(),
                     VK10.VK_IMAGE_ASPECT_COLOR_BIT, VK10.VK_SAMPLE_COUNT_1_BIT, usage);
@@ -104,24 +103,13 @@ public class OffscreenSwapChain extends SwapChain {
         var image = attachment.image;
 
         // Transition image to a valid transfer layout.
-        var command = image.transitionImageLayout(attachment.finalLayout(), VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        try (var command = image.transitionImageLayout(attachment.finalLayout(), VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)) {
+            // Copy the data from the presentation image to a buffer.
+            command.copyImage(image, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, screenBuffer);
 
-        // Copy the data from the presentation image to a buffer.
-        command.copyImage(image, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, screenBuffer);
-
-        // Re-transition image layout back for future presentation.
-        image.transitionImageLayout(command, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, attachment.finalLayout());
-        command.end();
-
-        // Submit and wait for execution.
-        var fence = new Fence(logicalDevice, true);
-        fence.reset();
-        command.submit(logicalDevice.graphicsQueue(), fence);
-        fence.fenceWait();
-
-        // Destroy fence and command once finished.
-        fence.destroy();
-        command.destroy();
+            // Re-transition image layout back for future presentation.
+            image.transitionImageLayout(command, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, attachment.finalLayout());
+        }
 
         var data = screenBuffer.map();
         store.put(data);

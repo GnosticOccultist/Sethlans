@@ -218,6 +218,8 @@ public class PhysicalDevice {
             var familyCount = familiesBuff.capacity();
             var priorities = stack.floats(0.5f);
 
+            logger.info(properties);
+
             var queueCreationInfo = VkDeviceQueueCreateInfo.calloc(familyCount, stack);
             for (var i = 0; i < familyCount; ++i) {
                 var info = queueCreationInfo.get(i);
@@ -456,7 +458,7 @@ public class PhysicalDevice {
         // Enumerate the available queue families.
         var pProperties = VkQueueFamilyProperties.malloc(numFamilies, stack);
         VK10.vkGetPhysicalDeviceQueueFamilyProperties(handle, pCount, pProperties);
-
+        
         for (var i = 0; i < numFamilies; ++i) {
             var family = pProperties.get(i);
 
@@ -466,14 +468,20 @@ public class PhysicalDevice {
                 properties.setGraphics(i);
             }
 
+            if ((flags & VK10.VK_QUEUE_TRANSFER_BIT) != 0x0) {
+                // Check for a transfer specific command queue.
+                if (!properties.hasTransfer() && i != properties.graphics()) {
+                    properties.setTransfer(i);
+                }
+            }
+
             // Check that presentation is supported for the surface, if it was requested.
-            if (surfaceHandle != VK10.VK_NULL_HANDLE) {
+            if (surfaceHandle != VK10.VK_NULL_HANDLE && !properties.hasPresentation()) {
                 var err = KHRSurface.vkGetPhysicalDeviceSurfaceSupportKHR(handle, i, surfaceHandle, pCount);
                 VkUtil.throwOnFailure(err, "test for presentation support");
                 var supported = pCount.get(0);
                 if (supported == VK10.VK_TRUE) {
                     properties.setPresentation(i);
-                    break;
                 }
             }
         }

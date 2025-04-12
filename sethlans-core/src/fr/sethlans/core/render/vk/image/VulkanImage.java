@@ -247,7 +247,7 @@ public class VulkanImage extends MemoryResource {
             }
 
             // Create a one-time submit command buffer.
-            var command = existingCommand != null ? existingCommand : getLogicalDevice().commandPool().singleUseCommand();
+            var command = existingCommand != null ? existingCommand : getLogicalDevice().singleUseGraphicsCommand();
             if (existingCommand == null) {
                 command.beginRecording();
             }

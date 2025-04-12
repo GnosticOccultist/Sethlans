@@ -21,7 +21,6 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
-import fr.sethlans.core.render.vk.sync.Fence;
 
 public abstract class SwapChain {
 
@@ -79,10 +78,7 @@ public abstract class SwapChain {
         if ((image.usage() & VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT) == 0) {
             throw new IllegalStateException("Surface images doesn't support transferring to a buffer!");
         }
-
-        // Transition image to a valid transfer layout.
-        var command = image.transitionImageLayout(attachment.finalLayout(), VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-
+        
         // Allocate a readable buffer.
         var width = framebufferExtent.width();
         var height = framebufferExtent.height();
@@ -91,19 +87,15 @@ public abstract class SwapChain {
         var destination = new VulkanBuffer(logicalDevice, size, VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT);
         destination.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-        // Copy the data from the presentation image to a buffer.
-        command.copyImage(image, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, destination);
+        // Transition image to a valid transfer layout.
+        try (var command = image.transitionImageLayout(attachment.finalLayout(),
+                VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)) {
+            // Copy the data from the presentation image to a buffer.
+            command.copyImage(image, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, destination);
 
-        // Re-transition image layout back for future presentation.
-        image.transitionImageLayout(command, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, attachment.finalLayout());
-        command.end();
-
-        // Submit and wait for execution.
-        command.submit(logicalDevice.graphicsQueue(), (Fence) null);
-        logicalDevice.graphicsQueueWaitIdle();
-
-        // Destroy command once finished.
-        command.destroy();
+            // Re-transition image layout back for future presentation.
+            image.transitionImageLayout(command, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, attachment.finalLayout());
+        }
 
         // Map buffer memory and decode BGRA pixel data.
         var data = destination.map();
