@@ -12,7 +12,6 @@ import fr.sethlans.core.math.Mathf;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
-import fr.sethlans.core.render.vk.sync.Fence;
 
 public class VulkanTexture {
 
@@ -53,23 +52,12 @@ public class VulkanTexture {
                 VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
         // Transition the image layout.
-        var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED,
-                VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-
-        // Copy the data from the staging buffer the new image.
-        command.copyBuffer(stagingBuffer, image);
-        generateMipmaps(command);
-        command.end();
-
-        // Synchronize command execution.
-        var fence = new Fence(device, true);
-        fence.reset();
-        command.submit(device.graphicsQueue(), fence);
-        fence.fenceWait();
-
-        // Destroy fence and command once finished.
-        fence.destroy();
-        command.destroy();
+        try (var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED,
+                VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)) {
+            // Copy the data from the staging buffer the new image.
+            command.copyBuffer(stagingBuffer, image);
+            generateMipmaps(command);
+        }
 
         // Destroy the staging buffer.
         stagingBuffer.assignToDevice(null);

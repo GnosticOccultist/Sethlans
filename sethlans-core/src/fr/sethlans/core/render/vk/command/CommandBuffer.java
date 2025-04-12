@@ -21,6 +21,7 @@ import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkRenderPassBeginInfo;
 import org.lwjgl.vulkan.VkSubmitInfo;
 
+import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanImage;
 import fr.sethlans.core.render.vk.memory.DeviceBuffer;
 import fr.sethlans.core.render.vk.memory.IndexBuffer;
@@ -296,10 +297,15 @@ public class CommandBuffer {
 
         return this;
     }
+    
+    public LogicalDevice logicalDevice() {
+        return commandPool.getLogicalDevice();
+    }
 
     public void destroy() {
-        if (handle != null) {
-            var vkDevice = commandPool.getLogicalDevice().handle();
+        var commandPoolHandle = commandPool.handle();
+        if (handle != null && commandPoolHandle != VK10.VK_NULL_HANDLE) {
+            var vkDevice = logicalDevice().handle();
             VK10.vkFreeCommandBuffers(vkDevice, commandPool.handle(), handle);
             this.handle = null;
         }

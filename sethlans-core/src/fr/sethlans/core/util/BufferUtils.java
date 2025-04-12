@@ -7,8 +7,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-import org.lwjgl.system.MemoryUtil;
-
 import fr.sethlans.core.scenegraph.mesh.Vertex;
 
 public final class BufferUtils {
@@ -35,7 +33,7 @@ public final class BufferUtils {
         }
 
         var capacity = values.length;
-        var result = MemoryUtil.memAllocFloat(capacity);
+        var result = Allocator.allocFloat(capacity);
 
         result.put(values);
         result.flip();
@@ -54,21 +52,21 @@ public final class BufferUtils {
         Buffer result = null;
 
         if (max <= UINT8_LIMIT) {
-            var buff = MemoryUtil.memAlloc(capacity);
+            var buff = Allocator.alloc(capacity);
             for (int v : values) {
                 buff.put((byte) v);
             }
             result = buff;
 
         } else if (max <= UINT16_LIMIT) {
-            var buff = MemoryUtil.memAllocShort(capacity);
+            var buff = Allocator.allocShort(capacity);
             for (int v : values) {
                 buff.put((short) v);
             }
             result = buff;
 
         } else {
-            var buff = MemoryUtil.memAllocInt(capacity);
+            var buff = Allocator.allocInt(capacity);
             for (int v : values) {
                 buff.put(v);
             }
@@ -91,21 +89,21 @@ public final class BufferUtils {
         Buffer result = null;
 
         if (max <= UINT8_LIMIT) {
-            var buff = MemoryUtil.memAlloc(capacity);
+            var buff = Allocator.alloc(capacity);
             for (int v : values) {
                 buff.put((byte) v);
             }
             result = buff;
 
         } else if (max <= UINT16_LIMIT) {
-            var buff = MemoryUtil.memAllocShort(capacity);
+            var buff = Allocator.allocShort(capacity);
             for (int v : values) {
                 buff.put((short) v);
             }
             result = buff;
 
         } else {
-            var buff = MemoryUtil.memAllocInt(capacity);
+            var buff = Allocator.allocInt(capacity);
             for (int v : values) {
                 buff.put(v);
             }
@@ -128,7 +126,7 @@ public final class BufferUtils {
         }
 
         var capacity = reference.numFloats();
-        var result = MemoryUtil.memAllocFloat(capacity);
+        var result = Allocator.allocFloat(capacity);
 
         for (var v : vertices) {
             v.populate(result);

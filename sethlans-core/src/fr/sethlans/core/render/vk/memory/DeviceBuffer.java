@@ -5,7 +5,6 @@ import java.nio.ByteBuffer;
 import org.lwjgl.vulkan.VK10;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.sync.Fence;
 
 public class DeviceBuffer {
 
@@ -36,20 +35,10 @@ public class DeviceBuffer {
         buffer.allocate(VK10.VK_MEMORY_HEAP_DEVICE_LOCAL_BIT);
 
         // Create a one-time submit command buffer.
-        var command = device.commandPool().createCommandBuffer();
-        command.beginRecording(VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-        command.copyBuffer(stagingBuffer, buffer);
-        command.end();
-
-        // Synchronize command execution.
-        var fence = new Fence(device, true);
-        fence.reset();
-        command.submit(device.graphicsQueue(), fence);
-        fence.fenceWait();
-
-        // Destroy fence and command once finished.
-        fence.destroy();
-        command.destroy();
+        try (var command = device.commandPool().singleUseCommand()) {
+            command.beginRecording();
+            command.copyBuffer(stagingBuffer, buffer);
+        }
 
         // Destroy the staging buffer.
         stagingBuffer.assignToDevice(null);

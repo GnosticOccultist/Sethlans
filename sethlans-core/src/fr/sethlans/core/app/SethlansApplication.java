@@ -9,6 +9,7 @@ import fr.sethlans.core.app.kernel.OS;
 import fr.sethlans.core.app.kernel.OSArch;
 import fr.sethlans.core.render.RenderEngine;
 import fr.sethlans.core.render.Window;
+import fr.sethlans.core.util.NativeObjectCleaner;
 
 public abstract class SethlansApplication {
 
@@ -187,5 +188,7 @@ public abstract class SethlansApplication {
         cleanup();
 
         renderEngine.terminate();
+        
+        NativeObjectCleaner.cleanAll();
     }
 }

@@ -7,14 +7,13 @@ import java.nio.file.Paths;
 
 import javax.imageio.ImageIO;
 
-import org.lwjgl.system.MemoryUtil;
-
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.material.Image;
 import fr.sethlans.core.material.Image.Format;
 import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.material.Texture.Type;
+import fr.sethlans.core.util.Allocator;
 
 public class TextureLoader {
 
@@ -41,7 +40,7 @@ public class TextureLoader {
 
             var numBytes = w * h * 4;
 
-            var pixels = MemoryUtil.memAlloc(numBytes);
+            var pixels = Allocator.alloc(numBytes);
 
             for (var y = 0; y < h; ++y) {
                 for (var x = 0; x < w; ++x) {
@@ -60,7 +59,6 @@ public class TextureLoader {
             var texture = new Texture(Type.TWO_DIMENSIONAL);
             texture.setImage(img);
 
-            // MemoryUtil.memFree(pixels);
             return texture;
 
         } catch (IOException ex) {

@@ -9,7 +9,7 @@ import org.lwjgl.vulkan.VkMemoryRequirements;
 
 import fr.sethlans.core.material.Image.ColorSpace;
 import fr.sethlans.core.material.Image.Format;
-import fr.sethlans.core.render.vk.command.CommandBuffer;
+import fr.sethlans.core.render.vk.command.SingleUseCommand;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.device.MemoryResource;
 import fr.sethlans.core.render.vk.util.VkUtil;
@@ -121,11 +121,11 @@ public class VulkanImage extends MemoryResource {
         VkUtil.throwOnFailure(err, "bind memory to an image");
     }
 
-    public CommandBuffer transitionImageLayout(int oldLayout, int newLayout) {
+    public SingleUseCommand transitionImageLayout(int oldLayout, int newLayout) {
         return transitionImageLayout(null, oldLayout, newLayout);
     }
 
-    public CommandBuffer transitionImageLayout(CommandBuffer existingCommand, int oldLayout, int newLayout) {
+    public SingleUseCommand transitionImageLayout(SingleUseCommand existingCommand, int oldLayout, int newLayout) {
         try (var stack = MemoryStack.stackPush()) {
 
             var aspectMask = VK10.VK_IMAGE_ASPECT_COLOR_BIT;
@@ -247,9 +247,9 @@ public class VulkanImage extends MemoryResource {
             }
 
             // Create a one-time submit command buffer.
-            var command = existingCommand != null ? existingCommand : getLogicalDevice().commandPool().createCommandBuffer();
+            var command = existingCommand != null ? existingCommand : getLogicalDevice().commandPool().singleUseCommand();
             if (existingCommand == null) {
-                command.beginRecording(VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+                command.beginRecording();
             }
 
             command.addBarrier(srcStage, dstStage, pBarrier);

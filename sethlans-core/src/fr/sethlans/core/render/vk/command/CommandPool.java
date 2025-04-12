@@ -34,6 +34,10 @@ public class CommandPool {
         return new CommandBuffer(this);
     }
 
+    public SingleUseCommand singleUseCommand() {
+        return new SingleUseCommand(this);
+    }
+
     LogicalDevice getLogicalDevice() {
         return logicalDevice;
     }
