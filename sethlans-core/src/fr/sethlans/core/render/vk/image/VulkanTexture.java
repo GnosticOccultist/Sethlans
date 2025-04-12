@@ -7,23 +7,29 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkImageBlit;
 import org.lwjgl.vulkan.VkImageMemoryBarrier;
 
+import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.math.Mathf;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.sync.Fence;
 
-public class Texture {
+public class VulkanTexture {
 
     private final LogicalDevice device;
 
-    private Image image;
+    private VulkanImage image;
 
     private ImageView imageView;
 
     private TextureSampler sampler;
+    
+    public VulkanTexture(LogicalDevice device, Texture texture) {
+        this(device, texture.image().width(), texture.image().height(),
+                VulkanImage.getVkFormat(texture.image().format()), texture.image().data());
+    }
 
-    public Texture(LogicalDevice device, int width, int height, int imageFormat, ByteBuffer data) {
+    public VulkanTexture(LogicalDevice device, int width, int height, int imageFormat, ByteBuffer data) {
         this.device = device;
 
         var maxDimension = Math.max(width, height);
@@ -40,7 +46,7 @@ public class Texture {
         data.flip();
         stagingBuffer.unmap();
 
-        this.image = new Image(
+        this.image = new VulkanImage(
                 device, width, height, imageFormat, mipLevels, VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT
                         | VK10.VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK10.VK_IMAGE_USAGE_SAMPLED_BIT,
                 VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -162,6 +168,10 @@ public class Texture {
         }
     }
 
+    public void uploadData(Texture texture) {
+        
+    }
+    
     public long imageHandle() {
         return image.handle();
     }

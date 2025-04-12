@@ -8,21 +8,22 @@ import java.nio.file.Paths;
 import javax.imageio.ImageIO;
 
 import org.lwjgl.system.MemoryUtil;
-import org.lwjgl.vulkan.VK10;
 
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
-import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.image.Texture;
+import fr.sethlans.core.material.Image;
+import fr.sethlans.core.material.Image.Format;
+import fr.sethlans.core.material.Texture;
+import fr.sethlans.core.material.Texture.Type;
 
 public class TextureLoader {
-    
+
     protected static final Logger logger = FactoryLogger.getLogger("sethlans-core.asset");
 
-    public static Texture load(LogicalDevice logicalDevice, String path) {
+    public static Texture load(String path) {
         try (var is = Files.newInputStream(Paths.get(path))) {
-            
-            var texture = load(logicalDevice, is);
+
+            var texture = load(is);
             return texture;
 
         } catch (IOException ex) {
@@ -30,7 +31,7 @@ public class TextureLoader {
         }
     }
 
-    public static Texture load(LogicalDevice logicalDevice, InputStream is) {
+    public static Texture load(InputStream is) {
         ImageIO.setUseCache(false);
         try {
             var image = ImageIO.read(is);
@@ -55,8 +56,11 @@ public class TextureLoader {
 
             pixels.flip();
 
-            var texture = new Texture(logicalDevice, w, h, VK10.VK_FORMAT_R8G8B8A8_SRGB, pixels);
-            MemoryUtil.memFree(pixels);
+            var img = new Image(w, h, Format.RGBA8, pixels);
+            var texture = new Texture(Type.TWO_DIMENSIONAL);
+            texture.setImage(img);
+
+            // MemoryUtil.memFree(pixels);
             return texture;
 
         } catch (IOException ex) {

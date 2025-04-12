@@ -17,7 +17,7 @@ import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.context.Surface;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.image.Image;
+import fr.sethlans.core.render.vk.image.VulkanImage;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class PresentationSwapChain extends SwapChain {
@@ -284,7 +284,7 @@ public class PresentationSwapChain extends SwapChain {
         }
     }
 
-    class PresentationImage extends Image {
+    class PresentationImage extends VulkanImage {
 
         PresentationImage(long imageHandle, int imageUsage) {
             super(logicalDevice, imageHandle, framebufferExtent.width(), framebufferExtent.height(), imageFormat(),

@@ -8,7 +8,7 @@ import org.lwjgl.vulkan.VkDescriptorSetAllocateInfo;
 import org.lwjgl.vulkan.VkWriteDescriptorSet;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.image.Texture;
+import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
@@ -87,7 +87,7 @@ public class DescriptorSet {
         return this;
     }
 
-    public DescriptorSet updateTextureDescriptorSet(Texture texture, int binding) {
+    public DescriptorSet updateTextureDescriptorSet(VulkanTexture texture, int binding) {
         try (var stack = MemoryStack.stackPush()) {
             var imageInfo = VkDescriptorImageInfo.calloc(1, stack)
                     .imageLayout(VK10.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)

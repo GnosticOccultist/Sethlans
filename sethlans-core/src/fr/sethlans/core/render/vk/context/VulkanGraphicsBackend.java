@@ -26,6 +26,7 @@ import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
@@ -89,9 +90,13 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
     private DescriptorSet dynamicDescriptorSet;
 
+    private DescriptorSet samplerDescriptorSet;
+
     private IntBuffer dynDescriptorOffset;
 
     private final VulkanMesh[] meshes = new VulkanMesh[50];
+
+    private final VulkanTexture[] textures = new VulkanTexture[50];
 
     public VulkanGraphicsBackend(SethlansApplication application) {
         super(application);
@@ -186,9 +191,12 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         this.dynamicDescriptorSet = new DescriptorSet(logicalDevice, descriptorPool(), dynamicDescriptorSetLayout)
                 .updateDynamicBufferDescriptorSet(dynamicUniform, 0, size);
 
+        this.samplerDescriptorSet = new DescriptorSet(logicalDevice, descriptorPool(), samplerDescriptorSetLayout());
+
         this.descriptorSets = MemoryUtil.memAllocLong(3);
         putDescriptorSets(0, globalDescriptorSet);
         putDescriptorSets(1, dynamicDescriptorSet);
+        putDescriptorSets(2, samplerDescriptorSet);
 
         this.dynDescriptorOffset = MemoryUtil.memAllocInt(1);
     }
@@ -243,7 +251,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
             window.update();
         }
     }
-    
+
     @Override
     public void waitIdle() {
         if (context != null) {
@@ -274,6 +282,31 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
             logger.info("Update mesh for " + geometry);
             vkMesh.uploadData(mesh);
             mesh.clean();
+        }
+
+        var texture = geometry.getTexture();
+        if (texture != null) {
+            VulkanTexture vkTexture = null;
+            if (texture.hasBackendObject()) {
+                vkTexture = textures[texture.backendId()];
+
+            } else {
+                for (var i = 0; i < textures.length; ++i) {
+                    if (textures[i] == null) {
+                        textures[i] = new VulkanTexture(logicalDevice, texture);
+                        vkTexture = textures[i];
+                        texture.assignId(i);
+                    }
+                }
+            }
+
+            if (texture.isDirty()) {
+                logger.info("Update texture for " + geometry);
+                vkTexture.uploadData(texture);
+                texture.clean();
+                
+                samplerDescriptorSet.updateTextureDescriptorSet(vkTexture, 0);
+            }
         }
 
         if (pipeline == null) {
@@ -337,7 +370,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         }
 
         framesInFlight.clear();
-        
+
         var logicalDevice = context.getLogicalDevice();
         for (var i = 0; i < syncFrames.length; ++i) {
             syncFrames[i].destroy();
@@ -393,6 +426,8 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
     @Override
     public void terminate() {
+        
+        samplerDescriptorSet.destroy();
 
         globalDescriptorSet.destroy();
 

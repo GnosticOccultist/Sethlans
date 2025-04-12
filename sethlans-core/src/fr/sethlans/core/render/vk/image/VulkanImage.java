@@ -7,12 +7,13 @@ import org.lwjgl.vulkan.VkImageCreateInfo;
 import org.lwjgl.vulkan.VkImageMemoryBarrier;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
+import fr.sethlans.core.material.Image.Format;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.device.MemoryResource;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class Image extends MemoryResource {
+public class VulkanImage extends MemoryResource {
 
     private int width;
 
@@ -26,7 +27,7 @@ public class Image extends MemoryResource {
 
     private int usage;
 
-    protected Image(LogicalDevice device, long imageHandle, int width, int height, int format, int usage) {
+    protected VulkanImage(LogicalDevice device, long imageHandle, int width, int height, int format, int usage) {
         this.width = width;
         this.height = height;
         this.format = format;
@@ -38,20 +39,20 @@ public class Image extends MemoryResource {
         assignHandle(imageHandle);
     }
 
-    public Image(LogicalDevice device, int width, int height, int format, int usage) {
+    public VulkanImage(LogicalDevice device, int width, int height, int format, int usage) {
         this(device, width, height, format, 1, VK10.VK_SAMPLE_COUNT_1_BIT, usage);
     }
     
-    public Image(LogicalDevice device, int width, int height, int format, int usage, int requiredProperties) {
+    public VulkanImage(LogicalDevice device, int width, int height, int format, int usage, int requiredProperties) {
         this(device, width, height, format, 1, VK10.VK_SAMPLE_COUNT_1_BIT, usage, requiredProperties);
     }
 
-    public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int usage,
+    public VulkanImage(LogicalDevice device, int width, int height, int format, int mipLevels, int usage,
             int requiredProperties) {
         this(device, width, height, format, mipLevels, VK10.VK_SAMPLE_COUNT_1_BIT, usage, requiredProperties);
     }
 
-    public Image(LogicalDevice device, int width, int height, int format, int mipLevels, int sampleCount, int usage,
+    public VulkanImage(LogicalDevice device, int width, int height, int format, int mipLevels, int sampleCount, int usage,
             int requiredProperties) {
         this.width = width;
         this.height = height;
@@ -289,5 +290,27 @@ public class Image extends MemoryResource {
             VK10.vkDestroyImage(vkDevice, handle(), null);
             unassignHandle();
         }
+    }
+
+    public static int getVkFormat(Format format) {
+        var vkFormat = switch (format) {
+        case UNDEFINED -> VK10.VK_FORMAT_UNDEFINED;
+        case R8 -> VK10.VK_FORMAT_R8_UNORM;
+        case RG8 -> VK10.VK_FORMAT_R8G8_UNORM;
+        case RGB8 -> VK10.VK_FORMAT_R8G8B8_UNORM;
+        case RGBA8 -> VK10.VK_FORMAT_R8G8B8A8_UNORM;
+        case BGR8 -> VK10.VK_FORMAT_B8G8R8_UNORM;
+        case BGRA8 -> VK10.VK_FORMAT_B8G8R8A8_UNORM;
+
+        case DEPTH16 -> VK10.VK_FORMAT_D16_UNORM;
+        case DEPTH24 -> VK10.VK_FORMAT_X8_D24_UNORM_PACK32;
+        case DEPTH32F -> VK10.VK_FORMAT_D32_SFLOAT;
+        case STENCIL8 -> VK10.VK_FORMAT_S8_UINT;
+        case DEPTH16_STENCIL8 -> VK10.VK_FORMAT_D24_UNORM_S8_UINT;
+        case DEPTH24_STENCIL8 -> VK10.VK_FORMAT_D24_UNORM_S8_UINT;
+        case DEPTH32_STENCIL8 -> VK10.VK_FORMAT_D32_SFLOAT_S8_UINT;
+        default -> VK10.VK_FORMAT_UNDEFINED;
+        };
+        return vkFormat;
     }
 }

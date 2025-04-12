@@ -2,7 +2,7 @@ package fr.sethlans.core.scenegraph;
 
 import org.joml.Matrix4f;
 
-import fr.sethlans.core.render.vk.image.Texture;
+import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.scenegraph.mesh.Mesh;
 
 public class Geometry {

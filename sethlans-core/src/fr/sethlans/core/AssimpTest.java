@@ -14,9 +14,10 @@ import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.AssimpLoader;
 import fr.sethlans.core.asset.TextureLoader;
+import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.render.vk.context.VulkanGraphicsBackend;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
-import fr.sethlans.core.render.vk.image.Texture;
+import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.memory.IndexBuffer;
 import fr.sethlans.core.render.vk.memory.VertexBuffer;
 import fr.sethlans.core.scenegraph.mesh.Vertex;
@@ -73,16 +74,11 @@ public class AssimpTest extends SethlansApplication {
 
         indexBuffer = new IndexBuffer(logicalDevice, indices);
 
-        texture = TextureLoader.load(logicalDevice, "resources/models/viking_room/viking_room.png");
+        texture = TextureLoader.load("resources/models/viking_room/viking_room.png");
 
         buffer = MemoryUtil.memAlloc(16 * Float.BYTES);
         rotation = new Quaternionf();
         modelMatrix = new Matrix4f();
-
-        samplerDescriptorSet = new DescriptorSet(logicalDevice, renderEngine.descriptorPool(),
-                renderEngine.samplerDescriptorSetLayout()).updateTextureDescriptorSet(texture, 0);
-
-        renderEngine.putDescriptorSets(2, samplerDescriptorSet);
     }
 
     @Override
@@ -111,7 +107,5 @@ public class AssimpTest extends SethlansApplication {
     @Override
     protected void cleanup() {
         MemoryUtil.memFree(buffer);
-
-        samplerDescriptorSet.destroy();
     }
 }

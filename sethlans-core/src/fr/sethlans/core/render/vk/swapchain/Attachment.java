@@ -5,14 +5,14 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkExtent2D;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.image.Image;
 import fr.sethlans.core.render.vk.image.ImageView;
+import fr.sethlans.core.render.vk.image.VulkanImage;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.PresentationImage;
 import fr.sethlans.core.render.vk.sync.Fence;
 
 public class Attachment {
 
-    final Image image;
+    final VulkanImage image;
 
     final ImageView imageView;
 
@@ -41,7 +41,7 @@ public class Attachment {
             throw new IllegalArgumentException("Illegal aspect mask for attachment " + aspectMask);
         }
 
-        this.image = new Image(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
+        this.image = new VulkanImage(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
                 VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         this.imageView = new ImageView(device, image.handle(), format, aspectMask);
 
@@ -77,7 +77,7 @@ public class Attachment {
             throw new IllegalArgumentException("Illegal aspect mask for attachment " + aspectMask);
         }
 
-        this.image = new Image(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
+        this.image = new VulkanImage(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
                 VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         this.imageView = new ImageView(device, image.handle(), format, aspectMask);
 

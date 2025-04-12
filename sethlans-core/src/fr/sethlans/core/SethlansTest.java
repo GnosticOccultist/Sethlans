@@ -5,9 +5,7 @@ import org.joml.Vector3f;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.TextureLoader;
-import fr.sethlans.core.render.vk.context.VulkanGraphicsBackend;
-import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
-import fr.sethlans.core.render.vk.image.Texture;
+import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.scenegraph.primitive.Box;
 
 public class SethlansTest extends SethlansApplication {
@@ -17,7 +15,6 @@ public class SethlansTest extends SethlansApplication {
     }
 
     private Quaternionf rotation;
-    private DescriptorSet samplerDescriptorSet;
     private double angle;
     private Texture texture;
    
@@ -43,20 +40,12 @@ public class SethlansTest extends SethlansApplication {
 
     @Override
     protected void initialize() {
-        var renderEngine = ((VulkanGraphicsBackend) (getRenderEngine().getBackend()));
-        var logicalDevice = renderEngine.getLogicalDevice();
-
-        texture = TextureLoader.load(logicalDevice, "resources/textures/vulkan-logo.png");
+        texture = TextureLoader.load("resources/textures/vulkan-logo.png");
 
         box = new Box("Box");
         box.setTexture(texture);
 
-        samplerDescriptorSet = new DescriptorSet(logicalDevice, renderEngine.descriptorPool(),
-                renderEngine.samplerDescriptorSetLayout()).updateTextureDescriptorSet(texture, 0);
-
         rotation = new Quaternionf();
-
-        renderEngine.putDescriptorSets(2, samplerDescriptorSet);
     }
 
     @Override
@@ -73,6 +62,6 @@ public class SethlansTest extends SethlansApplication {
 
     @Override
     protected void cleanup() {
-        samplerDescriptorSet.destroy();
+        
     }
 }
