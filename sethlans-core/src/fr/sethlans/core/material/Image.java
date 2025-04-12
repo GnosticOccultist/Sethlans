@@ -8,6 +8,8 @@ public class Image {
 
     private Format format = Format.RGBA8;
 
+    private ColorSpace colorSpace = ColorSpace.LINEAR;
+
     private ByteBuffer data;
 
     public Image(int width, int height, Format format, ByteBuffer data) {
@@ -33,8 +35,28 @@ public class Image {
         return format;
     }
 
+    public ColorSpace colorSpace() {
+        return colorSpace;
+    }
+
+    public void setColorSpace(ColorSpace colorSpace) {
+        this.colorSpace = colorSpace;
+    }
+
     public ByteBuffer data() {
         return data;
+    }
+
+    public enum ColorSpace {
+
+        /**
+         * The linear color space.
+         */
+        LINEAR,
+        /**
+         * The sRGB color space.
+         */
+        sRGB;
     }
 
     public enum Format {

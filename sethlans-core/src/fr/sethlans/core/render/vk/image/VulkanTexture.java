@@ -26,7 +26,8 @@ public class VulkanTexture {
     
     public VulkanTexture(LogicalDevice device, Texture texture) {
         this(device, texture.image().width(), texture.image().height(),
-                VulkanImage.getVkFormat(texture.image().format()), texture.image().data());
+                VulkanImage.getVkFormat(texture.image().format(), texture.image().colorSpace()),
+                texture.image().data());
     }
 
     public VulkanTexture(LogicalDevice device, int width, int height, int imageFormat, ByteBuffer data) {

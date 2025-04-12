@@ -7,6 +7,7 @@ import org.lwjgl.vulkan.VkImageCreateInfo;
 import org.lwjgl.vulkan.VkImageMemoryBarrier;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
+import fr.sethlans.core.material.Image.ColorSpace;
 import fr.sethlans.core.material.Image.Format;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
@@ -292,25 +293,49 @@ public class VulkanImage extends MemoryResource {
         }
     }
 
-    public static int getVkFormat(Format format) {
-        var vkFormat = switch (format) {
-        case UNDEFINED -> VK10.VK_FORMAT_UNDEFINED;
-        case R8 -> VK10.VK_FORMAT_R8_UNORM;
-        case RG8 -> VK10.VK_FORMAT_R8G8_UNORM;
-        case RGB8 -> VK10.VK_FORMAT_R8G8B8_UNORM;
-        case RGBA8 -> VK10.VK_FORMAT_R8G8B8A8_UNORM;
-        case BGR8 -> VK10.VK_FORMAT_B8G8R8_UNORM;
-        case BGRA8 -> VK10.VK_FORMAT_B8G8R8A8_UNORM;
+    public static int getVkFormat(Format format, ColorSpace colorSpace) {
+        var vkFormat = VK10.VK_FORMAT_UNDEFINED;
+        if (colorSpace.equals(ColorSpace.LINEAR)) {
+            vkFormat = switch (format) {
+            case UNDEFINED -> VK10.VK_FORMAT_UNDEFINED;
+            case R8 -> VK10.VK_FORMAT_R8_UNORM;
+            case RG8 -> VK10.VK_FORMAT_R8G8_UNORM;
+            case RGB8 -> VK10.VK_FORMAT_R8G8B8_UNORM;
+            case RGBA8 -> VK10.VK_FORMAT_R8G8B8A8_UNORM;
+            case BGR8 -> VK10.VK_FORMAT_B8G8R8_UNORM;
+            case BGRA8 -> VK10.VK_FORMAT_B8G8R8A8_UNORM;
 
-        case DEPTH16 -> VK10.VK_FORMAT_D16_UNORM;
-        case DEPTH24 -> VK10.VK_FORMAT_X8_D24_UNORM_PACK32;
-        case DEPTH32F -> VK10.VK_FORMAT_D32_SFLOAT;
-        case STENCIL8 -> VK10.VK_FORMAT_S8_UINT;
-        case DEPTH16_STENCIL8 -> VK10.VK_FORMAT_D24_UNORM_S8_UINT;
-        case DEPTH24_STENCIL8 -> VK10.VK_FORMAT_D24_UNORM_S8_UINT;
-        case DEPTH32_STENCIL8 -> VK10.VK_FORMAT_D32_SFLOAT_S8_UINT;
-        default -> VK10.VK_FORMAT_UNDEFINED;
-        };
+            case DEPTH16 -> VK10.VK_FORMAT_D16_UNORM;
+            case DEPTH24 -> VK10.VK_FORMAT_X8_D24_UNORM_PACK32;
+            case DEPTH32F -> VK10.VK_FORMAT_D32_SFLOAT;
+            case STENCIL8 -> VK10.VK_FORMAT_S8_UINT;
+            case DEPTH16_STENCIL8 -> VK10.VK_FORMAT_D24_UNORM_S8_UINT;
+            case DEPTH24_STENCIL8 -> VK10.VK_FORMAT_D24_UNORM_S8_UINT;
+            case DEPTH32_STENCIL8 -> VK10.VK_FORMAT_D32_SFLOAT_S8_UINT;
+            default -> VK10.VK_FORMAT_UNDEFINED;
+            };
+
+        } else if (colorSpace.equals(ColorSpace.sRGB)) {
+            vkFormat = switch (format) {
+            case UNDEFINED -> VK10.VK_FORMAT_UNDEFINED;
+            case R8 -> VK10.VK_FORMAT_R8_SRGB;
+            case RG8 -> VK10.VK_FORMAT_R8G8_SRGB;
+            case RGB8 -> VK10.VK_FORMAT_R8G8B8_SRGB;
+            case RGBA8 -> VK10.VK_FORMAT_R8G8B8A8_SRGB;
+            case BGR8 -> VK10.VK_FORMAT_B8G8R8_SRGB;
+            case BGRA8 -> VK10.VK_FORMAT_B8G8R8A8_SRGB;
+
+            case DEPTH16 -> VK10.VK_FORMAT_D16_UNORM;
+            case DEPTH24 -> VK10.VK_FORMAT_X8_D24_UNORM_PACK32;
+            case DEPTH32F -> VK10.VK_FORMAT_D32_SFLOAT;
+            case STENCIL8 -> VK10.VK_FORMAT_S8_UINT;
+            case DEPTH16_STENCIL8 -> VK10.VK_FORMAT_D24_UNORM_S8_UINT;
+            case DEPTH24_STENCIL8 -> VK10.VK_FORMAT_D24_UNORM_S8_UINT;
+            case DEPTH32_STENCIL8 -> VK10.VK_FORMAT_D32_SFLOAT_S8_UINT;
+            default -> VK10.VK_FORMAT_UNDEFINED;
+            };
+        }
+
         return vkFormat;
     }
 }
