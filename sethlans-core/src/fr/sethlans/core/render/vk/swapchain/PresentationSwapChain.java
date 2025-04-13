@@ -3,6 +3,7 @@ package fr.sethlans.core.render.vk.swapchain;
 import java.util.ArrayList;
 
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.EXTSwapchainColorspace;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
@@ -37,8 +38,22 @@ public class PresentationSwapChain extends SwapChain {
             var physicalDevice = logicalDevice.physicalDevice();
             var surfaceProperties = physicalDevice.gatherSurfaceProperties(surfaceHandle, stack);
 
-            var surfaceFormat = surfaceProperties
-                    .getSurfaceFormat(VK10.VK_FORMAT_B8G8R8A8_SRGB, KHRSurface.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+            var format = VK10.VK_FORMAT_B8G8R8A8_SRGB;
+            var colorSpace = KHRSurface.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+            var gammaCorrection = config.getBoolean(SethlansApplication.GAMMA_CORRECTION_PROP,
+                    SethlansApplication.DEFAULT_GAMMA_CORRECTION);
+            if (!gammaCorrection && physicalDevice
+                    .hasExtension(EXTSwapchainColorspace.VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME)) {
+                format = VK10.VK_FORMAT_B8G8R8A8_UNORM;
+                colorSpace = EXTSwapchainColorspace.VK_COLOR_SPACE_PASS_THROUGH_EXT;
+            } else if (!gammaCorrection && !physicalDevice
+                    .hasExtension(EXTSwapchainColorspace.VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME)) {
+                logger.warning(
+                        "Requested a linear color space swap-chain, but " + physicalDevice + " doesn't support it.");
+                config.addBoolean(SethlansApplication.GAMMA_CORRECTION_PROP, true);
+            }
+
+            var surfaceFormat = surfaceProperties.getSurfaceFormat(format, colorSpace)
                     .orElseGet(() -> surfaceProperties.getFirstSurfaceFormat());
             this.imageFormat = surfaceFormat.format();
 

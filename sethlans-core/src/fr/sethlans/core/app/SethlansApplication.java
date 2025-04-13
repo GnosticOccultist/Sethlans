@@ -24,6 +24,7 @@ public abstract class SethlansApplication {
     public static final String GRAPHICS_DEBUG_PROP = "GraphicsDebug";
     public static final String RENDER_MODE_PROP = "RenderMode";
     public static final String VSYNC_PROP = "VSync";
+    public static final String GAMMA_CORRECTION_PROP = "GammaCorrection";
     public static final String MSAA_SAMPLES_PROP = "MssaSamples";
     public static final String MIN_SAMPLE_SHADING_PROP = "MinSampleShading";
     public static final String WINDOW_WIDTH_PROP = "WindowWidth";
@@ -53,6 +54,7 @@ public abstract class SethlansApplication {
     public static final String DEFAULT_RENDER_MODE = SURFACE_RENDER_MODE;
     public static final boolean DEFAULT_VSYNC = true;
     public static final int DEFAULT_MSSA_SAMPLES = 4;
+    public static final boolean DEFAULT_GAMMA_CORRECTION = true;
     public static final float DEFAULT_MIN_SAMPLE_SHADING = 0.2f;
 
     private static SethlansApplication application;

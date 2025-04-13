@@ -116,6 +116,7 @@ public class SurfaceProperties {
         // Find the matching surface format.
         for (var i = 0; i < formats.capacity(); ++i) {
             var f = formats.get(i);
+            
             if (f.format() == format && f.colorSpace() == colorSpace) {
                 return Optional.of(f);
             }

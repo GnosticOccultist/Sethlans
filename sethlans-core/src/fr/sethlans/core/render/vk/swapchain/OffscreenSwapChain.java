@@ -31,9 +31,12 @@ public class OffscreenSwapChain extends SwapChain {
         var desiredWidth = config.getInteger(SethlansApplication.WINDOW_WIDTH_PROP, Window.DEFAULT_WIDTH);
         var desiredHeight = config.getInteger(SethlansApplication.WINDOW_HEIGHT_PROP, Window.DEFAULT_HEIGHT);
 
+        var gammaCorrection = config.getBoolean(SethlansApplication.GAMMA_CORRECTION_PROP,
+                SethlansApplication.DEFAULT_GAMMA_CORRECTION);
+
         this.framebufferExtent.set(desiredWidth, desiredHeight);
 
-        this.imageFormat = VK10.VK_FORMAT_B8G8R8A8_SRGB;
+        this.imageFormat = gammaCorrection ? VK10.VK_FORMAT_B8G8R8A8_SRGB : VK10.VK_FORMAT_B8G8R8A8_UNORM;
 
         // Allow to transfer image data to a buffer.
         var usage = VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT;

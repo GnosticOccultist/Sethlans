@@ -10,7 +10,6 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.AssimpLoader;
 import fr.sethlans.core.asset.TextureLoader;
 import fr.sethlans.core.material.Texture;
-import fr.sethlans.core.material.Image.ColorSpace;
 import fr.sethlans.core.scenegraph.Geometry;
 import fr.sethlans.core.scenegraph.mesh.Mesh;
 import fr.sethlans.core.scenegraph.mesh.Topology;
@@ -56,8 +55,7 @@ public class AssimpTest extends SethlansApplication {
         var mesh = new Mesh(Topology.TRIANGLES, indices, vertices);
         vikingRoom = new Geometry("Viking Room", mesh);
 
-        texture = TextureLoader.load("resources/models/viking_room/viking_room.png");
-        texture.image().setColorSpace(ColorSpace.sRGB);
+        texture = TextureLoader.load(getConfig(), "resources/models/viking_room/viking_room.png");
         vikingRoom.setTexture(texture);
 
         rotation = new Quaternionf();

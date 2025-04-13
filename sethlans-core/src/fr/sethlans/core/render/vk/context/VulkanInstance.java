@@ -8,6 +8,7 @@ import org.lwjgl.PointerBuffer;
 import org.lwjgl.glfw.GLFWVulkan;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.EXTDebugUtils;
+import org.lwjgl.vulkan.EXTSwapchainColorspace;
 import org.lwjgl.vulkan.KHRPortabilityEnumeration;
 import org.lwjgl.vulkan.KHRPortabilitySubset;
 import org.lwjgl.vulkan.VK10;
@@ -204,6 +205,9 @@ public class VulkanInstance {
         if (needsSurface) {
             // Request GLFW surface extensions.
             result = GLFWVulkan.glfwGetRequiredInstanceExtensions();
+            
+            result = VkUtil.appendStringPointer(result, EXTSwapchainColorspace.VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME,
+                    stack);
         }
 
         var debug = config.getBoolean(SethlansApplication.GRAPHICS_DEBUG_PROP,

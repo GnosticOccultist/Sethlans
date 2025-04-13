@@ -9,7 +9,10 @@ import javax.imageio.ImageIO;
 
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
+import fr.sethlans.core.app.ConfigFile;
+import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.material.Image;
+import fr.sethlans.core.material.Image.ColorSpace;
 import fr.sethlans.core.material.Image.Format;
 import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.material.Texture.Type;
@@ -19,10 +22,10 @@ public class TextureLoader {
 
     protected static final Logger logger = FactoryLogger.getLogger("sethlans-core.asset");
 
-    public static Texture load(String path) {
+    public static Texture load(ConfigFile config, String path) {
         try (var is = Files.newInputStream(Paths.get(path))) {
 
-            var texture = load(is);
+            var texture = load(config, is);
             return texture;
 
         } catch (IOException ex) {
@@ -30,7 +33,7 @@ public class TextureLoader {
         }
     }
 
-    public static Texture load(InputStream is) {
+    public static Texture load(ConfigFile config, InputStream is) {
         ImageIO.setUseCache(false);
         try {
             var image = ImageIO.read(is);
@@ -56,6 +59,13 @@ public class TextureLoader {
             pixels.flip();
 
             var img = new Image(w, h, Format.RGBA8, pixels);
+
+            var gammaCorrection = config.getBoolean(SethlansApplication.GAMMA_CORRECTION_PROP,
+                    SethlansApplication.DEFAULT_GAMMA_CORRECTION);
+            if (gammaCorrection) {
+                img.setColorSpace(ColorSpace.sRGB);
+            }
+
             var texture = new Texture(Type.TWO_DIMENSIONAL);
             texture.setImage(img);
 

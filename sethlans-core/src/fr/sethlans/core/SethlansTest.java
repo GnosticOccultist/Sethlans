@@ -5,7 +5,6 @@ import org.joml.Vector3f;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.TextureLoader;
-import fr.sethlans.core.material.Image.ColorSpace;
 import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.scenegraph.primitive.Box;
 
@@ -41,8 +40,7 @@ public class SethlansTest extends SethlansApplication {
 
     @Override
     protected void initialize() {
-        texture = TextureLoader.load("resources/textures/vulkan-logo.png");
-        texture.image().setColorSpace(ColorSpace.sRGB);
+        texture = TextureLoader.load(getConfig(), "resources/textures/vulkan-logo.png");
 
         box = new Box("Box");
         box.setTexture(texture);

@@ -6,6 +6,7 @@ import java.util.TreeSet;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.EXTIndexTypeUint8;
+import org.lwjgl.vulkan.EXTSwapchainColorspace;
 import org.lwjgl.vulkan.KHRIndexTypeUint8;
 import org.lwjgl.vulkan.KHRPortabilitySubset;
 import org.lwjgl.vulkan.KHRSurface;
@@ -69,6 +70,11 @@ public class PhysicalDevice {
         // This is a plus if the device supports extension for uint8 index value.
         if (pd.hasExtension(EXTIndexTypeUint8.VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME)
                 || pd.hasExtension(KHRIndexTypeUint8.VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME)) {
+            score += 10f;
+        }
+        
+        // This is a plus if the device supports linear color space swap-chain.
+        if (pd.hasExtension(EXTSwapchainColorspace.VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME)) {
             score += 10f;
         }
 
@@ -236,6 +242,11 @@ public class PhysicalDevice {
             if (needsSurface) {
                 requiredExtensions = stack.mallocPointer(1);
                 requiredExtensions.put(stack.UTF8Safe(KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME));
+
+                if (hasExtension(EXTSwapchainColorspace.VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME)) {
+                    requiredExtensions = VkUtil.appendStringPointer(requiredExtensions,
+                            EXTSwapchainColorspace.VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, stack);
+                }
             }
 
             if (supportsByteIndex()) {
