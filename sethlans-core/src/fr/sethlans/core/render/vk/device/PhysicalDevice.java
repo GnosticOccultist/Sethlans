@@ -7,6 +7,7 @@ import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.EXTIndexTypeUint8;
 import org.lwjgl.vulkan.EXTSwapchainColorspace;
+import org.lwjgl.vulkan.KHRDynamicRendering;
 import org.lwjgl.vulkan.KHRIndexTypeUint8;
 import org.lwjgl.vulkan.KHRPortabilitySubset;
 import org.lwjgl.vulkan.KHRSurface;
@@ -20,6 +21,7 @@ import org.lwjgl.vulkan.VkDeviceQueueCreateInfo;
 import org.lwjgl.vulkan.VkExtensionProperties;
 import org.lwjgl.vulkan.VkFormatProperties;
 import org.lwjgl.vulkan.VkPhysicalDevice;
+import org.lwjgl.vulkan.VkPhysicalDeviceDynamicRenderingFeaturesKHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures2;
 import org.lwjgl.vulkan.VkPhysicalDeviceIndexTypeUint8FeaturesKHR;
@@ -137,6 +139,8 @@ public class PhysicalDevice {
 
     private Set<String> availableToolProperties;
 
+    private boolean dynamicRenderingSupported;
+
     public PhysicalDevice(long handle, VulkanInstance instance) {
         this.instance = instance;
         this.handle = new VkPhysicalDevice(handle, instance.handle());
@@ -167,6 +171,8 @@ public class PhysicalDevice {
 
             // Set up required features.
             var features = VkPhysicalDeviceFeatures.calloc(stack);
+            // Request features for the physical device.
+            VK11.vkGetPhysicalDeviceFeatures(handle, features);
 
             var sampleShading = config.getFloat(SethlansApplication.MIN_SAMPLE_SHADING_PROP,
                     SethlansApplication.DEFAULT_MIN_SAMPLE_SHADING);
@@ -178,6 +184,8 @@ public class PhysicalDevice {
             } else {
                 features.sampleRateShading(enableSampleShading);
                 this.minSampleShading = Math.min(minSampleShading, 1.0f);
+                
+                logger.info("Sample shading supported by " + this + ", minSampleShading= " + minSampleShading + ".");
             }
             
             if (!features.samplerAnisotropy()) {
@@ -186,6 +194,7 @@ public class PhysicalDevice {
                 this.maxAnisotropy = 0;
             } else {
                 features.samplerAnisotropy(true);
+                logger.info("Anisotropic filtering supported by " + this + ", maxAnisotropy= " + maxAnisotropy + ".");
             }
 
             createInfo.pEnabledFeatures(features);
@@ -194,17 +203,23 @@ public class PhysicalDevice {
                     .sType(KHRIndexTypeUint8.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_KHR);
             
             var portabilityFeatures = VkPhysicalDevicePortabilitySubsetFeaturesKHR.calloc(stack);
+            
+            var dynamicRenderingFeatures = VkPhysicalDeviceDynamicRenderingFeaturesKHR.calloc(stack)
+                    .sType(KHRDynamicRendering.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR)
+                    .dynamicRendering(true);
 
             var features2 = VkPhysicalDeviceFeatures2.calloc(stack)
                     .sType(VK11.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2)
                     .pNext(uint8Features)
-                    .pNext(portabilityFeatures);
+                    .pNext(portabilityFeatures)
+                    .pNext(dynamicRenderingFeatures);
 
             // Request features2 for the physical device.
             VK11.vkGetPhysicalDeviceFeatures2(handle, features2);
             if (uint8Features.indexTypeUint8()) {
                 uint8Features.indexTypeUint8(true);
                 this.byteIndexSupported = true;
+                logger.info("Index u8int type supported by " + this + ".");
 
                 // Request uint8 indices support.
                 createInfo.pNext(uint8Features);
@@ -213,9 +228,19 @@ public class PhysicalDevice {
             if (portabilityFeatures.triangleFans()) {
                 portabilityFeatures.triangleFans(true);
                 this.triangleFansSupported = true;
+                logger.info("Triangle fans supported by " + this + ".");
 
                 // Request triangle fans support.
                 createInfo.pNext(portabilityFeatures);
+            }
+            
+            if (dynamicRenderingFeatures.dynamicRendering()) {
+                dynamicRenderingFeatures.dynamicRendering(true);
+                this.dynamicRenderingSupported = true;
+                logger.info("Dynamic rendering supported by " + this + ".");
+
+                // Request dynamic rendering support.
+                createInfo.pNext(dynamicRenderingFeatures);
             }
 
             // Enable all available queue families.
@@ -223,8 +248,6 @@ public class PhysicalDevice {
             var familiesBuff = properties.listFamilies(stack);
             var familyCount = familiesBuff.capacity();
             var priorities = stack.floats(0.5f);
-
-            logger.info(properties);
 
             var queueCreationInfo = VkDeviceQueueCreateInfo.calloc(familyCount, stack);
             for (var i = 0; i < familyCount; ++i) {
@@ -554,6 +577,10 @@ public class PhysicalDevice {
 
     public boolean supportsTriangleFans() {
         return triangleFansSupported;
+    }
+
+    public boolean supportsDynamicRendering() {
+        return dynamicRenderingSupported;
     }
 
     public int type() {

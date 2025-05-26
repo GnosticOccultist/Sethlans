@@ -77,6 +77,14 @@ public class Attachment {
         }
     }
 
+    public ImageView imageView() {
+        return imageView;
+    }
+
+    public VulkanImage image() {
+        return image;
+    }
+
     int finalLayout() {
         return finalLayout;
     }

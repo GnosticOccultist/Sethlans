@@ -20,6 +20,7 @@ import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.image.ImageView;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 
 public abstract class SwapChain {
@@ -131,7 +132,15 @@ public abstract class SwapChain {
         }
     }
 
-    protected abstract Attachment getAttachment(int frameIndex);
+    public abstract Attachment getAttachment(int frameIndex);
+    
+    public abstract Attachment getColorAttachment(int frameIndex);
+    
+    public abstract Attachment getDepthAttachment(int frameIndex);
+
+    public ImageView getImageView(int frameIndex) {
+        return getAttachment(frameIndex).imageView();
+    }
 
     public abstract int imageCount();
 

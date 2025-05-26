@@ -222,6 +222,36 @@ public class VulkanImage extends MemoryResource {
                 dstStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
             } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+                    && newLayout == KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+
+                // COLOR_ATTACHMENT to PRESENT_SRC_KHR
+                pBarrier.srcAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+                pBarrier.dstAccessMask(0);
+
+                srcStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                dstStage = VK10.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+
+            } else if (oldLayout == KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+                    && newLayout == VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+
+                // PRESENT_SRC_KHR to COLOR_ATTACHMENT
+                pBarrier.srcAccessMask(0);
+                pBarrier.dstAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
+                srcStage = VK10.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+                dstStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_UNDEFINED
+                    && newLayout == VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+
+                // PRESENT_SRC_KHR to COLOR_ATTACHMENT
+                pBarrier.srcAccessMask(0);
+                pBarrier.dstAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
+                srcStage = VK10.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+                dstStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
                     && newLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
 
                 // COLOR_ATTACHMENT_OPTIMAL to TRANSFER_SRC

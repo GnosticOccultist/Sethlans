@@ -14,8 +14,8 @@ import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.util.shaderc.Shaderc;
+import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
-
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Projection;
@@ -312,15 +312,24 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         if (pipeline == null) {
             pipeline = new Pipeline(logicalDevice, pipelineCache, swapChain, program, vkMesh, pipelineLayout);
         }
+        
+        try (var m = swapChain.getAttachment(imageIndex).image().transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)){
+            
+        }
 
         swapChain.commandBuffer(imageIndex).reset().beginRecording()
-                .beginRenderPass(swapChain, swapChain.frameBuffer(imageIndex), swapChain.renderPass())
+                .beginRendering(swapChain, imageIndex)
                 .bindPipeline(pipeline.handle());
 
         bindDescriptorSets(swapChain.commandBuffer(imageIndex)).bindVertexBuffer(vkMesh.getVertexBuffer())
                 .bindIndexBuffer(vkMesh.getIndexBuffer())
                 .pushConstants(pipelineLayout.handle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, geometry.getModelMatrix())
-                .drawIndexed(vkMesh.getIndexBuffer()).endRenderPass().end();
+                .drawIndexed(vkMesh.getIndexBuffer()).endRendering().end();
+        
+        try (var m = swapChain.getAttachment(imageIndex).image().transitionImageLayout(VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)) {
+            
+        }
+
     }
 
     public void putDescriptorSets(int index, DescriptorSet descriptorSet) {
@@ -427,11 +436,17 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
     @Override
     public void terminate() {
         
-        samplerDescriptorSet.destroy();
-
-        globalDescriptorSet.destroy();
-
-        dynamicDescriptorSet.destroy();
+        if (samplerDescriptorSet != null) {
+            samplerDescriptorSet.destroy();
+        }
+        
+        if (globalDescriptorSet != null) {
+            globalDescriptorSet.destroy();
+        }
+        
+        if (dynamicDescriptorSet != null) {
+            dynamicDescriptorSet.destroy();
+        }
 
         MemoryUtil.memFree(dynDescriptorOffset);
         MemoryUtil.memFree(descriptorSets);

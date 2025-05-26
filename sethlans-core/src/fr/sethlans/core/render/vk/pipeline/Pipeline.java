@@ -1,6 +1,7 @@
 package fr.sethlans.core.render.vk.pipeline;
 
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.KHRDynamicRendering;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkGraphicsPipelineCreateInfo;
 import org.lwjgl.vulkan.VkOffset2D;
@@ -9,6 +10,7 @@ import org.lwjgl.vulkan.VkPipelineColorBlendStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineDepthStencilStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineMultisampleStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineRasterizationStateCreateInfo;
+import org.lwjgl.vulkan.VkPipelineRenderingCreateInfoKHR;
 import org.lwjgl.vulkan.VkPipelineVertexInputStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineViewportStateCreateInfo;
 import org.lwjgl.vulkan.VkRect2D;
@@ -115,7 +117,7 @@ public class Pipeline {
             var cbsCreateInfo = VkPipelineColorBlendStateCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO)
                     .pAttachments(cbaState);
-
+            
             var createInfo = VkGraphicsPipelineCreateInfo.calloc(1, stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO)
                     .pStages(shaderCreateInfo)
@@ -126,8 +128,22 @@ public class Pipeline {
                     .pRasterizationState(rsCreateInfo)
                     .pMultisampleState(msCreateInfo)
                     .pColorBlendState(cbsCreateInfo)
-                    .layout(layout.handle())
-                    .renderPass(swapChain.renderPass().handle());
+                    .layout(layout.handle());
+            
+            if (device.physicalDevice().supportsDynamicRendering()) {
+                var colorFormat = stack.ints(swapChain.imageFormat());
+
+                var pipelineRenderingInfo = VkPipelineRenderingCreateInfoKHR.calloc(stack)
+                        .sType(KHRDynamicRendering.VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR)
+                        .colorAttachmentCount(1)
+                        .pColorAttachmentFormats(colorFormat)
+                        .depthAttachmentFormat(swapChain.depthFormat());
+
+                createInfo.pNext(pipelineRenderingInfo);
+            
+            } else {
+                createInfo.renderPass(swapChain.renderPass().handle());
+            }
 
             var pHandle = stack.mallocLong(1);
             var err = VK10.vkCreateGraphicsPipelines(device.handle(), pipelineCache.handle(), createInfo, null, pHandle);

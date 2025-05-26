@@ -259,12 +259,30 @@ public class PresentationSwapChain extends SwapChain {
     }
 
     @Override
-    protected Attachment getAttachment(int frameIndex) {
+    public Attachment getAttachment(int frameIndex) {
         if (frameIndex < 0 || frameIndex > imageCount()) {
             throw new IllegalArgumentException("The frame index is out of bounds " + frameIndex);
         }
 
         return presentationAttachments[frameIndex];
+    }
+
+    @Override
+    public Attachment getColorAttachment(int frameIndex) {
+        if (frameIndex < 0 || frameIndex > imageCount()) {
+            throw new IllegalArgumentException("The frame index is out of bounds " + frameIndex);
+        }
+
+        return colorAttachments[frameIndex];
+    }
+
+    @Override
+    public Attachment getDepthAttachment(int frameIndex) {
+        if (frameIndex < 0 || frameIndex > imageCount()) {
+            throw new IllegalArgumentException("The frame index is out of bounds " + frameIndex);
+        }
+
+        return depthAttachments[frameIndex];
     }
 
     @Override
