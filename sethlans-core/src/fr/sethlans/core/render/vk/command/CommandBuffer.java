@@ -33,6 +33,7 @@ import fr.sethlans.core.render.vk.memory.DeviceBuffer;
 import fr.sethlans.core.render.vk.memory.IndexBuffer;
 import fr.sethlans.core.render.vk.memory.VertexBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
+import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.swapchain.FrameBuffer;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
@@ -166,7 +167,7 @@ public class CommandBuffer {
 
         return this;
     }
-    
+
     public CommandBuffer bindIndexBuffer(IndexBuffer indexBuffer) {
         return bindIndexBuffer(indexBuffer.deviceBuffer(), indexBuffer.elementType());
     }
@@ -210,6 +211,22 @@ public class CommandBuffer {
         return this;
     }
     
+    public CommandBuffer draw(VulkanMesh vkMesh) {
+        if (vkMesh.hasIndices()) {
+            drawIndexed(vkMesh.getIndexBuffer());
+        
+        } else {
+            draw(vkMesh.vertexCount());
+        }
+        
+        return this;
+    }
+    
+    public CommandBuffer draw(int vertexCount) {
+        VK10.vkCmdDraw(handle, vertexCount, 1, 0, 0);
+        return this;
+    }
+
     public CommandBuffer drawIndexed(IndexBuffer indexBuffer) {
         VK10.vkCmdDrawIndexed(handle, indexBuffer.elementCount(), 1, 0, 0, 0);
         return this;
@@ -241,16 +258,19 @@ public class CommandBuffer {
             return this;
         }
     }
-    
+
     public CommandBuffer beginRendering(SwapChain swapChain, int imageIndex) {
         try (var stack = MemoryStack.stackPush()) {
-            
+
             var multisample = swapChain.sampleCount() > 1;
-            
-            ImageView imageView = multisample ? swapChain.getColorAttachment(imageIndex).imageView() : swapChain.getImageView(imageIndex);
+
+            ImageView imageView = multisample ? swapChain.getColorAttachment(imageIndex).imageView()
+                    : swapChain.getImageView(imageIndex);
             int resolveMode = multisample ? VK12.VK_RESOLVE_MODE_AVERAGE_BIT : VK12.VK_RESOLVE_MODE_NONE;
-            long resolveImageViewHandle = multisample ? swapChain.getImageView(imageIndex).handle() : VK10.VK_NULL_HANDLE;
-            int resolveImageLayout = multisample ? VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK10.VK_IMAGE_LAYOUT_UNDEFINED;
+            long resolveImageViewHandle = multisample ? swapChain.getImageView(imageIndex).handle()
+                    : VK10.VK_NULL_HANDLE;
+            int resolveImageLayout = multisample ? VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+                    : VK10.VK_IMAGE_LAYOUT_UNDEFINED;
 
             // Multisampled attachment and resolve attachment.
             var colorAttachment = VkRenderingAttachmentInfo.calloc(1, stack)
@@ -263,9 +283,9 @@ public class CommandBuffer {
                     .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR)
                     .storeOp(VK10.VK_ATTACHMENT_STORE_OP_STORE)
                     .clearValue(v -> v.color().float32(0, 0.5f).float32(1, 0.7f).float32(2, 0.9f).float32(3, 1.0f));
-            
+
             imageView = swapChain.getDepthAttachment(imageIndex).imageView();
-            
+
             var depthAttachment = VkRenderingAttachmentInfo.calloc(stack)
                     .sType(KHRDynamicRendering.VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR)
                     .imageView(imageView.handle())
@@ -273,7 +293,7 @@ public class CommandBuffer {
                     .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR)
                     .storeOp(VK10.VK_ATTACHMENT_STORE_OP_STORE)
                     .clearValue(v -> v.depthStencil().depth(1.0f));
-            
+
             var renderArea = VkRect2D.calloc(stack);
             renderArea.offset(VkOffset2D.calloc(stack).set(0, 0));
             renderArea.extent(swapChain.framebufferExtent(stack));
@@ -306,9 +326,11 @@ public class CommandBuffer {
     }
 
     public CommandBuffer submitFrame(SyncFrame frame) {
-        var signalHandle = frame.renderCompleteSemaphore() != null ? frame.renderCompleteSemaphore().handle() : VK10.VK_NULL_HANDLE;
-        var waitHandle = frame.imageAvailableSemaphore() != null ? frame.imageAvailableSemaphore().handle() : VK10.VK_NULL_HANDLE;
-        
+        var signalHandle = frame.renderCompleteSemaphore() != null ? frame.renderCompleteSemaphore().handle()
+                : VK10.VK_NULL_HANDLE;
+        var waitHandle = frame.imageAvailableSemaphore() != null ? frame.imageAvailableSemaphore().handle()
+                : VK10.VK_NULL_HANDLE;
+
         try (var stack = MemoryStack.stackPush()) {
             // Create submit info.
             var submitInfo = VkSubmitInfo.calloc(stack)
@@ -317,7 +339,7 @@ public class CommandBuffer {
                     .waitSemaphoreCount(frame.imageAvailableSemaphore() != null ? 1 : 0)
                     .pWaitSemaphores(stack.longs(waitHandle))
                     .pWaitDstStageMask(stack.ints(VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT));
-            
+
             if (frame.renderCompleteSemaphore() != null) {
                 submitInfo.pSignalSemaphores(stack.longs(signalHandle));
             }
@@ -344,7 +366,7 @@ public class CommandBuffer {
         VK10.vkCmdEndRenderPass(handle);
         return this;
     }
-    
+
     public CommandBuffer endRendering() {
         VK13.vkCmdEndRendering(handle);
         return this;
@@ -356,7 +378,7 @@ public class CommandBuffer {
 
         return this;
     }
-    
+
     public LogicalDevice logicalDevice() {
         return commandPool.getLogicalDevice();
     }

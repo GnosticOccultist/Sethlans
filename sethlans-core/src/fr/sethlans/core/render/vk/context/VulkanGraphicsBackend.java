@@ -324,7 +324,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         bindDescriptorSets(swapChain.commandBuffer(imageIndex)).bindVertexBuffer(vkMesh.getVertexBuffer())
                 .bindIndexBuffer(vkMesh.getIndexBuffer())
                 .pushConstants(pipelineLayout.handle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, geometry.getModelMatrix())
-                .drawIndexed(vkMesh.getIndexBuffer()).endRendering().end();
+                .draw(vkMesh).endRendering().end();
         
         try (var m = swapChain.getAttachment(imageIndex).image().transitionImageLayout(VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)) {
             

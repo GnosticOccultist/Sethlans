@@ -39,6 +39,15 @@ public class VulkanMesh {
         return indexBuffer;
     }
 
+    public boolean hasIndices() {
+        var result = indexBuffer != null && indexBuffer.elementCount() > 0;
+        return result;
+    }
+    
+    public int vertexCount() {
+        return mesh.vertexCount();
+    }
+
     public VkPipelineInputAssemblyStateCreateInfo createInputAssemblyState(MemoryStack stack) {
         int vkTopology = 0;
 
