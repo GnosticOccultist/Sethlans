@@ -6,9 +6,7 @@ import java.nio.LongBuffer;
 
 import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.KHRDynamicRendering;
 import org.lwjgl.vulkan.VK10;
-import org.lwjgl.vulkan.VK12;
 import org.lwjgl.vulkan.VK13;
 import org.lwjgl.vulkan.VkBufferCopy;
 import org.lwjgl.vulkan.VkBufferImageCopy;
@@ -22,12 +20,9 @@ import org.lwjgl.vulkan.VkOffset2D;
 import org.lwjgl.vulkan.VkQueue;
 import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkRenderPassBeginInfo;
-import org.lwjgl.vulkan.VkRenderingAttachmentInfo;
-import org.lwjgl.vulkan.VkRenderingInfo;
 import org.lwjgl.vulkan.VkSubmitInfo;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.image.ImageView;
 import fr.sethlans.core.render.vk.image.VulkanImage;
 import fr.sethlans.core.render.vk.memory.DeviceBuffer;
 import fr.sethlans.core.render.vk.memory.IndexBuffer;
@@ -261,50 +256,7 @@ public class CommandBuffer {
 
     public CommandBuffer beginRendering(SwapChain swapChain, int imageIndex) {
         try (var stack = MemoryStack.stackPush()) {
-
-            var multisample = swapChain.sampleCount() > 1;
-
-            ImageView imageView = multisample ? swapChain.getColorAttachment(imageIndex).imageView()
-                    : swapChain.getImageView(imageIndex);
-            int resolveMode = multisample ? VK12.VK_RESOLVE_MODE_AVERAGE_BIT : VK12.VK_RESOLVE_MODE_NONE;
-            long resolveImageViewHandle = multisample ? swapChain.getImageView(imageIndex).handle()
-                    : VK10.VK_NULL_HANDLE;
-            int resolveImageLayout = multisample ? VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-                    : VK10.VK_IMAGE_LAYOUT_UNDEFINED;
-
-            // Multisampled attachment and resolve attachment.
-            var colorAttachment = VkRenderingAttachmentInfo.calloc(1, stack)
-                    .sType(KHRDynamicRendering.VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR)
-                    .imageView(imageView.handle())
-                    .imageLayout(VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-                    .resolveMode(resolveMode)
-                    .resolveImageView(resolveImageViewHandle)
-                    .resolveImageLayout(resolveImageLayout)
-                    .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR)
-                    .storeOp(VK10.VK_ATTACHMENT_STORE_OP_STORE)
-                    .clearValue(v -> v.color().float32(0, 0.5f).float32(1, 0.7f).float32(2, 0.9f).float32(3, 1.0f));
-
-            imageView = swapChain.getDepthAttachment(imageIndex).imageView();
-
-            var depthAttachment = VkRenderingAttachmentInfo.calloc(stack)
-                    .sType(KHRDynamicRendering.VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR)
-                    .imageView(imageView.handle())
-                    .imageLayout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-                    .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR)
-                    .storeOp(VK10.VK_ATTACHMENT_STORE_OP_STORE)
-                    .clearValue(v -> v.depthStencil().depth(1.0f));
-
-            var renderArea = VkRect2D.calloc(stack);
-            renderArea.offset(VkOffset2D.calloc(stack).set(0, 0));
-            renderArea.extent(swapChain.framebufferExtent(stack));
-
-            var renderingInfo = VkRenderingInfo.calloc(stack)
-                    .sType(KHRDynamicRendering.VK_STRUCTURE_TYPE_RENDERING_INFO_KHR)
-                    .renderArea(renderArea)
-                    .layerCount(1)
-                    .pColorAttachments(colorAttachment)
-                    .pDepthAttachment(depthAttachment);
-
+            var renderingInfo = swapChain.getAttachments().createRenderingInfo(stack, swapChain, imageIndex);
             VK13.vkCmdBeginRendering(handle, renderingInfo);
             return this;
         }

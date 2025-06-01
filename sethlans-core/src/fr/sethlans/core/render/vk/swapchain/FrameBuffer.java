@@ -16,8 +16,7 @@ public class FrameBuffer {
 
     private long handle = VK10.VK_NULL_HANDLE;
 
-    FrameBuffer(LogicalDevice logicalDevice, RenderPass renderPass, VkExtent2D framebufferExtent,
-            LongBuffer pAttachments) {
+    FrameBuffer(LogicalDevice logicalDevice, RenderPass renderPass, VkExtent2D framebufferExtent, LongBuffer pAttachments) {
         this.logicalDevice = logicalDevice;
 
         try (var stack = MemoryStack.stackPush()) {
@@ -32,6 +31,7 @@ public class FrameBuffer {
                     .width(width)
                     .height(height)
                     .layers(1)
+                    .flags(0)
                     .pAttachments(pAttachments);
 
             var pHandle = stack.mallocLong(1);

@@ -18,18 +18,23 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
+import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
+import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.image.ImageView;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 
 public abstract class SwapChain {
 
     protected static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.swapchain");
 
-    protected final LogicalDevice logicalDevice;
+    protected final VulkanContext context;
+    
+    protected final ConfigFile config;
 
     protected final VkExtent2D framebufferExtent = VkExtent2D.create();
+    
+    protected AttachmentSet attachments;
 
     protected Attachment[] presentationAttachments;
     
@@ -41,18 +46,19 @@ public abstract class SwapChain {
 
     protected CommandBuffer[] commandBuffers;
 
-    protected RenderPass renderPass;
-
     protected int imageFormat;
 
     protected int depthFormat;
 
     protected int sampleCount;
+    
+    protected int imageCount;
 
-    protected SwapChain(LogicalDevice logicalDevice, ConfigFile config) {
-        this.logicalDevice = logicalDevice;
+    protected SwapChain(VulkanContext context, ConfigFile config) {
+        this.context = context;
+        this.config = config;
 
-        var physicalDevice = logicalDevice.physicalDevice();
+        var physicalDevice = context.getPhysicalDevice();
 
         this.depthFormat = physicalDevice.findSupportedFormat(VK10.VK_IMAGE_TILING_OPTIMAL,
                 VK10.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT, VK10.VK_FORMAT_D32_SFLOAT,
@@ -60,7 +66,7 @@ public abstract class SwapChain {
 
         var requestedSampleCount = config.getInteger(SethlansApplication.MSAA_SAMPLES_PROP,
                 SethlansApplication.DEFAULT_MSSA_SAMPLES);
-        var maxSampleCount = logicalDevice.physicalDevice().maxSamplesCount();
+        var maxSampleCount = context.getPhysicalDevice().maxSamplesCount();
         this.sampleCount = Math.min(requestedSampleCount, maxSampleCount);
         logger.info("Using " + sampleCount + " samples (requested= " + requestedSampleCount + ", max= " + maxSampleCount
                 + ").");
@@ -74,7 +80,7 @@ public abstract class SwapChain {
         assert frameIndex >= 0 : frameIndex;
         assert frameIndex < imageCount() : frameIndex;
 
-        var attachment = getAttachment(frameIndex);
+        var attachment = getPrimaryAttachment(frameIndex);
         var image = attachment.image;
         if ((image.usage() & VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT) == 0) {
             throw new IllegalStateException("Surface images doesn't support transferring to a buffer!");
@@ -85,7 +91,7 @@ public abstract class SwapChain {
         var height = framebufferExtent.height();
         var channels = 4;
         var size = width * height * channels;
-        var destination = new VulkanBuffer(logicalDevice, size, VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+        var destination = new VulkanBuffer(context.getLogicalDevice(), size, VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT);
         destination.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
         // Transition image to a valid transfer layout.
@@ -131,18 +137,21 @@ public abstract class SwapChain {
             logger.error("Failed to write PNG image to '" + outputPath + "'!", ex);
         }
     }
-
-    public abstract Attachment getAttachment(int frameIndex);
     
-    public abstract Attachment getColorAttachment(int frameIndex);
-    
-    public abstract Attachment getDepthAttachment(int frameIndex);
+    public abstract void recreate(Window window, RenderPass renderPass, AttachmentDescriptor[] descriptors);
 
-    public ImageView getImageView(int frameIndex) {
-        return getAttachment(frameIndex).imageView();
+    public Attachment getPrimaryAttachment(int frameIndex) {
+        var attachment = attachments.getPrimary(frameIndex);
+        return attachment;
     }
 
-    public abstract int imageCount();
+    public AttachmentSet getAttachments() {
+        return attachments;
+    }
+
+    public int imageCount() {
+        return imageCount;
+    }
 
     public VkExtent2D framebufferExtent(MemoryStack stack) {
         var result = VkExtent2D.malloc(stack);
@@ -179,19 +188,11 @@ public abstract class SwapChain {
         return depthFormat;
     }
 
-    public RenderPass renderPass() {
-        return renderPass;
-    }
-
     LogicalDevice logicalDevice() {
-        return logicalDevice;
+        return context.getLogicalDevice();
     }
 
     public void destroy() {
-
-        if (renderPass != null) {
-            renderPass.destroy();
-            this.renderPass = null;
-        }
+        
     }
 }

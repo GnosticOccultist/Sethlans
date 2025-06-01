@@ -10,6 +10,8 @@ import fr.sethlans.core.render.vk.image.VulkanImage;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.PresentationImage;
 
 public class Attachment {
+    
+    final AttachmentDescriptor descriptor;
 
     final VulkanImage image;
 
@@ -19,22 +21,32 @@ public class Attachment {
 
     final int storeOp;
 
-    public Attachment(LogicalDevice device, PresentationImage image) {
+    public Attachment(LogicalDevice device, AttachmentDescriptor descriptor, PresentationImage image) {
+        this.descriptor = descriptor;
         this.image = image;
         this.imageView = new ImageView(device, image.handle(), image.format(), VK10.VK_IMAGE_ASPECT_COLOR_BIT);
         this.finalLayout = KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_STORE;
     }
 
-    public Attachment(LogicalDevice device, VkExtent2D extent, int format, int aspectMask, int sampleCount, int usage) {
+    public Attachment(LogicalDevice device, AttachmentDescriptor descriptor, VkExtent2D extent, int format,
+            int aspectMask, int sampleCount, int usage) {
+        this.descriptor = descriptor;
         this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
         if (aspectMask == VK10.VK_IMAGE_ASPECT_COLOR_BIT) {
             // Transient color buffer attachment.
             this.finalLayout = VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            if (usage == -1) {
+                usage = VK10.VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+            }
 
         } else if (aspectMask == VK10.VK_IMAGE_ASPECT_DEPTH_BIT) {
             // Depth buffer attachment.
             this.finalLayout = VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            if (usage == -1) {
+                usage = VK10.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            }
 
         } else {
             throw new IllegalArgumentException("Illegal aspect mask for attachment " + aspectMask);
@@ -46,11 +58,13 @@ public class Attachment {
 
         // Transition the image to an optimal layout.
         try (var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout)) {
-            
+
         }
     }
 
-    public Attachment(LogicalDevice device, VkExtent2D extent, int format, int aspectMask, int sampleCount) {
+    public Attachment(LogicalDevice device, AttachmentDescriptor descriptor, VkExtent2D extent, int format,
+            int aspectMask, int sampleCount) {
+        this.descriptor = descriptor;
         this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE;
         var usage = VK10.VK_IMAGE_USAGE_SAMPLED_BIT;
         if (aspectMask == VK10.VK_IMAGE_ASPECT_COLOR_BIT) {
@@ -73,7 +87,7 @@ public class Attachment {
 
         // Transition the image to an optimal layout.
         try (var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout)) {
-            
+
         }
     }
 
@@ -99,5 +113,10 @@ public class Attachment {
 
     int storeOp() {
         return storeOp;
+    }
+
+    void destroy() {
+        image.destroy();
+        imageView.destroy();
     }
 }

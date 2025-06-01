@@ -18,91 +18,37 @@ public class RenderPass {
     private final LogicalDevice logicalDevice;
 
     private long handle = VK10.VK_NULL_HANDLE;
-    
-    RenderPass(LogicalDevice logicalDevice, List<SubpassDependency> dependencies, Attachment colorAttachment, Attachment depthAttachment, Attachment presentationAttachment) {
+
+    public RenderPass(LogicalDevice logicalDevice, List<SubpassDependency> dependencies,
+            AttachmentDescriptor... attachmentDescriptors) {
         this.logicalDevice = logicalDevice;
 
         try (var stack = MemoryStack.stackPush()) {
-            
-            var attachmentCount = 0;
-            if (presentationAttachment != null) {
-                attachmentCount++;
-            }
-            if (colorAttachment != null) {
-                attachmentCount++;
-            }
-            if (depthAttachment != null) {
-                attachmentCount++;
-            }
 
+            var attachmentCount = attachmentDescriptors.length;
             var pDescription = VkAttachmentDescription.calloc(attachmentCount, stack);
             var pReferences = VkAttachmentReference.calloc(attachmentCount, stack);
-            
-            if (colorAttachment == null) {
-                // Describe color attachment for presentation.
-                pDescription.get(0)
-                        .format(presentationAttachment.imageFormat())
-                        .samples(VK10.VK_SAMPLE_COUNT_1_BIT)
-                        .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR) // Clear content of the attachment.
-                        .storeOp(VK10.VK_ATTACHMENT_STORE_OP_STORE) // Store content of the attachment.
-                        .stencilLoadOp(VK10.VK_ATTACHMENT_LOAD_OP_DONT_CARE) // Ignore stencil operations.
-                        .stencilStoreOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE) // Ignore stencil operations.
-                        .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
-                        .finalLayout(presentationAttachment.finalLayout());
 
-            } else {
-                // Describe transient color attachment for multisampling.
-                pDescription.get(0)
-                        .format(colorAttachment.imageFormat())
-                        .samples(colorAttachment.sampleCount())
-                        .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR) // Clear content of the attachment.
-                        .storeOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE) // Ignore storing content of the attachment.
-                        .stencilLoadOp(VK10.VK_ATTACHMENT_LOAD_OP_DONT_CARE) // Ignore stencil operations.
-                        .stencilStoreOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE) // Ignore stencil operations.
-                        .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
-                        .finalLayout(VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-            }
-            
-            var colorAttachmentRef = pReferences.get(0);
-            colorAttachmentRef
-                    .attachment(0)
-                    .layout(VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            VkAttachmentReference ref = null;
+            VkAttachmentReference depthAttachmentRef = null;
+            VkAttachmentReference resolveAttachmentRef = null;
 
             var pColorRefs = VkAttachmentReference.calloc(1, stack);
-            pColorRefs.put(0, colorAttachmentRef);
-            
-            VkAttachmentReference depthAttachmentRef = null;
-            if (depthAttachment != null) {
-                pDescription.get(1)
-                        .format(depthAttachment.imageFormat())
-                        .samples(depthAttachment.sampleCount())
-                        .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR)
-                        .storeOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE)
-                        .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
-                        .finalLayout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-                depthAttachmentRef = pReferences.get(1);
-                depthAttachmentRef.attachment(1).layout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-            }
+            for (var i = 0; i < attachmentCount; ++i) {
+                var descriptor = attachmentDescriptors[i];
+                pDescription.put(i, descriptor.description());
 
-            VkAttachmentReference.Buffer pResolveRefs = null;
-            if (colorAttachment != null && presentationAttachment != null) {
-                // Resolve the multisampled attachment for presentation.
-                pDescription.get(2)
-                        .format(presentationAttachment.imageFormat())
-                        .samples(VK10.VK_SAMPLE_COUNT_1_BIT)
-                        .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_DONT_CARE) // Clear content of the attachment.
-                        .storeOp(VK10.VK_ATTACHMENT_STORE_OP_STORE) // Store content of the attachment.
-                        .stencilLoadOp(VK10.VK_ATTACHMENT_LOAD_OP_DONT_CARE) // Ignore stencil operations.
-                        .stencilStoreOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE) // Ignore stencil operations.
-                        .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
-                        .finalLayout(presentationAttachment.finalLayout());
+                ref = pReferences.get(i);
+                ref.attachment(i).layout(descriptor.subpassLayout());
 
-                var resolveAttachmentRef = pReferences.get(2)
-                        .attachment(2)
-                        .layout(VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-                pResolveRefs = VkAttachmentReference.calloc(1, stack);
-                pResolveRefs.put(0, resolveAttachmentRef);
+                if (descriptor.isDepthAttachment()) {
+                    depthAttachmentRef = ref;
+                } else if (descriptor.isResolveAttachment()) {
+                    resolveAttachmentRef = ref;
+                } else {
+                    pColorRefs.put(i, ref);
+                }
             }
 
             // Describe main sub-pass.
@@ -110,8 +56,13 @@ public class RenderPass {
                     .pipelineBindPoint(VK10.VK_PIPELINE_BIND_POINT_GRAPHICS)
                     .colorAttachmentCount(pColorRefs.remaining())
                     .pColorAttachments(pColorRefs)
-                    .pDepthStencilAttachment(depthAttachmentRef)
-                    .pResolveAttachments(pResolveRefs);
+                    .pDepthStencilAttachment(depthAttachmentRef);
+
+            if (resolveAttachmentRef != null) {
+                var pResolveRefs = VkAttachmentReference.calloc(1, stack);
+                pResolveRefs.put(0, resolveAttachmentRef);
+                subpass.pResolveAttachments(pResolveRefs);
+            }
 
             // Create sub-pass dependency.
             var pDependencies = VkSubpassDependency.calloc(dependencies.size(), stack);
@@ -139,7 +90,6 @@ public class RenderPass {
     }
 
     public void destroy() {
-
         if (handle != VK10.VK_NULL_HANDLE) {
             VK10.vkDestroyRenderPass(logicalDevice.handle(), handle, null);
             this.handle = VK10.VK_NULL_HANDLE;
