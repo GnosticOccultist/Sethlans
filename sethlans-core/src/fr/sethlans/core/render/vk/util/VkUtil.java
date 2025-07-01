@@ -9,6 +9,7 @@ import org.lwjgl.vulkan.EXTShaderObject;
 import org.lwjgl.vulkan.KHRDeferredHostOperations;
 import org.lwjgl.vulkan.KHRDisplaySwapchain;
 import org.lwjgl.vulkan.KHRGlobalPriority;
+import org.lwjgl.vulkan.KHRPipelineBinary;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.KHRVideoEncodeQueue;
@@ -50,8 +51,8 @@ public class VkUtil {
             "A deferred operation was requested and no operations were deferred.";
         case VK13.VK_PIPELINE_COMPILE_REQUIRED ->
             "A requested pipeline creation would have required compilation, but the application requested compilation to not be performed.";
-//      TODO case KHRPipelineBinary.VK_PIPELINE_BINARY_MISSING_KHR ->
-//      "The application attempted to create a pipeline binary by querying an internal cache, but the internal cache entry did not exist.";
+        case KHRPipelineBinary.VK_PIPELINE_BINARY_MISSING_KHR ->
+            "The application attempted to create a pipeline binary by querying an internal cache, but the internal cache entry did not exist.";
         case EXTShaderObject.VK_INCOMPATIBLE_SHADER_BINARY_EXT ->
             "The provided binary shader code is not compatible with this device.";
 
@@ -105,8 +106,8 @@ public class VkUtil {
             "The specified Video Std parameters do not adhere to the syntactic or semantic requirements of the used video compression standard, or values derived from parameters according to the rules defined by the used video compression standard do not adhere to the capabilities of the video compression standard or the implementation.";
         case KHRGlobalPriority.VK_ERROR_NOT_PERMITTED_KHR ->
             "The driver implementation has denied a request to acquire a priority above the default priority (VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT) because the application does not have sufficient privileges.";
-//      TODO case KHRPipelineBinary.VK_ERROR_NOT_ENOUGH_SPACE_KHR ->
-//            "The application did not provide enough space to return all the required data.";
+        case KHRPipelineBinary.VK_ERROR_NOT_ENOUGH_SPACE_KHR ->
+            "The application did not provide enough space to return all the required data.";
         case VK10.VK_ERROR_UNKNOWN ->
             "An unknown error has occurred; either the application has provided invalid input, or an implementation failure has occurred.";
 
