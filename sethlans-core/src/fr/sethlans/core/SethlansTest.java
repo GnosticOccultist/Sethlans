@@ -6,6 +6,7 @@ import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.TextureLoader;
 import fr.sethlans.core.material.Texture;
+import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.scenegraph.primitive.Box;
 
 public class SethlansTest extends SethlansApplication {
@@ -17,13 +18,13 @@ public class SethlansTest extends SethlansApplication {
     private Quaternionf rotation;
     private double angle;
     private Texture texture;
-   
+
     private Box box;
 
     @Override
     protected void prepare(ConfigFile appConfig) {
         super.prepare(appConfig);
-        
+
         appConfig.addString(APP_NAME_PROP, "Sethlans Demo")
                 .addInteger(APP_MAJOR_PROP, 1)
                 .addInteger(APP_MINOR_PROP, 0)
@@ -49,7 +50,7 @@ public class SethlansTest extends SethlansApplication {
     }
 
     @Override
-    public void render(int imageIndex) {
+    public void render(VulkanFrame frame) {
 
         angle += 0.1f;
         angle %= 360;
@@ -57,11 +58,11 @@ public class SethlansTest extends SethlansApplication {
         rotation.identity().rotateAxis((float) Math.toRadians(angle), new Vector3f(0, 1, 0));
         box.getModelMatrix().identity().translationRotateScale(new Vector3f(0, 0, -3f), rotation, 1);
 
-        getRenderEngine().render(box);
+        frame.render(box);
     }
 
     @Override
     protected void cleanup() {
-        
+
     }
 }

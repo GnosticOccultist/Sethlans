@@ -82,4 +82,11 @@ public class AttachmentDescriptor {
         description.free();
         clearValue.free();
     }
+
+    @Override
+    public String toString() {
+        return "AttachmentDescriptor [clearValue=" + clearValue + ", finalLayout="
+                + finalLayout + ", resolve=" + resolve + ", primary=" + primary + ", resolveTo=" + resolveTo
+                + ", usage=" + usage + "]";
+    }
 }

@@ -19,7 +19,6 @@ import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
-import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
@@ -36,15 +35,7 @@ public abstract class SwapChain {
     
     protected AttachmentSet attachments;
 
-    protected Attachment[] presentationAttachments;
-    
-    protected Attachment[] colorAttachments;
-
-    protected Attachment[] depthAttachments;
-
     protected FrameBuffer[] frameBuffers;
-
-    protected CommandBuffer[] commandBuffers;
 
     protected int imageFormat;
 
@@ -72,9 +63,9 @@ public abstract class SwapChain {
                 + ").");
     }
 
-    public abstract int acquireNextImage(SyncFrame frame);
+    public abstract VulkanFrame acquireNextImage(VulkanFrame frame);
 
-    public abstract boolean presentImage(SyncFrame frame, int imageIndex);
+    public abstract boolean presentImage(VulkanFrame frame);
 
     public void captureFrame(int frameIndex) {
         assert frameIndex >= 0 : frameIndex;
@@ -166,10 +157,6 @@ public abstract class SwapChain {
 
     public int height() {
         return framebufferExtent.height();
-    }
-
-    public CommandBuffer commandBuffer(int imageIndex) {
-        return commandBuffers[imageIndex];
     }
 
     public FrameBuffer frameBuffer(int imageIndex) {

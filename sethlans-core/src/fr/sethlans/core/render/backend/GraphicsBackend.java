@@ -2,15 +2,16 @@ package fr.sethlans.core.render.backend;
 
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.render.Window;
+import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.scenegraph.Geometry;
 
 public interface GraphicsBackend {
 
     void initialize(ConfigFile config);
 
-    int beginRender(long frameNumber);
+    VulkanFrame beginRender();
 
-    void endRender(long frameNumber);
+    void endRender();
 
     void resize();
 

@@ -32,7 +32,7 @@ import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.swapchain.FrameBuffer;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
-import fr.sethlans.core.render.vk.swapchain.SyncFrame;
+import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.render.vk.sync.Fence;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
@@ -277,7 +277,7 @@ public class CommandBuffer {
         return this;
     }
 
-    public CommandBuffer submitFrame(SyncFrame frame) {
+    public CommandBuffer submitFrame(VulkanFrame frame) {
         var signalHandle = frame.renderCompleteSemaphore() != null ? frame.renderCompleteSemaphore().handle()
                 : VK10.VK_NULL_HANDLE;
         var waitHandle = frame.imageAvailableSemaphore() != null ? frame.imageAvailableSemaphore().handle()
@@ -296,10 +296,10 @@ public class CommandBuffer {
                 submitInfo.pSignalSemaphores(stack.longs(signalHandle));
             }
 
-            frame.fence().reset();
+            frame.fenceReset();
 
             var graphicsQueue = commandPool.getLogicalDevice().graphicsQueue();
-            var fenceHandle = frame.fence().handle();
+            var fenceHandle = frame.fenceHandle();
             var err = VK10.vkQueueSubmit(graphicsQueue, submitInfo, fenceHandle);
             VkUtil.throwOnFailure(err, "submit a command-buffer");
         }

@@ -10,6 +10,7 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.AssimpLoader;
 import fr.sethlans.core.asset.TextureLoader;
 import fr.sethlans.core.material.Texture;
+import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.scenegraph.Geometry;
 import fr.sethlans.core.scenegraph.mesh.Mesh;
 import fr.sethlans.core.scenegraph.mesh.Topology;
@@ -62,7 +63,7 @@ public class AssimpTest extends SethlansApplication {
     }
 
     @Override
-    public void render(int imageIndex) {
+    public void render(VulkanFrame frame) {
 
         angle += 0.1f;
         angle %= 360;
@@ -70,8 +71,10 @@ public class AssimpTest extends SethlansApplication {
         rotation.identity().rotateAxis((float) Math.toRadians(90), new Vector3f(1, 0, 0))
                 .rotateAxis((float) Math.toRadians(angle), new Vector3f(0, 0, 1));
         vikingRoom.getModelMatrix().identity().translationRotateScale(new Vector3f(0, 0.35f, -3f), rotation, 1);
+        
+        frame.render(vikingRoom);
 
-        getRenderEngine().render(vikingRoom);
+        // getRenderEngine().render(vikingRoom);
     }
 
     @Override

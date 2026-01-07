@@ -26,6 +26,7 @@ import fr.sethlans.core.render.vk.shader.ShaderProgram;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.util.VkUtil;
+import fr.sethlans.core.scenegraph.mesh.Topology;
 
 public class Pipeline {
     
@@ -35,8 +36,7 @@ public class Pipeline {
 
     private long handle = VK10.VK_NULL_HANDLE;
 
-    public Pipeline(LogicalDevice device, PipelineCache pipelineCache, RenderPass renderPass, SwapChain swapChain, ShaderProgram shaderProgram,
-            VulkanMesh vkMesh, PipelineLayout layout) {
+    public Pipeline(LogicalDevice device, PipelineCache pipelineCache, RenderPass renderPass, SwapChain swapChain, ShaderProgram shaderProgram, Topology topology, PipelineLayout layout) {
         this.device = device;
 
         try (var stack = MemoryStack.stackPush()) {
@@ -57,7 +57,7 @@ public class Pipeline {
                     .pVertexBindingDescriptions(pBindings);
 
             var shaderCreateInfo = shaderProgram.describeShaderPipeline(stack);
-            var iasCreateInfo = vkMesh.createInputAssemblyState(stack);
+            var iasCreateInfo = VulkanMesh.createInputAssemblyState(device, topology, stack);
 
             var framebufferExtent = swapChain.framebufferExtent(stack);
 

@@ -15,8 +15,6 @@ public class RenderEngine {
 
     private GraphicsBackend backend;
 
-    private long frameNumber = 0L;
-
     public RenderEngine(SethlansApplication application) {
         this.application = application;
     }
@@ -32,10 +30,10 @@ public class RenderEngine {
     }
 
     public void render(ConfigFile config) {
-        var imageIndex = backend.beginRender(frameNumber);
-        application.render(imageIndex);
+        var frame = backend.beginRender();
+        application.render(frame);
         
-        backend.endRender(frameNumber++);
+        backend.endRender();
 
         backend.swapFrames();
     }

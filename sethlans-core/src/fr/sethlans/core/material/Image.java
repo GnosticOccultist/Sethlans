@@ -64,32 +64,42 @@ public class Image {
         /**
          * A format that is not specified.
          */
-        UNDEFINED,
+        UNDEFINED(0),
 
-        R8,
+        R8(8),
 
-        RG8,
+        RG8(16),
 
-        RGB8,
+        RGB8(24),
 
-        RGBA8,
+        RGBA8(32),
 
-        BGR8,
+        BGR8(24),
 
-        BGRA8,
+        BGRA8(32),
 
-        DEPTH16,
+        DEPTH16(16),
 
-        DEPTH24,
+        DEPTH24(24),
 
-        DEPTH32F,
+        DEPTH32F(32),
 
-        STENCIL8,
+        STENCIL8(8),
 
-        DEPTH16_STENCIL8,
+        DEPTH16_STENCIL8(24),
 
-        DEPTH24_STENCIL8,
+        DEPTH24_STENCIL8(32),
 
-        DEPTH32_STENCIL8;
+        DEPTH32_STENCIL8(40);
+        
+        private int bitsPerPixel;
+
+        private Format(int bitsPerPixel) {
+            this.bitsPerPixel = bitsPerPixel;
+        }
+
+        public int bitsPerPixel() {
+            return bitsPerPixel;
+        }
     }
 }

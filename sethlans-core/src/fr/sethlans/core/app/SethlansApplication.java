@@ -1,7 +1,8 @@
 package fr.sethlans.core.app;
 
+import java.lang.reflect.Constructor;
 import java.text.DecimalFormat;
-
+import java.util.List;
 import fr.alchemy.utilities.Instantiator;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
@@ -9,6 +10,7 @@ import fr.sethlans.core.app.kernel.OS;
 import fr.sethlans.core.app.kernel.OSArch;
 import fr.sethlans.core.render.RenderEngine;
 import fr.sethlans.core.render.Window;
+import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.util.NativeObjectCleaner;
 
 public abstract class SethlansApplication {
@@ -57,12 +59,48 @@ public abstract class SethlansApplication {
     public static final boolean DEFAULT_GAMMA_CORRECTION = true;
     public static final float DEFAULT_MIN_SAMPLE_SHADING = 0.2f;
 
+    private static final String[] DISPLAY_MODE_PROVIDER_NAMES = {
+            "fr.sethlans.core.render.backend.GlfwDisplayModeProvider", 
+            "fr.sethlans.core.app.AwtDisplayModeProvider" };
+
     private static SethlansApplication application;
+
+    private static DisplayModeProvider displayModeProvider;
 
     private boolean running;
 
+    private static void loadDisplayModeProvider() {
+        try {
+            for (String className : DISPLAY_MODE_PROVIDER_NAMES) {
+                displayModeProvider = tryLoad(className);
+                if (displayModeProvider != null) {
+                    logger.info("Found and created DisplayModeProvider implementation '"
+                            + displayModeProvider.getClass().getSimpleName() + "'.");
+                    return;
+                }
+            }
+            // None of the providers were found.
+            logger.error("Failed to find a DisplayModeProvider implementation!");
+
+        } catch (ReflectiveOperationException | IllegalArgumentException ex) {
+            logger.error("Failed to create DisplayModeProvider implementation:\n{0}", ex);
+        }
+    }
+
+    private static DisplayModeProvider tryLoad(String className)
+            throws ReflectiveOperationException, IllegalArgumentException {
+        try {
+            Constructor<?> c = Class.forName(className).getDeclaredConstructor();
+            return (DisplayModeProvider) c.newInstance();
+        } catch (ClassNotFoundException ex) {
+            return null;
+        }
+    }
+
     public static void launch(Class<? extends SethlansApplication> appClass, String[] args) {
         logger.info("Launching " + appClass.getSimpleName() + "...");
+
+        loadDisplayModeProvider();
         application = Instantiator.fromClass(appClass);
         application.running = true;
 
@@ -152,7 +190,7 @@ public abstract class SethlansApplication {
         }
     }
 
-    public abstract void render(int imageIndex);
+    public abstract void render(VulkanFrame frame);
 
     protected void postRender() {
 
@@ -163,6 +201,10 @@ public abstract class SethlansApplication {
     public void exit() {
         logger.info("Requested exiting application " + getClass().getSimpleName());
         running = false;
+    }
+
+    public List<DisplayMode> getDisplayModes() {
+        return displayModeProvider.getDisplayModes();
     }
 
     public RenderEngine getRenderEngine() {
@@ -190,7 +232,7 @@ public abstract class SethlansApplication {
         cleanup();
 
         renderEngine.terminate();
-        
+
         NativeObjectCleaner.cleanAll();
     }
 }
