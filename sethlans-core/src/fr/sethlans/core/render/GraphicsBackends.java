@@ -41,6 +41,7 @@ public enum GraphicsBackends {
         case SethlansApplication.VK_1_1_GRAPHICS_API:
         case SethlansApplication.VK_1_2_GRAPHICS_API:
         case SethlansApplication.VK_1_3_GRAPHICS_API:
+        case SethlansApplication.VK_1_4_GRAPHICS_API:
             return VULKAN;
         case SethlansApplication.GL_3_3_GRAPHICS_API:
             return OPENGL;

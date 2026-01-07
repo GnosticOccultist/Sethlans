@@ -14,10 +14,14 @@ import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkRenderingAttachmentInfo;
 import org.lwjgl.vulkan.VkRenderingInfo;
 
+import fr.alchemy.utilities.logging.FactoryLogger;
+import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.PresentationImage;
 
 public class AttachmentSet {
+    
+    protected static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.swapchain");
 
     private final AttachmentDescriptor[] descriptors;
 

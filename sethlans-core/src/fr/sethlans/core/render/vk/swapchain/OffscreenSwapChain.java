@@ -29,7 +29,7 @@ public class OffscreenSwapChain extends SwapChain {
 
             var desiredWidth = config.getInteger(SethlansApplication.WINDOW_WIDTH_PROP, Window.DEFAULT_WIDTH);
             var desiredHeight = config.getInteger(SethlansApplication.WINDOW_HEIGHT_PROP, Window.DEFAULT_HEIGHT);
-
+            
             this.imageCount = imageCount;
             this.imageFormat = gammaCorrection ? VK10.VK_FORMAT_B8G8R8A8_SRGB : VK10.VK_FORMAT_B8G8R8A8_UNORM;
             this.framebufferExtent.set(desiredWidth, desiredHeight);
@@ -133,6 +133,8 @@ public class OffscreenSwapChain extends SwapChain {
 
     @Override
     public void destroy() {
+        
+        attachments.destroy();
 
         if (frameBuffers != null) {
             for (var frameBuffer : frameBuffers) {

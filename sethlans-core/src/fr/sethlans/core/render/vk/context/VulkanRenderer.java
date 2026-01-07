@@ -16,13 +16,11 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Projection;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
-import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.swapchain.DrawCommand;
-import fr.sethlans.core.render.vk.swapchain.DynamicDrawCommand;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.scenegraph.Geometry;
@@ -64,14 +62,22 @@ public class VulkanRenderer {
 
     private IntBuffer dynDescriptorOffset;
 
+    private boolean useDynamicRendering = true;
+
+    private VulkanFrame currentFrame;
+
     public VulkanRenderer(VulkanContext context, ConfigFile config, SwapChain swapChain) {
         this.context = context;
         this.config = config;
         this.swapChain = swapChain;
 
+        var dynamicRendering = config.getBoolean(VulkanGraphicsBackend.DYNAMIC_RENDERING_PROP,
+                VulkanGraphicsBackend.DEFAULT_DYNAMIC_RENDERING);
+        this.useDynamicRendering = dynamicRendering && context.getPhysicalDevice().supportsDynamicRendering();
+
         var logicalDevice = context.getLogicalDevice();
         this.drawCommands = new DrawCommand[swapChain.imageCount()];
-        Arrays.fill(drawCommands, new DynamicDrawCommand(this, logicalDevice.createGraphicsCommand()));
+        Arrays.fill(drawCommands, new DrawCommand(this, logicalDevice.createGraphicsCommand()));
 
         var physicalDevice = context.getPhysicalDevice();
 
@@ -117,7 +123,23 @@ public class VulkanRenderer {
         this.dynDescriptorOffset = MemoryUtil.memAllocInt(1);
     }
 
+    public void resize() {
+        projection.update(swapChain.width(), swapChain.height());
+
+        var matrixBuffer = globalUniform.map();
+        projection.store(0, matrixBuffer);
+        globalUniform.unmap();
+    }
+
+    public void invalidatePipeline() {
+        if (pipeline != null) {
+            pipeline.destroy();
+            pipeline = null;
+        }
+    }
+
     public void beginRender(VulkanFrame frame) {
+        this.currentFrame = frame;
         frame.setCommand(drawCommands[frame.imageIndex()]);
 
         if (pipeline == null) {
@@ -130,29 +152,59 @@ public class VulkanRenderer {
                     pipelineLayout);
         }
 
-        var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
-                SethlansApplication.DEFAULT_RENDER_MODE);
-        var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
+        if (useDynamicRendering) {
+            var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
+                    SethlansApplication.DEFAULT_RENDER_MODE);
+            var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
-        if (needsSurface) {
-            try (var m = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionImageLayout(
-                    VK10.VK_IMAGE_LAYOUT_UNDEFINED, VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)) {
+            if (needsSurface) {
+                try (var m = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionImageLayout(
+                        VK10.VK_IMAGE_LAYOUT_UNDEFINED, VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)) {
 
+                }
             }
         }
     }
 
+    public void beginDraw(DrawCommand drawCommand) {
+        var command = drawCommand.getCommandBuffer();
+        command.reset().beginRecording();
+
+        if (useDynamicRendering) {
+            command.beginRendering(swapChain, currentFrame.imageIndex());
+        } else {
+            command.beginRenderPass(swapChain, swapChain.frameBuffer(currentFrame.imageIndex()),
+                    context.getBackend().getRenderPass());
+        }
+
+        command.bindPipeline(pipeline.handle());
+    }
+
     public void endRender(VulkanFrame frame) {
-        var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
-                SethlansApplication.DEFAULT_RENDER_MODE);
-        var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
+        if (useDynamicRendering) {
+            var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
+                    SethlansApplication.DEFAULT_RENDER_MODE);
+            var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
-        if (needsSurface) {
-            try (var m = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionImageLayout(
-                    VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)) {
+            if (needsSurface) {
+                try (var m = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionImageLayout(
+                        VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)) {
 
+                }
             }
         }
+    }
+
+    public void endDraw(DrawCommand drawCommand) {
+        var command = drawCommand.getCommandBuffer();
+
+        if (useDynamicRendering) {
+            command.endRendering();
+        } else {
+            command.endRenderPass();
+        }
+
+        command.end();
     }
 
     public void putDescriptorSets(int index, DescriptorSet descriptorSet) {
@@ -281,12 +333,28 @@ public class VulkanRenderer {
     }
 
     public void destroy() {
-        for (var drawCommand : drawCommands) {
-            drawCommand.destroy();
+        
+        if (samplerDescriptorSet != null) {
+            samplerDescriptorSet.destroy();
         }
 
+        if (globalDescriptorSet != null) {
+            globalDescriptorSet.destroy();
+        }
+
+        if (dynamicDescriptorSet != null) {
+            dynamicDescriptorSet.destroy();
+        }
+        
         if (pipeline != null) {
             pipeline.destroy();
+        }
+        
+        MemoryUtil.memFree(dynDescriptorOffset);
+        MemoryUtil.memFree(descriptorSets);
+
+        for (var drawCommand : drawCommands) {
+            drawCommand.destroy();
         }
     }
 }

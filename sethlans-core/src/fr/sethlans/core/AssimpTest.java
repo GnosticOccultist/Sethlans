@@ -72,9 +72,9 @@ public class AssimpTest extends SethlansApplication {
                 .rotateAxis((float) Math.toRadians(angle), new Vector3f(0, 0, 1));
         vikingRoom.getModelMatrix().identity().translationRotateScale(new Vector3f(0, 0.35f, -3f), rotation, 1);
         
+        frame.command().begin();
         frame.render(vikingRoom);
-
-        // getRenderEngine().render(vikingRoom);
+        frame.command().end();
     }
 
     @Override

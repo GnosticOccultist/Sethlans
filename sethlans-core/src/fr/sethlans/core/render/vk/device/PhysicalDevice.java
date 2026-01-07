@@ -38,6 +38,7 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.app.kernel.OS;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
 import fr.sethlans.core.render.vk.context.VulkanContext;
+import fr.sethlans.core.render.vk.context.VulkanGraphicsBackend;
 import fr.sethlans.core.render.vk.context.VulkanInstance;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
@@ -234,6 +235,8 @@ public class PhysicalDevice {
                 createInfo.pNext(portabilityFeatures);
             }
             
+            var dynamicRendering = config.getBoolean(VulkanGraphicsBackend.DYNAMIC_RENDERING_PROP,
+                    VulkanGraphicsBackend.DEFAULT_DYNAMIC_RENDERING);
             if (dynamicRenderingFeatures.dynamicRendering()) {
                 dynamicRenderingFeatures.dynamicRendering(true);
                 this.dynamicRenderingSupported = true;
@@ -241,6 +244,10 @@ public class PhysicalDevice {
 
                 // Request dynamic rendering support.
                 createInfo.pNext(dynamicRenderingFeatures);
+
+            } else if (dynamicRendering) {
+                logger.warning("Physical device " + this
+                        + " doesn't support dynamic rendering. Renderer will use render pass instead.");
             }
 
             // Enable all available queue families.

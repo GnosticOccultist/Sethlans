@@ -46,8 +46,10 @@ public abstract class SethlansApplication {
     public static final String VK_1_1_GRAPHICS_API = "Vulkan11";
     public static final String VK_1_2_GRAPHICS_API = "Vulkan12";
     public static final String VK_1_3_GRAPHICS_API = "Vulkan13";
+    public static final String VK_1_4_GRAPHICS_API = "Vulkan14";
+    
     public static final String GL_3_3_GRAPHICS_API = "OpenGL33";
-    public static final String DEFAULT_GRAPHICS_API = VK_1_3_GRAPHICS_API;
+    public static final String DEFAULT_GRAPHICS_API = VK_1_4_GRAPHICS_API;
 
     public static final boolean DEFAULT_GRAPHICS_DEBUG = false;
     public static final String SURFACE_RENDER_MODE = "SurfaceRenderMode";

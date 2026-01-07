@@ -4,33 +4,22 @@ import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.glfwVulkanSupported;
 
 import java.io.IOException;
-import java.nio.IntBuffer;
-import java.nio.LongBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.util.shaderc.Shaderc;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
-import fr.sethlans.core.render.Projection;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.backend.GlfwBasedGraphicsBackend;
-import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
-import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.image.VulkanTexture;
-import fr.sethlans.core.render.vk.memory.VulkanBuffer;
-import fr.sethlans.core.render.vk.memory.VulkanMesh;
-import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineCache;
 import fr.sethlans.core.render.vk.pipeline.PipelineLayout;
 import fr.sethlans.core.render.vk.shader.ShaderProgram;
@@ -41,7 +30,6 @@ import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.SubpassDependency;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
-import fr.sethlans.core.scenegraph.Geometry;
 
 public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
@@ -49,6 +37,10 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
      * The count of frames to process concurrently.
      */
     public static final int MAX_FRAMES_IN_FLIGHT = 2;
+    
+    public static final String DYNAMIC_RENDERING_PROP = "DynamicRendering";
+    
+    public static final boolean DEFAULT_DYNAMIC_RENDERING = true;
 
     private VulkanContext context;
 
@@ -67,6 +59,8 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
     private DescriptorSetLayout globalDescriptorSetLayout;
 
     private DescriptorSetLayout samplerDescriptorSetLayout;
+    
+    private DescriptorSetLayout dynamicDescriptorSetLayout;
 
     private ConfigFile config;
 
@@ -78,33 +72,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
     private PipelineCache pipelineCache;
 
-    private Pipeline pipeline;
-
     private PipelineLayout pipelineLayout;
-
-    private Projection projection;
-
-    public Matrix4f viewMatrix;
-
-    private VulkanBuffer globalUniform;
-
-    private DescriptorSet globalDescriptorSet;
-
-    private LongBuffer descriptorSets;
-
-    private DescriptorSetLayout dynamicDescriptorSetLayout;
-
-    private VulkanBuffer dynamicUniform;
-
-    private DescriptorSet dynamicDescriptorSet;
-
-    private DescriptorSet samplerDescriptorSet;
-
-    private IntBuffer dynDescriptorOffset;
-
-    private final VulkanMesh[] meshes = new VulkanMesh[50];
-
-    private final VulkanTexture[] textures = new VulkanTexture[50];
 
     private AttachmentDescriptor[] descriptors;
 
@@ -153,10 +121,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
                 VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK10.VK_SHADER_STAGE_VERTEX_BIT);
         this.samplerDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0,
                 VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK10.VK_SHADER_STAGE_FRAGMENT_BIT);
-
-        var mult = 16 * Float.BYTES * MAX_FRAMES_IN_FLIGHT / physicalDevice.minUboAlignment() + 1;
-        // Choose the correct chunk size based on minimum alignment.
-        var size = (int) (mult * physicalDevice.minUboAlignment());
 
         this.program = new ShaderProgram(logicalDevice);
         try {
@@ -209,11 +173,14 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
         this.descriptors = needsSurface ? getAttachmentDescriptors(depthFormat, sampleCount)
                 : getOffscreenAttachmentDescriptors(depthFormat, sampleCount);
-
-        // this.renderPass = new RenderPass(logicalDevice, dependencies, descriptors);
+        
+        var dynamicRendering = config.getBoolean(DYNAMIC_RENDERING_PROP, DEFAULT_DYNAMIC_RENDERING);
+        if (!dynamicRendering || !physicalDevice.supportsDynamicRendering()) {
+            this.renderPass = new RenderPass(logicalDevice, dependencies, descriptors);
+        }
 
         this.swapChain = needsSurface ? new PresentationSwapChain(context, config, window, renderPass, descriptors)
-                : new OffscreenSwapChain(context, config, renderPass, descriptors, 2);
+                : new OffscreenSwapChain(context, config, renderPass, descriptors, 3);
         this.framesInFlight = new HashMap<>(swapChain.imageCount());
 
         this.vulkanFrames = new VulkanFrame[MAX_FRAMES_IN_FLIGHT];
@@ -224,38 +191,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
                 dynamicDescriptorSetLayout, samplerDescriptorSetLayout });
 
         this.renderer = new VulkanRenderer(context, config, swapChain);
-
-        this.projection = new Projection(swapChain.width(), swapChain.height());
-        this.viewMatrix = new Matrix4f();
-
-        this.globalUniform = new VulkanBuffer(logicalDevice, size, VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-        this.globalUniform.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        var matrixBuffer = globalUniform.map();
-        projection.store(0, matrixBuffer);
-        globalUniform.unmap();
-
-        this.globalDescriptorSet = new DescriptorSet(logicalDevice, descriptorPool(), globalDescriptorSetLayout)
-                .updateBufferDescriptorSet(globalUniform, 0, size);
-
-        this.dynamicUniform = new VulkanBuffer(logicalDevice, size * MAX_FRAMES_IN_FLIGHT,
-                VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-        this.dynamicUniform.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        var buffer = dynamicUniform.map();
-        viewMatrix.get(0, buffer);
-        viewMatrix.get(size, buffer);
-        dynamicUniform.unmap();
-
-        this.dynamicDescriptorSet = new DescriptorSet(logicalDevice, descriptorPool(), dynamicDescriptorSetLayout)
-                .updateDynamicBufferDescriptorSet(dynamicUniform, 0, size);
-
-        this.samplerDescriptorSet = new DescriptorSet(logicalDevice, descriptorPool(), samplerDescriptorSetLayout());
-
-        this.descriptorSets = MemoryUtil.memAllocLong(3);
-        putDescriptorSets(0, globalDescriptorSet);
-        putDescriptorSets(1, dynamicDescriptorSet);
-        putDescriptorSets(2, samplerDescriptorSet);
-
-        this.dynDescriptorOffset = MemoryUtil.memAllocInt(1);
     }
 
     @Override
@@ -318,80 +253,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         }
     }
 
-    @Override
-    public void render(Geometry geometry) {
-        var logicalDevice = context.getLogicalDevice();
-        var mesh = geometry.getMesh();
-
-        VulkanMesh vkMesh = null;
-        if (mesh.hasBackendObject()) {
-            vkMesh = meshes[mesh.backendId()];
-
-        } else {
-            for (var i = 0; i < meshes.length; ++i) {
-                if (meshes[i] == null) {
-                    meshes[i] = new VulkanMesh(logicalDevice, mesh);
-                    vkMesh = meshes[i];
-                    mesh.assignId(i);
-                }
-            }
-        }
-
-        if (mesh.isDirty()) {
-            logger.info("Update mesh for " + geometry);
-            vkMesh.uploadData(mesh);
-            mesh.clean();
-        }
-
-        var texture = geometry.getTexture();
-        if (texture != null) {
-            VulkanTexture vkTexture = null;
-            if (texture.hasBackendObject()) {
-                vkTexture = textures[texture.backendId()];
-
-            } else {
-                for (var i = 0; i < textures.length; ++i) {
-                    if (textures[i] == null) {
-                        textures[i] = new VulkanTexture(logicalDevice, texture);
-                        vkTexture = textures[i];
-                        texture.assignId(i);
-                    }
-                }
-            }
-
-            if (texture.isDirty()) {
-                logger.info("Update texture for " + geometry);
-                vkTexture.uploadData(texture);
-                texture.clean();
-
-                samplerDescriptorSet.updateTextureDescriptorSet(vkTexture, 0);
-            }
-        }
-
-//        if (pipeline == null) {
-//            pipeline = new Pipeline(logicalDevice, pipelineCache, renderPass, swapChain, program, vkMesh,
-//                    pipelineLayout);
-//        }
-//
-//        var commandBuffer = drawCommands[currentFrame.imageIndex()].getCommandBuffer();
-//        commandBuffer.reset().beginRecording().beginRendering(swapChain, currentFrame.imageIndex()).bindPipeline(pipeline.handle());
-//
-//        bindDescriptorSets(commandBuffer).bindVertexBuffer(vkMesh.getVertexBuffer())
-//                .bindIndexBuffer(vkMesh.getIndexBuffer())
-//                .pushConstants(pipelineLayout.handle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, geometry.getModelMatrix())
-//                .draw(vkMesh).endRendering().end();
-    }
-
-    public void putDescriptorSets(int index, DescriptorSet descriptorSet) {
-        this.descriptorSets.put(index, descriptorSet.handle());
-    }
-
-    public CommandBuffer bindDescriptorSets(CommandBuffer command) {
-        dynDescriptorOffset.put(0, currentFrameIndex * 256);
-        command.bindDescriptorSets(pipelineLayout.handle(), descriptorSets, dynDescriptorOffset);
-        return command;
-    }
-
     private void recreateSwapchain() {
         var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
                 SethlansApplication.DEFAULT_RENDER_MODE);
@@ -432,21 +293,14 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         }
 
         // Invalidate current pipeline.
-        if (pipeline != null) {
-            pipeline.destroy();
-            pipeline = null;
-        }
+        renderer.invalidatePipeline();
 
         application.resize();
     }
 
     @Override
     public void resize() {
-        projection.update(swapChain.width(), swapChain.height());
-
-        var matrixBuffer = globalUniform.map();
-        projection.store(0, matrixBuffer);
-        globalUniform.unmap();
+        renderer.resize();
     }
 
     private AttachmentDescriptor[] getAttachmentDescriptors(int depthFormat, int sampleCount) {
@@ -556,10 +410,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         return swapChain;
     }
 
-    public Pipeline getPipeline() {
-        return pipeline;
-    }
-
     public PipelineCache getPipelineCache() {
         return pipelineCache;
     }
@@ -595,25 +445,8 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
     @Override
     public void terminate() {
 
-        if (samplerDescriptorSet != null) {
-            samplerDescriptorSet.destroy();
-        }
-
-        if (globalDescriptorSet != null) {
-            globalDescriptorSet.destroy();
-        }
-
-        if (dynamicDescriptorSet != null) {
-            dynamicDescriptorSet.destroy();
-        }
-
-        MemoryUtil.memFree(dynDescriptorOffset);
-        MemoryUtil.memFree(descriptorSets);
-
-        if (pipeline != null) {
-            pipeline.destroy();
-        }
-
+        renderer.destroy();
+        
         if (pipelineLayout != null) {
             pipelineLayout.destroy();
         }
@@ -625,8 +458,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         if (program != null) {
             program.destroy();
         }
-
-        renderer.destroy();
 
         for (var frame : vulkanFrames) {
             frame.destroy();

@@ -276,6 +276,8 @@ public class PresentationSwapChain extends SwapChain {
 
     @Override
     public void destroy() {
+        
+        attachments.destroy();
 
         if (frameBuffers != null) {
             for (var frameBuffer : frameBuffers) {

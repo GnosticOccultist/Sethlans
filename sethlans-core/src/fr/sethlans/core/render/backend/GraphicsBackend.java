@@ -3,7 +3,6 @@ package fr.sethlans.core.render.backend;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
-import fr.sethlans.core.scenegraph.Geometry;
 
 public interface GraphicsBackend {
 
@@ -22,6 +21,4 @@ public interface GraphicsBackend {
     void terminate();
 
     Window getWindow();
-
-    void render(Geometry geometry);
 }

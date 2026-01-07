@@ -5,7 +5,6 @@ import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.backend.GraphicsBackend;
-import fr.sethlans.core.scenegraph.Geometry;
 
 public class RenderEngine {
 
@@ -36,10 +35,6 @@ public class RenderEngine {
         backend.endRender();
 
         backend.swapFrames();
-    }
-
-    public void render(Geometry geometry) {
-        backend.render(geometry);
     }
 
     public void resize() {

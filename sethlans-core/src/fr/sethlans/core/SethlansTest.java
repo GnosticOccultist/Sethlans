@@ -58,7 +58,9 @@ public class SethlansTest extends SethlansApplication {
         rotation.identity().rotateAxis((float) Math.toRadians(angle), new Vector3f(0, 1, 0));
         box.getModelMatrix().identity().translationRotateScale(new Vector3f(0, 0, -3f), rotation, 1);
 
+        frame.command().begin();
         frame.render(box);
+        frame.command().end();
     }
 
     @Override
