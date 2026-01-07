@@ -15,13 +15,19 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VK11;
 import org.lwjgl.vulkan.VK12;
 import org.lwjgl.vulkan.VK13;
+import org.lwjgl.vulkan.VK14;
 import org.lwjgl.vulkan.VkApplicationInfo;
-import org.lwjgl.vulkan.VkDebugUtilsMessengerCallbackDataEXT;
 import org.lwjgl.vulkan.VkDebugUtilsMessengerCallbackEXT;
 import org.lwjgl.vulkan.VkDebugUtilsMessengerCreateInfoEXT;
 import org.lwjgl.vulkan.VkInstance;
 import org.lwjgl.vulkan.VkInstanceCreateInfo;
 import org.lwjgl.vulkan.VkLayerProperties;
+
+import com.vkautopsy.VkAutopsy;
+import com.vkautopsy.VkAutopsyConfig;
+import com.vkautopsy.VkAutopsySession;
+import com.vkautopsy.VkDebugMessengerCallback;
+import com.vkautopsy.VkDebugMessengerCallback.VkDebugMessage;
 
 import fr.alchemy.utilities.collections.array.Array;
 import fr.alchemy.utilities.logging.FactoryLogger;
@@ -31,6 +37,7 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.app.kernel.OS;
 import fr.sethlans.core.render.vk.device.PhysicalDevice;
 import fr.sethlans.core.render.vk.device.PhysicalDeviceComparator;
+import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class VulkanInstance {
@@ -38,6 +45,10 @@ public class VulkanInstance {
     private static final Logger logger = FactoryLogger.getLogger("sethlans-core.vk.context");
 
     private VkInstance handle;
+    
+    private VkAutopsySession autopsySession;
+    
+    private VkDebugMessengerCallback callback;
 
     private VkDebugUtilsMessengerCallbackEXT debugMessengerCallback;
 
@@ -100,6 +111,10 @@ public class VulkanInstance {
             this.handle = new VkInstance(vkHandle, createInfo);
 
             if (debug) {
+                VkAutopsyConfig autopsyConfig = new VkAutopsyConfig();
+                this.autopsySession = VkAutopsy.create(handle, callback, autopsyConfig);
+                autopsySession.setFrameSupplier(VulkanFrame::currentFrame);
+                
                 var pMessenger = stack.mallocLong(1);
                 err = EXTDebugUtils.vkCreateDebugUtilsMessengerEXT(handle, messengerCreateInfo, null, pMessenger);
                 VkUtil.throwOnFailure(err, "create debug utils");
@@ -151,6 +166,9 @@ public class VulkanInstance {
             return VK12.VK_API_VERSION_1_2;
         case SethlansApplication.VK_1_3_GRAPHICS_API:
             return VK13.VK_API_VERSION_1_3;
+        case SethlansApplication.VK_1_4_GRAPHICS_API:
+            return VK14.VK_API_VERSION_1_4;
+            
         default:
             logger.warning("Unrecognized Vulkan version '" + version + "', defaulting to VK_API_VERSION_1_0");
             return VK10.VK_API_VERSION_1_0;
@@ -159,6 +177,9 @@ public class VulkanInstance {
 
     private VkDebugUtilsMessengerCreateInfoEXT addDebugMessengerCreateInfo(VkInstanceCreateInfo createInfo,
             MemoryStack stack) {
+        // Create the debug-messenger callback.
+        callback = new VkDebugMessengerCallback(this::debugCallback);
+        
         // Create the debug-messenger creation info.
         var messengerCreateInfo = VkDebugUtilsMessengerCreateInfoEXT.calloc(stack)
                 .sType(EXTDebugUtils.VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT)
@@ -169,7 +190,7 @@ public class VulkanInstance {
                 .messageType(EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
                         | EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
                         | EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
-                .pfnUserCallback(this::debugCallback);
+                .pfnUserCallback(callback);
 
         // Save a callback reference to free when destroying this instance.
         debugMessengerCallback = messengerCreateInfo.pfnUserCallback();
@@ -180,20 +201,16 @@ public class VulkanInstance {
         return messengerCreateInfo;
     }
 
-    private int debugCallback(int severity, int messageType, long pCallbackData, long pUserData) {
-        var callbackData = VkDebugUtilsMessengerCallbackDataEXT.create(pCallbackData);
-        var message = callbackData.pMessageString();
+    private void debugCallback(VkDebugMessage debugMessage) {
+        var message = debugMessage.message();
+        var severity = debugMessage.severity();
         if ((severity & EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) != 0) {
-            logger.warning("VkDebugCallback: " + message);
+            logger.warning("VkDebugCallback: " + message + ", " + debugMessage);
         } else if ((severity & EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0) {
-            logger.error("VkDebugCallback: " + message);
+            logger.error("VkDebugCallback: " + message + ", " + debugMessage);
         } else {
             logger.debug("VkDebugCallback: " + message);
         }
-        /*
-         * The {@code VK_TRUE} return value is reserved for use in layer development.
-         */
-        return VK10.VK_FALSE;
     }
 
     private PointerBuffer getRequiredExtensions(SethlansApplication application, ConfigFile config, MemoryStack stack) {
@@ -317,6 +334,10 @@ public class VulkanInstance {
         if (debugMessengerCallback != null) {
             debugMessengerCallback.free();
             debugMessengerCallback = null;
+        }
+        
+        if (autopsySession != null)  {
+            autopsySession.close();
         }
     }
 }
