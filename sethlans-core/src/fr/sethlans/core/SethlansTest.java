@@ -4,6 +4,7 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
+import fr.sethlans.core.asset.MaterialLoader;
 import fr.sethlans.core.asset.TextureLoader;
 import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
@@ -42,9 +43,12 @@ public class SethlansTest extends SethlansApplication {
     @Override
     protected void initialize() {
         texture = TextureLoader.load(getConfig(), "resources/textures/vulkan-logo.png");
+        
+        var mat = MaterialLoader.load(getConfig(), "resources/materials/unlit.smat");
 
         box = new Box("Box");
         box.setTexture(texture);
+        box.setMaterial(mat);
 
         rotation = new Quaternionf();
     }
@@ -58,7 +62,9 @@ public class SethlansTest extends SethlansApplication {
         rotation.identity().rotateAxis((float) Math.toRadians(angle), new Vector3f(0, 1, 0));
         box.getModelMatrix().identity().translationRotateScale(new Vector3f(0, 0, -3f), rotation, 1);
 
-        frame.command().begin();
+        var materialPass = box.getMaterial().getDefaultMaterialPass();
+        
+        frame.command().begin(materialPass);
         frame.render(box);
         frame.command().end();
     }

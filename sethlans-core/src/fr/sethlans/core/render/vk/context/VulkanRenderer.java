@@ -13,6 +13,7 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
+import fr.sethlans.core.material.MaterialPass;
 import fr.sethlans.core.render.Projection;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
@@ -20,6 +21,7 @@ import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
+import fr.sethlans.core.render.vk.pipeline.PipelineLibrary;
 import fr.sethlans.core.render.vk.swapchain.DrawCommand;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
@@ -37,8 +39,6 @@ public class VulkanRenderer {
     private SwapChain swapChain;
 
     private DrawCommand[] drawCommands;
-
-    private Pipeline pipeline;
 
     private final VulkanMesh[] meshes = new VulkanMesh[50];
 
@@ -66,16 +66,24 @@ public class VulkanRenderer {
 
     private VulkanFrame currentFrame;
 
+    private PipelineLibrary pipelineLibrary;
+
     public VulkanRenderer(VulkanContext context, ConfigFile config, SwapChain swapChain) {
         this.context = context;
         this.config = config;
         this.swapChain = swapChain;
 
+        var logicalDevice = context.getLogicalDevice();
+        var pipelineCache = context.getBackend().getPipelineCache();
+        var renderPass = context.getBackend().getRenderPass();
+        var pipelineLayout = context.getBackend().getPipelineLayout();
+
+        this.pipelineLibrary = new PipelineLibrary(pipelineCache, renderPass, swapChain, pipelineLayout);
+
         var dynamicRendering = config.getBoolean(VulkanGraphicsBackend.DYNAMIC_RENDERING_PROP,
                 VulkanGraphicsBackend.DEFAULT_DYNAMIC_RENDERING);
         this.useDynamicRendering = dynamicRendering && context.getPhysicalDevice().supportsDynamicRendering();
 
-        var logicalDevice = context.getLogicalDevice();
         this.drawCommands = new DrawCommand[swapChain.imageCount()];
         Arrays.fill(drawCommands, new DrawCommand(this, logicalDevice.createGraphicsCommand()));
 
@@ -132,25 +140,14 @@ public class VulkanRenderer {
     }
 
     public void invalidatePipeline() {
-        if (pipeline != null) {
-            pipeline.destroy();
-            pipeline = null;
+        if (pipelineLibrary != null) {
+            pipelineLibrary.destroy();
         }
     }
 
     public void beginRender(VulkanFrame frame) {
         this.currentFrame = frame;
         frame.setCommand(drawCommands[frame.imageIndex()]);
-
-        if (pipeline == null) {
-            var logicalDevice = context.getLogicalDevice();
-            var pipelineCache = context.getBackend().getPipelineCache();
-            var renderPass = context.getBackend().getRenderPass();
-            var program = context.getBackend().getProgram();
-            var pipelineLayout = context.getBackend().getPipelineLayout();
-            pipeline = new Pipeline(logicalDevice, pipelineCache, renderPass, swapChain, program, Topology.TRIANGLES,
-                    pipelineLayout);
-        }
 
         if (useDynamicRendering) {
             var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
@@ -176,8 +173,6 @@ public class VulkanRenderer {
             command.beginRenderPass(swapChain, swapChain.frameBuffer(currentFrame.imageIndex()),
                     context.getBackend().getRenderPass());
         }
-
-        command.bindPipeline(pipeline.handle());
     }
 
     public void endRender(VulkanFrame frame) {
@@ -274,66 +269,17 @@ public class VulkanRenderer {
         return vkMesh;
     }
 
-    public void prepare(Geometry geometry, DescriptorSet samplerDescriptorSet) {
-        var logicalDevice = context.getLogicalDevice();
-        var mesh = geometry.getMesh();
-
-        VulkanMesh vkMesh = null;
-        if (mesh.hasBackendObject()) {
-            vkMesh = meshes[mesh.backendId()];
-
-        } else {
-            for (var i = 0; i < meshes.length; ++i) {
-                if (meshes[i] == null) {
-                    meshes[i] = new VulkanMesh(logicalDevice, mesh);
-                    vkMesh = meshes[i];
-                    mesh.assignId(i);
-                }
-            }
-        }
-
-        if (mesh.isDirty()) {
-            logger.info("Update mesh for " + geometry);
-            vkMesh.uploadData(mesh);
-            mesh.clean();
-        }
-
-        var texture = geometry.getTexture();
-        if (texture != null) {
-            VulkanTexture vkTexture = null;
-            if (texture.hasBackendObject()) {
-                vkTexture = textures[texture.backendId()];
-
-            } else {
-                for (var i = 0; i < textures.length; ++i) {
-                    if (textures[i] == null) {
-                        textures[i] = new VulkanTexture(logicalDevice, texture);
-                        vkTexture = textures[i];
-                        texture.assignId(i);
-                    }
-                }
-            }
-
-            if (texture.isDirty()) {
-                logger.info("Update texture for " + geometry);
-                vkTexture.uploadData(texture);
-                texture.clean();
-
-                samplerDescriptorSet.updateTextureDescriptorSet(vkTexture, 0);
-            }
-        }
+    public Pipeline getPipeline(Topology topology, MaterialPass materialPass) {
+        var pipeline = pipelineLibrary.getOrCreate(context.getLogicalDevice(), topology, materialPass);
+        return pipeline;
     }
 
     public SwapChain getSwapChain() {
         return swapChain;
     }
 
-    public Pipeline getPipeline() {
-        return pipeline;
-    }
-
     public void destroy() {
-        
+
         if (samplerDescriptorSet != null) {
             samplerDescriptorSet.destroy();
         }
@@ -345,11 +291,11 @@ public class VulkanRenderer {
         if (dynamicDescriptorSet != null) {
             dynamicDescriptorSet.destroy();
         }
-        
-        if (pipeline != null) {
-            pipeline.destroy();
+
+        if (pipelineLibrary != null) {
+            pipelineLibrary.destroy();
         }
-        
+
         MemoryUtil.memFree(dynDescriptorOffset);
         MemoryUtil.memFree(descriptorSets);
 

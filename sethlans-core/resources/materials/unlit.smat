@@ -1,0 +1,12 @@
+{
+	"name": "Unlit",
+	"description": "Simple default material used for rendering without any lighting using a simple color or texture.",
+	"passes": {
+		"forward": {
+			"shaders": [
+				{ "vertex": "unlit/unlit.vert" },
+				{ "fragment": "unlit/unlit.frag" }
+			]
+		}
+	}
+}

@@ -3,14 +3,12 @@ package fr.sethlans.core.render.vk.context;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.glfwVulkanSupported;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.util.shaderc.Shaderc;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
 import fr.sethlans.core.app.ConfigFile;
@@ -22,7 +20,6 @@ import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.pipeline.PipelineCache;
 import fr.sethlans.core.render.vk.pipeline.PipelineLayout;
-import fr.sethlans.core.render.vk.shader.ShaderProgram;
 import fr.sethlans.core.render.vk.swapchain.AttachmentDescriptor;
 import fr.sethlans.core.render.vk.swapchain.OffscreenSwapChain;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain;
@@ -63,8 +60,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
     private DescriptorSetLayout dynamicDescriptorSetLayout;
 
     private ConfigFile config;
-
-    private ShaderProgram program;
 
     private int currentFrameIndex;
 
@@ -121,16 +116,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
                 VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK10.VK_SHADER_STAGE_VERTEX_BIT);
         this.samplerDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0,
                 VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK10.VK_SHADER_STAGE_FRAGMENT_BIT);
-
-        this.program = new ShaderProgram(logicalDevice);
-        try {
-            program.addVertexModule(
-                    ShaderProgram.compileShader("resources/shaders/base.vert", Shaderc.shaderc_glsl_vertex_shader));
-            program.addFragmentModule(
-                    ShaderProgram.compileShader("resources/shaders/base.frag", Shaderc.shaderc_glsl_fragment_shader));
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
 
         var dependencies = new ArrayList<SubpassDependency>(2);
         if (needsSurface) {
@@ -418,10 +403,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         return pipelineLayout;
     }
 
-    public ShaderProgram getProgram() {
-        return program;
-    }
-
     public RenderPass getRenderPass() {
         return renderPass;
     }
@@ -453,10 +434,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
         if (pipelineCache != null) {
             pipelineCache.destroy();
-        }
-
-        if (program != null) {
-            program.destroy();
         }
 
         for (var frame : vulkanFrames) {

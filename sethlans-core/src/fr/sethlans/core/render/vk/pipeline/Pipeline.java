@@ -22,7 +22,7 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
-import fr.sethlans.core.render.vk.shader.ShaderProgram;
+import fr.sethlans.core.render.vk.shader.VulkanShaderProgram;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.util.VkUtil;
@@ -36,7 +36,7 @@ public class Pipeline {
 
     private long handle = VK10.VK_NULL_HANDLE;
 
-    public Pipeline(LogicalDevice device, PipelineCache pipelineCache, RenderPass renderPass, SwapChain swapChain, ShaderProgram shaderProgram, Topology topology, PipelineLayout layout) {
+    public Pipeline(LogicalDevice device, PipelineCache pipelineCache, RenderPass renderPass, SwapChain swapChain, VulkanShaderProgram shaderProgram, Topology topology, PipelineLayout layout) {
         this.device = device;
 
         try (var stack = MemoryStack.stackPush()) {

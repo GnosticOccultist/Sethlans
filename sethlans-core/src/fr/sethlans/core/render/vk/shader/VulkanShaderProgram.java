@@ -9,30 +9,29 @@ import java.util.List;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.util.shaderc.Shaderc;
-import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkPipelineShaderStageCreateInfo;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.device.VulkanResource;
 
-public class ShaderProgram {
-
-    private final LogicalDevice device;
+public class VulkanShaderProgram extends VulkanResource {
 
     private final List<ShaderModule> modules;
 
-    public ShaderProgram(LogicalDevice device) {
-        this.device = device;
+    public VulkanShaderProgram(LogicalDevice logicalDevice) {
         this.modules = new ArrayList<>();
+        
+        assignToDevice(logicalDevice);
     }
+    
+    @Override
+    protected void assignToDevice(LogicalDevice newDevice) {
+        destroy();
 
-    public ShaderProgram addVertexModule(ByteBuffer codeBuffer) {
-        var module = new ShaderModule(device, codeBuffer, VK10.VK_SHADER_STAGE_VERTEX_BIT);
-        this.modules.add(module);
-        return this;
+        setLogicalDevice(newDevice);
     }
-
-    public ShaderProgram addFragmentModule(ByteBuffer codeBuffer) {
-        var module = new ShaderModule(device, codeBuffer, VK10.VK_SHADER_STAGE_FRAGMENT_BIT);
+    
+    public VulkanShaderProgram addModule(ShaderModule module) {
         this.modules.add(module);
         return this;
     }

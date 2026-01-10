@@ -8,6 +8,7 @@ import org.lwjgl.assimp.Assimp;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.AssimpLoader;
+import fr.sethlans.core.asset.MaterialLoader;
 import fr.sethlans.core.asset.TextureLoader;
 import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
@@ -52,9 +53,12 @@ public class AssimpTest extends SethlansApplication {
         var indices = new ArrayList<Integer>();
         AssimpLoader.load("resources/models/viking_room/viking_room.obj", Assimp.aiProcess_FlipUVs, true, vertices,
                 indices);
+        
+        var mat = MaterialLoader.load(getConfig(), "resources/materials/unlit.smat");
 
         var mesh = new Mesh(Topology.TRIANGLES, indices, vertices);
         vikingRoom = new Geometry("Viking Room", mesh);
+        vikingRoom.setMaterial(mat);
 
         texture = TextureLoader.load(getConfig(), "resources/models/viking_room/viking_room.png");
         vikingRoom.setTexture(texture);
@@ -72,7 +76,9 @@ public class AssimpTest extends SethlansApplication {
                 .rotateAxis((float) Math.toRadians(angle), new Vector3f(0, 0, 1));
         vikingRoom.getModelMatrix().identity().translationRotateScale(new Vector3f(0, 0.35f, -3f), rotation, 1);
         
-        frame.command().begin();
+        var materialPass = vikingRoom.getMaterial().getDefaultMaterialPass();
+        
+        frame.command().begin(materialPass);
         frame.render(vikingRoom);
         frame.command().end();
     }

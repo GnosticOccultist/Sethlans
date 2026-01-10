@@ -2,6 +2,8 @@ package fr.sethlans.core.scenegraph;
 
 import org.joml.Matrix4f;
 
+import fr.sethlans.core.material.Material;
+import fr.sethlans.core.material.MaterialInstance;
 import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.scenegraph.mesh.Mesh;
 
@@ -13,11 +15,20 @@ public class Geometry {
 
     private Texture texture;
 
+    private MaterialInstance material;
+
     private Matrix4f modelMatrix;
 
     public Geometry(String name, Mesh mesh) {
         this.name = name;
         this.mesh = mesh;
+        this.modelMatrix = new Matrix4f();
+    }
+
+    public Geometry(String name, Mesh mesh, Material material) {
+        this.name = name;
+        this.mesh = mesh;
+        this.material = new MaterialInstance(material);
         this.modelMatrix = new Matrix4f();
     }
 
@@ -27,6 +38,14 @@ public class Geometry {
 
     public Mesh getMesh() {
         return mesh;
+    }
+
+    public Material getMaterial() {
+        return material.getMaterial();
+    }
+
+    public void setMaterial(Material material) {
+        this.material = new MaterialInstance(material);
     }
 
     public Texture getTexture() {

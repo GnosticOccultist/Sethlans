@@ -1,8 +1,10 @@
 package fr.sethlans.core.render.vk.swapchain;
 
+import fr.sethlans.core.material.MaterialPass;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.context.VulkanRenderer;
 import fr.sethlans.core.scenegraph.Geometry;
+import fr.sethlans.core.scenegraph.mesh.Topology;
 
 public class DrawCommand {
     
@@ -17,12 +19,16 @@ public class DrawCommand {
         this.command = command;
     }
     
-    public void begin() {
+    public void begin(MaterialPass materialPass) {
         if (started) {
             throw new IllegalStateException("DrawCommand already started!");
         }
         
         renderer.beginDraw(this);
+        renderer.getPipeline(Topology.LINES, materialPass);
+        var pipeline = renderer.getPipeline(Topology.TRIANGLES, materialPass);
+        command.bindPipeline(pipeline.handle());
+        
         this.started = true;
     }
 
