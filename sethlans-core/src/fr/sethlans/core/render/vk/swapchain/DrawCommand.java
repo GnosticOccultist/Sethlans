@@ -25,7 +25,6 @@ public class DrawCommand {
         }
         
         renderer.beginDraw(this);
-        renderer.getPipeline(Topology.LINES, materialPass);
         var pipeline = renderer.getPipeline(Topology.TRIANGLES, materialPass);
         command.bindPipeline(pipeline.handle());
         

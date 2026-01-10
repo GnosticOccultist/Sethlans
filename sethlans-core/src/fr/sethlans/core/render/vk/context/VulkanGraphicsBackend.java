@@ -277,9 +277,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
             swapChain.recreate(window, renderPass, descriptors);
         }
 
-        // Invalidate current pipeline.
-        renderer.invalidatePipeline();
-
         application.resize();
     }
 

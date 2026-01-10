@@ -21,6 +21,7 @@ import org.lwjgl.vulkan.VkQueue;
 import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkRenderPassBeginInfo;
 import org.lwjgl.vulkan.VkSubmitInfo;
+import org.lwjgl.vulkan.VkViewport;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanImage;
@@ -258,6 +259,30 @@ public class CommandBuffer {
         try (var stack = MemoryStack.stackPush()) {
             var renderingInfo = swapChain.getAttachments().createRenderingInfo(stack, swapChain, imageIndex);
             VK13.vkCmdBeginRendering(handle, renderingInfo);
+            return this;
+        }
+    }
+    
+    public CommandBuffer setViewport(SwapChain swapChain) {
+        try (var stack = MemoryStack.stackPush()) {
+            var framebufferExtent = swapChain.framebufferExtent(stack);
+
+            // Define viewport dimension and origin.
+            var viewport = VkViewport.calloc(1, stack);
+            viewport.x(0f);
+            viewport.y(0f);
+            viewport.width(framebufferExtent.width());
+            viewport.height(framebufferExtent.height());
+            viewport.maxDepth(1f);
+            viewport.minDepth(0f);
+
+            // Define scissor to discard pixels outside the framebuffer.
+            var scissor = VkRect2D.calloc(1, stack);
+            scissor.offset(VkOffset2D.calloc(stack).set(0, 0));
+            scissor.extent(framebufferExtent);
+
+            VK10.vkCmdSetViewport(handle, 0, viewport);
+            VK10.vkCmdSetScissor(handle, 0, scissor);
             return this;
         }
     }

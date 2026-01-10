@@ -4,20 +4,17 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.KHRDynamicRendering;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkGraphicsPipelineCreateInfo;
-import org.lwjgl.vulkan.VkOffset2D;
 import org.lwjgl.vulkan.VkPipelineColorBlendAttachmentState;
 import org.lwjgl.vulkan.VkPipelineColorBlendStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineDepthStencilStateCreateInfo;
+import org.lwjgl.vulkan.VkPipelineDynamicStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineMultisampleStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineRasterizationStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineRenderingCreateInfoKHR;
 import org.lwjgl.vulkan.VkPipelineVertexInputStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineViewportStateCreateInfo;
-import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkVertexInputAttributeDescription;
 import org.lwjgl.vulkan.VkVertexInputBindingDescription;
-import org.lwjgl.vulkan.VkViewport;
-
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
@@ -59,27 +56,11 @@ public class Pipeline {
             var shaderCreateInfo = shaderProgram.describeShaderPipeline(stack);
             var iasCreateInfo = VulkanMesh.createInputAssemblyState(device, topology, stack);
 
-            var framebufferExtent = swapChain.framebufferExtent(stack);
-
-            // Define viewport dimension and origin.
-            var viewport = VkViewport.calloc(1, stack);
-            viewport.x(0f);
-            viewport.y(0f);
-            viewport.width(framebufferExtent.width());
-            viewport.height(framebufferExtent.height());
-            viewport.maxDepth(1f);
-            viewport.minDepth(0f);
-
-            // Define scissor to discard pixels outside the framebuffer.
-            var scissor = VkRect2D.calloc(1, stack);
-            scissor.offset(VkOffset2D.calloc(stack).set(0, 0));
-            scissor.extent(framebufferExtent);
-
             // Define viewport state info.
             var vsCreateInfo = VkPipelineViewportStateCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO)
-                    .pViewports(viewport)
-                    .pScissors(scissor);
+                    .viewportCount(1)
+                    .scissorCount(1);
 
             // Define depth/stencil state info
             var dssCreateInfo = VkPipelineDepthStencilStateCreateInfo.calloc(stack)
@@ -119,6 +100,11 @@ public class Pipeline {
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO)
                     .pAttachments(cbaState);
             
+            // Define dynamic state for viewport and scissor.
+            var dynamicInfo = VkPipelineDynamicStateCreateInfo.calloc(stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO)
+                    .pDynamicStates(stack.ints(VK10.VK_DYNAMIC_STATE_VIEWPORT, VK10.VK_DYNAMIC_STATE_SCISSOR));
+            
             var createInfo = VkGraphicsPipelineCreateInfo.calloc(1, stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO)
                     .pStages(shaderCreateInfo)
@@ -129,6 +115,7 @@ public class Pipeline {
                     .pRasterizationState(rsCreateInfo)
                     .pMultisampleState(msCreateInfo)
                     .pColorBlendState(cbsCreateInfo)
+                    .pDynamicState(dynamicInfo)
                     .layout(layout.handle());
             
             if (renderPass == null) {

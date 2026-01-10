@@ -139,12 +139,6 @@ public class VulkanRenderer {
         globalUniform.unmap();
     }
 
-    public void invalidatePipeline() {
-        if (pipelineLibrary != null) {
-            pipelineLibrary.destroy();
-        }
-    }
-
     public void beginRender(VulkanFrame frame) {
         this.currentFrame = frame;
         frame.setCommand(drawCommands[frame.imageIndex()]);
@@ -173,6 +167,8 @@ public class VulkanRenderer {
             command.beginRenderPass(swapChain, swapChain.frameBuffer(currentFrame.imageIndex()),
                     context.getBackend().getRenderPass());
         }
+
+        command.setViewport(swapChain);
     }
 
     public void endRender(VulkanFrame frame) {
