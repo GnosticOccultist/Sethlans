@@ -20,7 +20,8 @@ import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
-import fr.sethlans.core.render.vk.pipeline.Pipeline;
+import fr.sethlans.core.render.vk.pipeline.AbstractPipeline;
+import fr.sethlans.core.render.vk.pipeline.AbstractPipeline.BindPoint;
 import fr.sethlans.core.render.vk.pipeline.PipelineLibrary;
 import fr.sethlans.core.render.vk.swapchain.DrawCommand;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
@@ -204,8 +205,8 @@ public class VulkanRenderer {
 
     public CommandBuffer bindDescriptorSets(CommandBuffer command) {
         dynDescriptorOffset.put(0, context.getBackend().getCurrentFrameIndex() * 256);
-        command.bindDescriptorSets(context.getBackend().getPipelineLayout().handle(), descriptorSets,
-                dynDescriptorOffset);
+        command.bindDescriptorSets(context.getBackend().getPipelineLayout().handle(), BindPoint.GRAPHICS,
+                descriptorSets, dynDescriptorOffset);
         return command;
     }
 
@@ -265,7 +266,7 @@ public class VulkanRenderer {
         return vkMesh;
     }
 
-    public Pipeline getPipeline(Topology topology, MaterialPass materialPass) {
+    public AbstractPipeline getPipeline(Topology topology, MaterialPass materialPass) {
         var pipeline = pipelineLibrary.getOrCreate(context.getLogicalDevice(), topology, materialPass);
         return pipeline;
     }

@@ -35,6 +35,14 @@ public class VulkanShaderProgram extends VulkanResource {
         this.modules.add(module);
         return this;
     }
+    
+    public VkPipelineShaderStageCreateInfo describeShaderStage(MemoryStack stack) {
+        var stageCreateInfos = VkPipelineShaderStageCreateInfo.calloc(stack);
+        var module = modules.get(0);
+        module.describe(stack, stageCreateInfos);
+
+        return stageCreateInfos;
+    }
 
     public VkPipelineShaderStageCreateInfo.Buffer describeShaderPipeline(MemoryStack stack) {
         var stageCreateInfos = VkPipelineShaderStageCreateInfo.calloc(modules.size(), stack);

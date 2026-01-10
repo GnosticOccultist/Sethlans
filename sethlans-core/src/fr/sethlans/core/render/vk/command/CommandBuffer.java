@@ -30,6 +30,8 @@ import fr.sethlans.core.render.vk.memory.IndexBuffer;
 import fr.sethlans.core.render.vk.memory.VertexBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
+import fr.sethlans.core.render.vk.pipeline.AbstractPipeline;
+import fr.sethlans.core.render.vk.pipeline.AbstractPipeline.BindPoint;
 import fr.sethlans.core.render.vk.swapchain.FrameBuffer;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
@@ -173,20 +175,20 @@ public class CommandBuffer {
         return this;
     }
 
-    public CommandBuffer bindPipeline(long pipelineHandle) {
-        VK10.vkCmdBindPipeline(handle, VK10.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineHandle);
+    public CommandBuffer bindPipeline(AbstractPipeline pipeline) {
+        VK10.vkCmdBindPipeline(handle, pipeline.getBindPoint().getVkEnum(), pipeline.handle());
         return this;
     }
 
-    public CommandBuffer bindDescriptorSets(long pipelineLayoutHandle, LongBuffer pDescriptorSets) {
-        VK10.vkCmdBindDescriptorSets(handle, VK10.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutHandle, 0,
+    public CommandBuffer bindDescriptorSets(long pipelineLayoutHandle, BindPoint bindPoint, LongBuffer pDescriptorSets) {
+        VK10.vkCmdBindDescriptorSets(handle, bindPoint.getVkEnum(), pipelineLayoutHandle, 0,
                 pDescriptorSets, null);
         return this;
     }
 
-    public CommandBuffer bindDescriptorSets(long pipelineLayoutHandle, LongBuffer pDescriptorSets,
+    public CommandBuffer bindDescriptorSets(long pipelineLayoutHandle, BindPoint bindPoint, LongBuffer pDescriptorSets,
             IntBuffer pDynamicOffsets) {
-        VK10.vkCmdBindDescriptorSets(handle, VK10.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutHandle, 0,
+        VK10.vkCmdBindDescriptorSets(handle, bindPoint.getVkEnum(), pipelineLayoutHandle, 0,
                 pDescriptorSets, pDynamicOffsets);
         return this;
     }
@@ -204,6 +206,11 @@ public class CommandBuffer {
     public CommandBuffer pushConstants(long pipelineLayoutHandle, int stageFlags, int offset,
             ByteBuffer constantBuffer) {
         VK10.vkCmdPushConstants(handle, pipelineLayoutHandle, stageFlags, offset, constantBuffer);
+        return this;
+    }
+    
+    public CommandBuffer dispatch(int groupCountX, int groupCountY, int groupCountZ) {
+        VK10.vkCmdDispatch(handle, groupCountX, groupCountY, groupCountZ);
         return this;
     }
     

@@ -60,7 +60,7 @@ public class MaterialLoader {
             var name = passes.names().get(i);
             var passObj = passes.get(name).asObject();
             
-            var pass = new MaterialPass(name);
+            var pass = new MaterialPass(material, name);
             
             // Load the specified shaders in the file into the material pass.
             loadShaders(pass, passObj);

@@ -15,8 +15,6 @@ import org.lwjgl.vulkan.VkPipelineVertexInputStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineViewportStateCreateInfo;
 import org.lwjgl.vulkan.VkVertexInputAttributeDescription;
 import org.lwjgl.vulkan.VkVertexInputBindingDescription;
-import fr.alchemy.utilities.logging.FactoryLogger;
-import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.shader.VulkanShaderProgram;
@@ -25,19 +23,13 @@ import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.util.VkUtil;
 import fr.sethlans.core.scenegraph.mesh.Topology;
 
-public class Pipeline {
-    
-    private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.pipeline");
+public class GraphicsPipeline extends AbstractPipeline {
 
-    private final LogicalDevice device;
-
-    private long handle = VK10.VK_NULL_HANDLE;
-
-    public Pipeline(LogicalDevice device, PipelineCache pipelineCache, RenderPass renderPass, SwapChain swapChain, VulkanShaderProgram shaderProgram, Topology topology, PipelineLayout layout) {
-        this.device = device;
+    public GraphicsPipeline(LogicalDevice logicalDevice, PipelineCache pipelineCache, RenderPass renderPass, SwapChain swapChain, VulkanShaderProgram shaderProgram, Topology topology, PipelineLayout layout) {
+        super(logicalDevice, BindPoint.GRAPHICS);
 
         try (var stack = MemoryStack.stackPush()) {
-
+            
             var pAttribs = VkVertexInputAttributeDescription.calloc(2, stack);
             pAttribs.get(0).binding(0).location(0).format(VK10.VK_FORMAT_R32G32B32_SFLOAT).offset(0);
             pAttribs.get(1).binding(0).location(1).format(VK10.VK_FORMAT_R32G32B32_SFLOAT).offset(3 * Float.BYTES);
@@ -54,7 +46,7 @@ public class Pipeline {
                     .pVertexBindingDescriptions(pBindings);
 
             var shaderCreateInfo = shaderProgram.describeShaderPipeline(stack);
-            var iasCreateInfo = VulkanMesh.createInputAssemblyState(device, topology, stack);
+            var iasCreateInfo = VulkanMesh.createInputAssemblyState(logicalDevice, topology, stack);
 
             // Define viewport state info.
             var vsCreateInfo = VkPipelineViewportStateCreateInfo.calloc(stack)
@@ -80,7 +72,7 @@ public class Pipeline {
                     .lineWidth(1.0f);
 
             // Define multisampling state info.
-            var minSampleShading = device.physicalDevice().minSampleShading();
+            var minSampleShading = logicalDevice.physicalDevice().minSampleShading();
             var msCreateInfo = VkPipelineMultisampleStateCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO)
                     .rasterizationSamples(swapChain.sampleCount())
@@ -120,7 +112,7 @@ public class Pipeline {
             
             if (renderPass == null) {
                 // Use dynamic rendering.
-                assert device.physicalDevice().supportsDynamicRendering();
+                assert logicalDevice.physicalDevice().supportsDynamicRendering();
                 
                 var colorFormat = stack.ints(swapChain.imageFormat());
 
@@ -138,22 +130,11 @@ public class Pipeline {
             }
 
             var pHandle = stack.mallocLong(1);
-            var err = VK10.vkCreateGraphicsPipelines(device.handle(), pipelineCache.handle(), createInfo, null, pHandle);
+            var err = VK10.vkCreateGraphicsPipelines(logicalDevice.handle(), pipelineCache.handle(), createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create graphics pipeline");
-            this.handle = pHandle.get(0);
+            assignHandle(pHandle.get(0));
             
             logger.info("Created " + this + ".");
-        }
-    }
-
-    public long handle() {
-        return handle;
-    }
-
-    public void destroy() {
-        if (handle != VK10.VK_NULL_HANDLE) {
-            VK10.vkDestroyPipeline(device.handle(), handle, null);
-            this.handle = VK10.VK_NULL_HANDLE;
         }
     }
 }

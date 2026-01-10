@@ -6,23 +6,30 @@ import java.util.EnumMap;
 import java.util.Map.Entry;
 
 public class MaterialPass {
+    
+    private final Material material;
 
     private String name;
     
     private long sortId = -1;
     
     private final EnumMap<ShaderType, ShaderModuleInfo> sources = new EnumMap<>(ShaderType.class);
-
-    public MaterialPass(String name) {
+    
+    public MaterialPass(Material material, String name) {
+        this.material = material;
         this.name = name;
     }
-    
+
     public void addShaderSource(ShaderType type, String shaderName, String entryPoint) {
         this.sources.put(type, new ShaderModuleInfo(shaderName, type, entryPoint));
     }
     
     public Collection<Entry<ShaderType, ShaderModuleInfo>> getShaderSources() {
         return Collections.unmodifiableCollection(sources.entrySet());
+    }
+    
+    public String getFullName() {
+        return material.getName() + "#" + getName();
     }
 
     public String getName() {
@@ -35,6 +42,10 @@ public class MaterialPass {
         }
         
         return sortId;
+    }
+    
+    public boolean isComputePass() {
+        return sources.containsKey(ShaderType.COMPUTE);
     }
 
     @Override

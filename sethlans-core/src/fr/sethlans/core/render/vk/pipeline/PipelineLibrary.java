@@ -13,16 +13,16 @@ import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.scenegraph.mesh.Topology;
 
 public class PipelineLibrary {
-    
+
     private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.pipeline");
-    
+
     private static final long C1 = 0xff51afd7ed558ccdL;
-    
+
     private static final long C2 = 0xc4ceb9fe1a85ec53L;
 
     private final ShaderLibrary shaderLibrary;
 
-    private final Map<Long, Pipeline> pipelineIndex = new HashMap<>();
+    private final Map<Long, AbstractPipeline> pipelineIndex = new HashMap<>();
 
     private PipelineCache pipelineCache;
 
@@ -41,24 +41,33 @@ public class PipelineLibrary {
         this.shaderLibrary = new ShaderLibrary();
     }
 
-    public Pipeline getOrCreate(LogicalDevice device, Topology topology, MaterialPass materialPass) {
+    public AbstractPipeline getOrCreate(LogicalDevice device, Topology topology, MaterialPass materialPass) {
         long hash = hash(topology, materialPass);
         var pipeline = pipelineIndex.computeIfAbsent(hash, k -> {
 
+            var sources = materialPass.getShaderSources();
+
             var programHash = 0L;
-            for (var source : materialPass.getShaderSources()) {
+            for (var source : sources) {
                 programHash = mix(programHash, source.getKey().ordinal());
                 programHash = mix(programHash, source.getValue().hashCode());
             }
-            
+
             programHash = fmix64(programHash);
 
-            var program = shaderLibrary.getOrCreate(device, programHash, materialPass.getShaderSources());
-            
-            logger.info("Creating pipeline for material pass '" + materialPass.getName() + "', hash= 0x" + Long.toHexString(k));
+            var program = shaderLibrary.getOrCreate(device, programHash, sources);
 
-            var vkPipeline = new Pipeline(device, pipelineCache, renderPass, swapChain, program, topology,
-                    pipelineLayout);
+            logger.info("Creating pipeline for material pass '" + materialPass.getFullName() + "', hash= 0x"
+                    + Long.toHexString(k));
+
+            AbstractPipeline vkPipeline;
+            if (materialPass.isComputePass()) {
+                vkPipeline = new ComputePipeline(device, pipelineCache, program, pipelineLayout);
+            } else {
+                vkPipeline = new GraphicsPipeline(device, pipelineCache, renderPass, swapChain, program, topology,
+                        pipelineLayout);
+            }
+
             return vkPipeline;
         });
 
@@ -73,7 +82,7 @@ public class PipelineLibrary {
             hash = mix(hash, source.getKey().ordinal());
             hash = mix(hash, source.getValue().hashCode());
         }
-        
+
         hash = fmix64(hash);
         return hash;
     }
@@ -93,7 +102,7 @@ public class PipelineLibrary {
         v ^= v >>> 33;
         return h ^ v;
     }
-    
+
     /**
      * MurmurHash3 finalizer.
      * 
@@ -110,7 +119,7 @@ public class PipelineLibrary {
     }
 
     public void destroy() {
-        pipelineIndex.values().forEach(Pipeline::destroy);
+        pipelineIndex.values().forEach(AbstractPipeline::destroy);
         pipelineIndex.clear();
     }
 }
