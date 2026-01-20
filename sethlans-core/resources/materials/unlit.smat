@@ -3,6 +3,46 @@
 	"description": "Simple default material used for rendering without any lighting using a simple color or texture.",
 	"passes": {
 		"forward": {
+			"layout": {
+				"sets": [
+					{ 
+						"set": 0,
+						"bindings": [
+							{
+								"binding": 0,
+								"builtin": "Global",
+								"type": "uniform_buffer",
+								"shaders": "vertex"
+							}
+						]
+					},
+					{ 
+						"set": 1,
+						"bindings": [
+							{
+								"binding": 0,
+								"builtin": "Dynamic",
+								"type": "uniform_buffer",
+								"shaders": "vertex"
+							}
+						]
+					},
+					{ 
+						"set": 2,
+						"bindings": [
+							{
+								"binding": 0,
+								"name": "TextureSampler",
+								"type": "combined_image_sampler",
+								"shaders": "fragment"
+							}
+						]
+					}
+				],
+				"push_constants": [
+					{ "name": "Object", "size": 64, "shaders": "vertex" }
+				]
+			},
 			"shaders": [
 				{ "vertex": "unlit/unlit.vert" },
 				{ "fragment": "unlit/unlit.frag" }
