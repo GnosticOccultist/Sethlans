@@ -1,5 +1,9 @@
 package fr.sethlans.core.render.vk.pipeline;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkPipelineLayoutCreateInfo;
@@ -18,15 +22,18 @@ public class PipelineLayout {
     private final LogicalDevice device;
 
     private long handle = VK10.VK_NULL_HANDLE;
+    
+    private final List<DescriptorSetLayout> layouts;
 
     public PipelineLayout(LogicalDevice device, DescriptorSetLayout[] descriptorSetLayouts) {
         this.device = device;
+        this.layouts = Arrays.asList(descriptorSetLayouts);
 
         try (var stack = MemoryStack.stackPush()) {
             // Create a push constant state.
             var pushSize = 16 * Float.BYTES; // 4x4 floating point matrix.
             var maxPush = device.physicalDevice().maxPushConstantsSize();
-            if (pushSize > device.physicalDevice().maxPushConstantsSize()) {
+            if (pushSize > maxPush) {
                 logger.warning("Physical device " + device.physicalDevice() + " only support up to " + maxPush
                         + " bytes as push constants, but requested " + pushSize + " bytes!");
                 pushSize = maxPush;
@@ -59,6 +66,10 @@ public class PipelineLayout {
 
     public long handle() {
         return handle;
+    }
+    
+    public List<DescriptorSetLayout> getSetLayouts() {
+        return Collections.unmodifiableList(layouts);
     }
 
     public void destroy() {

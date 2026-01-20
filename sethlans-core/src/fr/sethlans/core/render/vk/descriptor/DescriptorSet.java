@@ -4,37 +4,19 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkDescriptorBufferInfo;
 import org.lwjgl.vulkan.VkDescriptorImageInfo;
-import org.lwjgl.vulkan.VkDescriptorSetAllocateInfo;
 import org.lwjgl.vulkan.VkWriteDescriptorSet;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
-import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class DescriptorSet {
-
-    private final LogicalDevice device;
-
-    private final DescriptorPool descriptorPool;
+public class DescriptorSet extends AbstractDescriptorSet {
 
     private long handle = VK10.VK_NULL_HANDLE;
-
-    public DescriptorSet(LogicalDevice device, DescriptorPool descriptorPool, DescriptorSetLayout descriptorSetLayout) {
-        this.device = device;
-        this.descriptorPool = descriptorPool;
-
-        try (var stack = MemoryStack.stackPush()) {
-            var allocInfo = VkDescriptorSetAllocateInfo.calloc(stack)
-                    .sType(VK10.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO)
-                    .descriptorPool(descriptorPool.handle())
-                    .pSetLayouts(stack.longs(descriptorSetLayout.handle()));
-
-            var pSetHandles = stack.mallocLong(1);
-            var err = VK10.vkAllocateDescriptorSets(device.handle(), allocInfo, pSetHandles);
-            VkUtil.throwOnFailure(err, "allocate a descriptor-set");
-            this.handle = pSetHandles.get(0);
-        }
+    
+    DescriptorSet(LogicalDevice device, DescriptorPool descriptorPool, DescriptorSetLayout layout, long handle) {
+        super(device, descriptorPool, layout);
+        this.handle = handle;
     }
     
     public DescriptorSet updateBufferDescriptorSet(VulkanBuffer buffer, int binding, long size) {
@@ -56,7 +38,7 @@ public class DescriptorSet {
                     .descriptorCount(1)
                     .pBufferInfo(bufferInfo);
 
-            VK10.vkUpdateDescriptorSets(device.handle(), writeDescriptor, null);
+            VK10.vkUpdateDescriptorSets(getLogicaldevice().handle(), writeDescriptor, null);
         }
         
         return this;
@@ -81,7 +63,7 @@ public class DescriptorSet {
                     .descriptorCount(1)
                     .pBufferInfo(bufferInfo);
 
-            VK10.vkUpdateDescriptorSets(device.handle(), writeDescriptor, null);
+            VK10.vkUpdateDescriptorSets(getLogicaldevice().handle(), writeDescriptor, null);
         }
         
         return this;
@@ -102,19 +84,21 @@ public class DescriptorSet {
                     .descriptorCount(1)
                     .pImageInfo(imageInfo);
 
-            VK10.vkUpdateDescriptorSets(device.handle(), writeDescriptor, null);
+            VK10.vkUpdateDescriptorSets(getLogicaldevice().handle(), writeDescriptor, null);
         }
         
         return this;
     }
-
-    public long handle() {
+    
+    @Override
+    public long handle(int frameIndex) {
         return handle;
     }
 
+    @Override
     public void destroy() {
         if (handle != VK10.VK_NULL_HANDLE) {
-            VK10.vkFreeDescriptorSets(device.handle(), descriptorPool.handle(), handle);
+            VK10.vkFreeDescriptorSets(logicaldevice.handle(), descriptorPool.handle(), handle);
             this.handle = VK10.VK_NULL_HANDLE;
         }
     }

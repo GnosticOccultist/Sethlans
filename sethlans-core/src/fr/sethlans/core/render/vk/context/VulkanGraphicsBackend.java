@@ -15,11 +15,8 @@ import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.backend.GlfwBasedGraphicsBackend;
-import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
-import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.pipeline.PipelineCache;
-import fr.sethlans.core.render.vk.pipeline.PipelineLayout;
 import fr.sethlans.core.render.vk.swapchain.AttachmentDescriptor;
 import fr.sethlans.core.render.vk.swapchain.OffscreenSwapChain;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain;
@@ -51,14 +48,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
     private VulkanFrame[] vulkanFrames;
 
-    private DescriptorPool descriptorPool;
-
-    private DescriptorSetLayout globalDescriptorSetLayout;
-
-    private DescriptorSetLayout samplerDescriptorSetLayout;
-    
-    private DescriptorSetLayout dynamicDescriptorSetLayout;
-
     private ConfigFile config;
 
     private int currentFrameIndex;
@@ -66,8 +55,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
     private VulkanFrame currentFrame;
 
     private PipelineCache pipelineCache;
-
-    private PipelineLayout pipelineLayout;
 
     private AttachmentDescriptor[] descriptors;
 
@@ -107,15 +94,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
         var physicalDevice = context.getPhysicalDevice();
         var logicalDevice = context.getLogicalDevice();
-
-        this.descriptorPool = new DescriptorPool(logicalDevice, 16);
-
-        this.globalDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0,
-                VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK10.VK_SHADER_STAGE_VERTEX_BIT);
-        this.dynamicDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0,
-                VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK10.VK_SHADER_STAGE_VERTEX_BIT);
-        this.samplerDescriptorSetLayout = new DescriptorSetLayout(logicalDevice, 0,
-                VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK10.VK_SHADER_STAGE_FRAGMENT_BIT);
 
         var dependencies = new ArrayList<SubpassDependency>(2);
         if (needsSurface) {
@@ -172,8 +150,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         Arrays.fill(vulkanFrames, new VulkanFrame(logicalDevice, needsSurface));
 
         this.pipelineCache = new PipelineCache(logicalDevice);
-        this.pipelineLayout = new PipelineLayout(logicalDevice, new DescriptorSetLayout[] { globalDescriptorSetLayout,
-                dynamicDescriptorSetLayout, samplerDescriptorSetLayout });
 
         this.renderer = new VulkanRenderer(context, config, swapChain);
     }
@@ -396,28 +372,8 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         return pipelineCache;
     }
 
-    public PipelineLayout getPipelineLayout() {
-        return pipelineLayout;
-    }
-
     public RenderPass getRenderPass() {
         return renderPass;
-    }
-
-    public DescriptorPool descriptorPool() {
-        return descriptorPool;
-    }
-
-    public DescriptorSetLayout globalDescriptorSetLayout() {
-        return globalDescriptorSetLayout;
-    }
-
-    public DescriptorSetLayout dynamicDescriptorSetLayout() {
-        return dynamicDescriptorSetLayout;
-    }
-
-    public DescriptorSetLayout samplerDescriptorSetLayout() {
-        return samplerDescriptorSetLayout;
     }
 
     @Override
@@ -425,10 +381,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
         renderer.destroy();
         
-        if (pipelineLayout != null) {
-            pipelineLayout.destroy();
-        }
-
         if (pipelineCache != null) {
             pipelineCache.destroy();
         }
@@ -449,22 +401,6 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
         for (var d : descriptors) {
             d.destroy();
-        }
-
-        if (globalDescriptorSetLayout != null) {
-            globalDescriptorSetLayout.destroy();
-        }
-
-        if (dynamicDescriptorSetLayout != null) {
-            dynamicDescriptorSetLayout.destroy();
-        }
-
-        if (samplerDescriptorSetLayout != null) {
-            samplerDescriptorSetLayout.destroy();
-        }
-
-        if (descriptorPool != null) {
-            descriptorPool.destroy();
         }
 
         if (context != null) {

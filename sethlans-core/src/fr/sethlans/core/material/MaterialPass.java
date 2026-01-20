@@ -13,6 +13,8 @@ public class MaterialPass {
     
     private long sortId = -1;
     
+    private MaterialLayout layout;
+    
     private final EnumMap<ShaderType, ShaderModuleInfo> sources = new EnumMap<>(ShaderType.class);
     
     public MaterialPass(Material material, String name) {
@@ -34,6 +36,14 @@ public class MaterialPass {
 
     public String getName() {
         return name;
+    }
+
+    public MaterialLayout getLayout() {
+        return layout;
+    }
+
+    public void setLayout(MaterialLayout layout) {
+        this.layout = layout;
     }
 
     public long sortId() {

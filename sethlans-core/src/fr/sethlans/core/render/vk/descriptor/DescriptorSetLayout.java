@@ -14,14 +14,14 @@ public class DescriptorSetLayout {
 
     private long handle = VK10.VK_NULL_HANDLE;
 
-    public DescriptorSetLayout(LogicalDevice device, int binding, int descriptorType, int stageFlags) {
+    public DescriptorSetLayout(LogicalDevice device, int binding, int count, int descriptorType, int stageFlags) {
         this.device = device;
 
         try (var stack = MemoryStack.stackPush()) {
             var pBindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
             pBindings.get(0)
                 .binding(binding)
-                .descriptorCount(1)
+                .descriptorCount(count)
                 .descriptorType(descriptorType)
                 .stageFlags(stageFlags);
 

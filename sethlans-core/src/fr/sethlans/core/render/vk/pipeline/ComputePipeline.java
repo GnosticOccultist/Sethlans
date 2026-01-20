@@ -10,7 +10,7 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 public class ComputePipeline extends AbstractPipeline {
 
     public ComputePipeline(LogicalDevice logicalDevice, PipelineCache pipelineCache, VulkanShaderProgram shaderProgram, PipelineLayout layout) {
-        super(logicalDevice, BindPoint.COMPUTE);
+        super(logicalDevice, BindPoint.COMPUTE, layout);
         
         try (var stack = MemoryStack.stackPush()) {
             

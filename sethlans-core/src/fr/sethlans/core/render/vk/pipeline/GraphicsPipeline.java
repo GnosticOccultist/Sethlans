@@ -26,7 +26,7 @@ import fr.sethlans.core.scenegraph.mesh.Topology;
 public class GraphicsPipeline extends AbstractPipeline {
 
     public GraphicsPipeline(LogicalDevice logicalDevice, PipelineCache pipelineCache, RenderPass renderPass, SwapChain swapChain, VulkanShaderProgram shaderProgram, Topology topology, PipelineLayout layout) {
-        super(logicalDevice, BindPoint.GRAPHICS);
+        super(logicalDevice, BindPoint.GRAPHICS, layout);
 
         try (var stack = MemoryStack.stackPush()) {
             

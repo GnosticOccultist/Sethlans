@@ -14,11 +14,14 @@ public abstract class AbstractPipeline {
 
     private final BindPoint bindPoint;
 
+    private final PipelineLayout layout;
+
     private long handle = VK10.VK_NULL_HANDLE;
 
-    protected AbstractPipeline(LogicalDevice logicalDevice, BindPoint bindPoint) {
+    protected AbstractPipeline(LogicalDevice logicalDevice, BindPoint bindPoint, PipelineLayout layout) {
         this.logicalDevice = logicalDevice;
         this.bindPoint = bindPoint;
+        this.layout = layout;
     }
 
     protected void assignHandle(long handle) {
@@ -37,6 +40,10 @@ public abstract class AbstractPipeline {
         return logicalDevice;
     }
 
+    public PipelineLayout getLayout() {
+        return layout;
+    }
+
     public void destroy() {
         if (handle != VK10.VK_NULL_HANDLE) {
             VK10.vkDestroyPipeline(logicalDevice.handle(), handle, null);
@@ -46,8 +53,7 @@ public abstract class AbstractPipeline {
 
     public enum BindPoint {
 
-        GRAPHICS(VK10.VK_PIPELINE_BIND_POINT_GRAPHICS), 
-        COMPUTE(VK10.VK_PIPELINE_BIND_POINT_COMPUTE);
+        GRAPHICS(VK10.VK_PIPELINE_BIND_POINT_GRAPHICS), COMPUTE(VK10.VK_PIPELINE_BIND_POINT_COMPUTE);
 
         private final int vkEnum;
 

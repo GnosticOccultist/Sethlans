@@ -5,6 +5,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -79,6 +80,15 @@ public class ShaderLibrary {
         default:
             throw new RuntimeException("Unrecognized Shaderc correspondance for shader type '" + shaderType + "'!");
         }
+    }
+    
+    public static int getVkTypes(EnumSet<ShaderType> shaderTypes) {
+        int vkTypes = 0;
+        for (var shaderType : shaderTypes) {
+            vkTypes |= getVkType(shaderType);
+        }
+
+        return vkTypes;
     }
 
     public static int getVkType(ShaderType shaderType) {

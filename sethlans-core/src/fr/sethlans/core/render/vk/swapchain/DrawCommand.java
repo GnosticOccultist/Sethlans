@@ -3,6 +3,7 @@ package fr.sethlans.core.render.vk.swapchain;
 import fr.sethlans.core.material.MaterialPass;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.context.VulkanRenderer;
+import fr.sethlans.core.render.vk.pipeline.AbstractPipeline;
 import fr.sethlans.core.scenegraph.Geometry;
 import fr.sethlans.core.scenegraph.mesh.Topology;
 
@@ -13,6 +14,8 @@ public class DrawCommand {
     private CommandBuffer command;
     
     private boolean started = false;
+
+    private AbstractPipeline pipeline;
 
     public DrawCommand(VulkanRenderer renderer, CommandBuffer command) {
         this.renderer = renderer;
@@ -25,7 +28,7 @@ public class DrawCommand {
         }
         
         renderer.beginDraw(this);
-        var pipeline = renderer.getPipeline(Topology.TRIANGLES, materialPass);
+        pipeline = renderer.getPipeline(Topology.TRIANGLES, materialPass);
         command.bindPipeline(pipeline);
         
         this.started = true;
@@ -38,7 +41,7 @@ public class DrawCommand {
         
         var command = getCommandBuffer();
         
-        var vkMesh = getRenderer().bind(geometry, command, imageIndex);
+        var vkMesh = getRenderer().bind(pipeline, geometry, command, renderer.getCurrentFrameIndex());
         command.draw(vkMesh);
     }
     
