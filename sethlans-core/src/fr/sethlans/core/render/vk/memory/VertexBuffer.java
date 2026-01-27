@@ -17,7 +17,7 @@ public final class VertexBuffer {
 
     public VertexBuffer(LogicalDevice logicalDevice, float[] vertexData, int fpv) {
         this.fpv = fpv;
-        this.deviceBuffer = new DeviceBuffer(logicalDevice, vertexData.length * Float.BYTES,
+        this.deviceBuffer = new DeviceBuffer(logicalDevice, MemorySize.floats(vertexData.length),
                 VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) {
 
             @Override
@@ -29,7 +29,7 @@ public final class VertexBuffer {
 
     public VertexBuffer(LogicalDevice logicalDevice, Collection<Vertex> vertices, int fpv) {
         this.fpv = fpv;
-        this.deviceBuffer = new DeviceBuffer(logicalDevice, vertices.size() * fpv * Float.BYTES,
+        this.deviceBuffer = new DeviceBuffer(logicalDevice, MemorySize.floats(vertices.size() * fpv),
                 VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) {
 
             @Override
@@ -47,7 +47,7 @@ public final class VertexBuffer {
     public VertexBuffer(LogicalDevice logicalDevice, FloatBuffer buffer, int fpv) {
         buffer.rewind();
         this.fpv = fpv;
-        this.deviceBuffer = new DeviceBuffer(logicalDevice, buffer.capacity() * Float.BYTES,
+        this.deviceBuffer = new DeviceBuffer(logicalDevice, MemorySize.floats(buffer.capacity()),
                 VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) {
 
             @Override

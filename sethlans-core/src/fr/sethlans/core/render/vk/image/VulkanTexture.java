@@ -11,6 +11,7 @@ import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.math.Mathf;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.memory.MemorySize;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 
 public class VulkanTexture {
@@ -36,12 +37,12 @@ public class VulkanTexture {
         var mipLevels = 1 + Mathf.log2(maxDimension);
 
         // Create a temporary staging buffer.
-        var size = data.remaining();
+        var size = new MemorySize(data.remaining(), 1);
         var stagingBuffer = new VulkanBuffer(device, size, VK10.VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
         stagingBuffer.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
         // Map the staging buffer memory to a buffer.
-        var buffer = stagingBuffer.map();
+        var buffer = stagingBuffer.mapBytes();
         buffer.put(data);
         data.flip();
         stagingBuffer.unmap();

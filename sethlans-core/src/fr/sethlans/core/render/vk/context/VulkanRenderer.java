@@ -195,6 +195,7 @@ public class VulkanRenderer {
                     meshes[i] = new VulkanMesh(logicalDevice, mesh);
                     vkMesh = meshes[i];
                     mesh.assignId(i);
+                    break;
                 }
             }
         }
@@ -217,6 +218,7 @@ public class VulkanRenderer {
                         textures[i] = new VulkanTexture(logicalDevice, texture);
                         vkTexture = textures[i];
                         texture.assignId(i);
+                        break;
                     }
                 }
             }

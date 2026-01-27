@@ -21,6 +21,7 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.memory.MemorySize;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 
 public abstract class SwapChain {
@@ -81,7 +82,7 @@ public abstract class SwapChain {
         var width = framebufferExtent.width();
         var height = framebufferExtent.height();
         var channels = 4;
-        var size = width * height * channels;
+        var size = new MemorySize(width * height, channels);
         var destination = new VulkanBuffer(context.getLogicalDevice(), size, VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT);
         destination.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -96,7 +97,7 @@ public abstract class SwapChain {
         }
 
         // Map buffer memory and decode BGRA pixel data.
-        var data = destination.map();
+        var data = destination.mapBytes();
         var img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         for (var y = 0; y < height; ++y) {
             for (var x = 0; x < width; ++x) {

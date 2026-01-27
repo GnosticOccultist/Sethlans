@@ -8,7 +8,7 @@ import fr.sethlans.core.render.vk.device.LogicalDevice;
 
 public class DeviceBuffer {
 
-    private final long size;
+    private final MemorySize size;
 
     private final int usage;
 
@@ -16,7 +16,7 @@ public class DeviceBuffer {
 
     private VulkanBuffer buffer;
 
-    public DeviceBuffer(LogicalDevice device, long size, int usage) {
+    public DeviceBuffer(LogicalDevice device, MemorySize size, int usage) {
         this.size = size;
         this.usage = usage;
 
@@ -25,9 +25,8 @@ public class DeviceBuffer {
         stagingBuffer.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
         // Map the staging buffer memory to a buffer.
-        this.data = stagingBuffer.map();
+        this.data = stagingBuffer.mapBytes();
         populate(data);
-        data = null;
         stagingBuffer.unmap();
 
         // Finally create a device local buffer to use as a destination.
@@ -48,7 +47,7 @@ public class DeviceBuffer {
 
     }
 
-    public long size() {
+    public MemorySize size() {
         return size;
     }
 

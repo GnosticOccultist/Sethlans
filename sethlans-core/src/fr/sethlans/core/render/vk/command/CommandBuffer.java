@@ -101,7 +101,7 @@ public class CommandBuffer {
             var pRegion = VkBufferCopy.calloc(1, stack)
                     .srcOffset(0)
                     .dstOffset(0)
-                    .size(source.size());
+                    .size(source.size().getBytes());
 
             VK10.vkCmdCopyBuffer(handle, source.handle(), destination.handle(), pRegion);
         }

@@ -13,7 +13,7 @@ public class VulkanBuffer extends MemoryResource {
 
     private int usage;
 
-    public VulkanBuffer(LogicalDevice device, long size, int usage) {
+    public VulkanBuffer(LogicalDevice device, MemorySize size, int usage) {
         super(size);
         this.usage = usage;
 
@@ -38,7 +38,7 @@ public class VulkanBuffer extends MemoryResource {
             var createInfo = VkBufferCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO)
                     .sharingMode(VK10.VK_SHARING_MODE_EXCLUSIVE)
-                    .size(size())
+                    .size(size().getBytes())
                     .usage(usage);
 
             var vkDevice = logicalDeviceHandle();

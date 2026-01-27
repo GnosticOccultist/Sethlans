@@ -41,7 +41,7 @@ public class IndexBuffer {
             bytesPerElement = Integer.BYTES;
         }
 
-        this.deviceBuffer = new DeviceBuffer(logicalDevice, indices.length * bytesPerElement,
+        this.deviceBuffer = new DeviceBuffer(logicalDevice, new MemorySize(indices.length, bytesPerElement),
                 VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_INDEX_BUFFER_BIT) {
 
             @Override
@@ -76,7 +76,7 @@ public class IndexBuffer {
             bytesPerElement = Integer.BYTES;
         }
 
-        this.deviceBuffer = new DeviceBuffer(logicalDevice, indices.size() * bytesPerElement,
+        this.deviceBuffer = new DeviceBuffer(logicalDevice, new MemorySize(indices.size(), bytesPerElement),
                 VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_INDEX_BUFFER_BIT) {
 
             @Override
@@ -109,7 +109,7 @@ public class IndexBuffer {
             this.elementType = VK10.VK_INDEX_TYPE_UINT32;
         }
 
-        this.deviceBuffer = new DeviceBuffer(logicalDevice, elementCount * bpe,
+        this.deviceBuffer = new DeviceBuffer(logicalDevice, new MemorySize(elementCount, bpe),
                 VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_INDEX_BUFFER_BIT) {
 
             @Override

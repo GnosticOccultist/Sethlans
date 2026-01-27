@@ -9,6 +9,7 @@ import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.context.VulkanContext;
+import fr.sethlans.core.render.vk.memory.MemorySize;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 
 public class OffscreenSwapChain extends SwapChain {
@@ -48,7 +49,7 @@ public class OffscreenSwapChain extends SwapChain {
         var width = framebufferExtent.width();
         var height = framebufferExtent.height();
         var channels = 4;
-        var size = width * height * channels;
+        var size = new MemorySize(width * height, channels);
         this.screenBuffer = new VulkanBuffer(logicalDevice(), size, VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT);
         screenBuffer.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
                 | VK10.VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
@@ -85,7 +86,7 @@ public class OffscreenSwapChain extends SwapChain {
             var width = framebufferExtent.width();
             var height = framebufferExtent.height();
             var channels = 4;
-            var size = width * height * channels;
+            var size = new MemorySize(width * height, channels);
             this.screenBuffer = new VulkanBuffer(logicalDevice(), size, VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT);
             screenBuffer.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
                     | VK10.VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
@@ -120,7 +121,7 @@ public class OffscreenSwapChain extends SwapChain {
             image.transitionImageLayout(command, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, attachment.finalLayout());
         }
 
-        var data = screenBuffer.map();
+        var data = screenBuffer.mapBytes();
         store.put(data);
         screenBuffer.unmap();
 

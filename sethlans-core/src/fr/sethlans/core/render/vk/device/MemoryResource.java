@@ -1,25 +1,34 @@
 package fr.sethlans.core.render.vk.device;
 
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkMemoryAllocateInfo;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
+import fr.sethlans.core.render.vk.memory.MemorySize;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public abstract class MemoryResource extends VulkanResource {
 
-    private final long size;
+    private final MemorySize size;
+
+    private final AtomicBoolean mapped = new AtomicBoolean(false);
+
+    private PointerBuffer mapping = null;
 
     private long memoryHandle = VK10.VK_NULL_HANDLE;
 
     public MemoryResource() {
-        this(0);
+        this(new MemorySize(0, 1));
     }
 
-    public MemoryResource(long size) {
+    public MemoryResource(MemorySize size) {
         this.size = size;
     }
     
@@ -56,31 +65,70 @@ public abstract class MemoryResource extends VulkanResource {
     protected abstract VkMemoryRequirements queryMemoryRequirements(VkMemoryRequirements memRequirements);
 
     protected abstract void bindMemory(long memoryHandle);
+    
+    public PointerBuffer map() {
+        return map(0L, VK10.VK_WHOLE_SIZE);
+    }
 
-    public ByteBuffer map() {
+    public PointerBuffer map(long offset) {
+        return map(offset, VK10.VK_WHOLE_SIZE);
+    }
+
+    public PointerBuffer map(long offset, long size) {
         assert memoryHandle != VK10.VK_NULL_HANDLE;
-
-        try (var stack = MemoryStack.stackPush()) {
-            var vkDevice = logicalDeviceHandle();
-            var pPointer = stack.mallocPointer(1);
-            var offset = 0;
-            var flags = 0x0;
-            var err = VK10.vkMapMemory(vkDevice, memoryHandle, offset, size, flags, pPointer);
-            VkUtil.throwOnFailure(err, "map a buffer's memory");
-
-            var result = pPointer.getByteBuffer(0, (int) size);
-            return result;
+        if (mapped.getAndSet(true)) {
+            throw new IllegalStateException("Memory already mapped.");
         }
+
+        if (mapping == null) {
+            mapping = MemoryUtil.memCallocPointer(1);
+        }
+        
+        var vkDevice = logicalDeviceHandle();
+        var err = VK10.vkMapMemory(vkDevice, memoryHandle, offset, size, 0, mapping);
+        VkUtil.throwOnFailure(err, "map a buffer's memory");
+
+        return mapping;
+    }
+    
+    public ByteBuffer mapBytes(int offset, int size) {
+        return map(offset * Byte.BYTES, size * Byte.BYTES).getByteBuffer(0, size);
+    }
+
+    public ByteBuffer mapBytes(int offset) {
+        return mapBytes(offset, size().getBytes() - offset);
+    }
+
+    public ByteBuffer mapBytes() {
+        return mapBytes(0, size().getBytes());
+    }
+
+    public FloatBuffer mapFloats(int offset, int size) {
+        return map(offset * Float.BYTES, size * Float.BYTES).getFloatBuffer(0, size);
+    }
+
+    public FloatBuffer mapFloats(int offset) {
+        return mapFloats(offset, size().getFloats() - offset);
+    }
+
+    public FloatBuffer mapFloats() {
+        return mapFloats(0, size().getFloats());
     }
 
     public void unmap() {
+        if (!mapped.getAndSet(false)) {
+            throw new IllegalStateException("Memory is not mapped.");
+        }
+
+        mapping.put(0, VK10.VK_NULL_HANDLE);
+
         if (memoryHandle != VK10.VK_NULL_HANDLE) {
             var vkDevice = logicalDeviceHandle();
             VK10.vkUnmapMemory(vkDevice, memoryHandle);
         }
     }
 
-    public long size() {
+    public MemorySize size() {
         return size;
     }
 
@@ -92,9 +140,13 @@ public abstract class MemoryResource extends VulkanResource {
     public void destroy() {
         if (memoryHandle != VK10.VK_NULL_HANDLE) {
             var vkDevice = logicalDeviceHandle();
-            
+
             VK10.vkFreeMemory(vkDevice, memoryHandle, null);
             this.memoryHandle = VK10.VK_NULL_HANDLE;
+        }
+        
+        if (mapping != null)  {
+            MemoryUtil.memFree(mapping);
         }
     }
 }

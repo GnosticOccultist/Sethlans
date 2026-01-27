@@ -43,7 +43,7 @@ public class BufferUniform implements VulkanUniform<VulkanBuffer> {
             super(bindingLayout, 0, 1);
             this.buffer = buffer;
             this.id = buffer.handle();
-            this.bytes = buffer.size();
+            this.bytes = buffer.size().getBytes();
         }
 
         @Override
