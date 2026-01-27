@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.lwjgl.vulkan.VK10;
-
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.material.MaterialLayout;

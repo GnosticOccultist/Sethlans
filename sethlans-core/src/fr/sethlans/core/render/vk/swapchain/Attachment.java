@@ -57,7 +57,7 @@ public class Attachment {
         this.imageView = new ImageView(device, image.handle(), format, aspectMask);
 
         // Transition the image to an optimal layout.
-        try (var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout)) {
+        try (var _ = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout)) {
 
         }
     }
@@ -86,7 +86,7 @@ public class Attachment {
         this.imageView = new ImageView(device, image.handle(), format, aspectMask);
 
         // Transition the image to an optimal layout.
-        try (var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout)) {
+        try (var _ = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout)) {
 
         }
     }

@@ -106,7 +106,7 @@ public class Window {
         glfwShowWindow(windowHandle);
 
         // Setup a callback when window framebuffer is resized.
-        glfwSetFramebufferSizeCallback(windowHandle, (handle, w, h) -> resized = true);
+        glfwSetFramebufferSizeCallback(windowHandle, (_, _, _) -> resized = true);
     }
 
     public void update() {

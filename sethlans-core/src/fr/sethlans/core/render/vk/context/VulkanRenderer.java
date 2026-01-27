@@ -95,7 +95,7 @@ public class VulkanRenderer {
             var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
             if (needsSurface) {
-                try (var m = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionImageLayout(
+                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionImageLayout(
                         VK10.VK_IMAGE_LAYOUT_UNDEFINED, VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)) {
 
                 }
@@ -124,7 +124,7 @@ public class VulkanRenderer {
             var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
             if (needsSurface) {
-                try (var m = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionImageLayout(
+                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionImageLayout(
                         VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)) {
 
                 }
