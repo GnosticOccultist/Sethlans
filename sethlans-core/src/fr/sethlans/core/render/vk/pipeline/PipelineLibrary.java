@@ -64,7 +64,7 @@ public class PipelineLibrary {
             logger.info(
                     "Creating pipeline layout for material layout '" + layout + "', hash= 0x" + Long.toHexString(k));
 
-            var vkLayout = new PipelineLayout(device, descLayouts.toArray(new DescriptorSetLayout[0]));
+            var vkLayout = new PipelineLayout(device, descLayouts.toArray(new DescriptorSetLayout[0]), layout.pushConstantLayouts());
             return vkLayout;
         });
 

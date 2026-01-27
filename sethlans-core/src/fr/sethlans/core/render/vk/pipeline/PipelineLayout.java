@@ -11,8 +11,10 @@ import org.lwjgl.vulkan.VkPushConstantRange;
 
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
+import fr.sethlans.core.material.layout.PushConstantLayout;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.shader.ShaderLibrary;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class PipelineLayout {
@@ -24,25 +26,34 @@ public class PipelineLayout {
     private long handle = VK10.VK_NULL_HANDLE;
     
     private final List<DescriptorSetLayout> layouts;
+    
+    private final List<PushConstantLayout> pushConstants;
 
-    public PipelineLayout(LogicalDevice device, DescriptorSetLayout[] descriptorSetLayouts) {
+    public PipelineLayout(LogicalDevice device, DescriptorSetLayout[] descriptorSetLayouts, List<PushConstantLayout> pushConstants) {
         this.device = device;
         this.layouts = Arrays.asList(descriptorSetLayouts);
+        this.pushConstants = pushConstants;
 
         try (var stack = MemoryStack.stackPush()) {
-            // Create a push constant state.
-            var pushSize = 16 * Float.BYTES; // 4x4 floating point matrix.
+            // Define push constants layouts.
+            var numPushConstantLayouts = pushConstants != null ? pushConstants.size() : 0;
+            var pPushConstantRanges = numPushConstantLayouts > 0 ? VkPushConstantRange.calloc(numPushConstantLayouts, stack) : null;
             var maxPush = device.physicalDevice().maxPushConstantsSize();
-            if (pushSize > maxPush) {
-                logger.warning("Physical device " + device.physicalDevice() + " only support up to " + maxPush
-                        + " bytes as push constants, but requested " + pushSize + " bytes!");
-                pushSize = maxPush;
-            }
+            for (var i = 0; i < numPushConstantLayouts; ++i) {
+                var pc = pushConstants.get(i);
+                var pushSize = pc.size();
+                if (pushSize > maxPush) {
+                    logger.warning("Physical device " + device.physicalDevice() + " only support up to " + maxPush
+                            + " bytes as push constants, but requested " + pushSize + " bytes!");
+                    pushSize = maxPush;
+                }
 
-            var vpcr = VkPushConstantRange.calloc(1, stack)
-                    .stageFlags(VK10.VK_SHADER_STAGE_VERTEX_BIT)
-                    .offset(0)
-                    .size(pushSize);
+                // Create a push constant state.
+                pPushConstantRanges.get(i)
+                        .stageFlags(ShaderLibrary.getVkTypes(pc.shaderTypes()))
+                        .offset(pc.offset())
+                        .size(pushSize);
+            }
 
             // Define descriptor-set layouts.
             var numLayouts = descriptorSetLayouts != null ? descriptorSetLayouts.length : 0;
@@ -54,8 +65,9 @@ public class PipelineLayout {
             // Define pipeline layout info.
             var layoutCreateInfo = VkPipelineLayoutCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO)
+                    .setLayoutCount(pSetLayouts.limit())
                     .pSetLayouts(pSetLayouts)
-                    .pPushConstantRanges(vpcr);
+                    .pPushConstantRanges(pPushConstantRanges);
 
             var pHandle = stack.mallocLong(1);
             var err = VK10.vkCreatePipelineLayout(device.handle(), layoutCreateInfo, null, pHandle);
@@ -70,6 +82,10 @@ public class PipelineLayout {
     
     public List<DescriptorSetLayout> getSetLayouts() {
         return Collections.unmodifiableList(layouts);
+    }
+    
+    public List<PushConstantLayout> getPushConstants() {
+        return Collections.unmodifiableList(pushConstants);
     }
 
     public void destroy() {

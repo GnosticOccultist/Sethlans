@@ -24,6 +24,7 @@ import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.pipeline.AbstractPipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineLayout;
 import fr.sethlans.core.render.vk.pipeline.PipelineLibrary;
+import fr.sethlans.core.render.vk.shader.ShaderLibrary;
 import fr.sethlans.core.render.vk.swapchain.DrawCommand;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
@@ -231,10 +232,14 @@ public class VulkanRenderer {
                 samplerDescriptorSet.updateTextureDescriptorSet(vkTexture, 0);
             }
         }
+        
+        var pushConstants = layout.getPushConstants();
+        for (var pushConstant : pushConstants) {
+            command.pushConstants(layout.handle(), ShaderLibrary.getVkTypes(pushConstant.shaderTypes()), 0, geometry.getModelMatrix());
+        }
 
         command.bindVertexBuffer(vkMesh.getVertexBuffer())
-                .bindIndexBuffer(vkMesh.getIndexBuffer())
-                .pushConstants(layout.handle(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, geometry.getModelMatrix());
+                .bindIndexBuffer(vkMesh.getIndexBuffer());
 
         return vkMesh;
     }

@@ -6,13 +6,8 @@ import java.util.Map;
 import org.joml.Matrix4f;
 import org.lwjgl.vulkan.VK10;
 
-import fr.alchemy.utilities.logging.FactoryLogger;
-import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.material.layout.BindingLayout;
 import fr.sethlans.core.render.Projection;
-import fr.sethlans.core.render.struct.ValueType;
-import fr.sethlans.core.render.struct.GpuStruct.StructField;
-import fr.sethlans.core.render.struct.GpuStruct.StructLayout;
 import fr.sethlans.core.render.vk.descriptor.AbstractDescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
