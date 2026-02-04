@@ -11,6 +11,7 @@ import java.util.Collections;
 import org.lwjgl.vulkan.KHRIndexTypeUint8;
 import org.lwjgl.vulkan.VK10;
 
+import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.util.BufferUtils;
 

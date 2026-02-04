@@ -19,9 +19,9 @@ import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
+import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.memory.MemorySize;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 
 public abstract class SwapChain {

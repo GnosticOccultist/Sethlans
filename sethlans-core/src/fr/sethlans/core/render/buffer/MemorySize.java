@@ -1,4 +1,4 @@
-package fr.sethlans.core.render.vk.memory;
+package fr.sethlans.core.render.buffer;
 
 import java.util.Objects;
 

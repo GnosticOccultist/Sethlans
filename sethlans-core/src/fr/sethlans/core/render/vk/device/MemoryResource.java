@@ -11,7 +11,9 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkMemoryAllocateInfo;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
-import fr.sethlans.core.render.vk.memory.MemorySize;
+import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.struct.StructLayoutGenerator.StructLayout;
+import fr.sethlans.core.render.struct.StructView;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public abstract class MemoryResource extends VulkanResource {
@@ -65,7 +67,11 @@ public abstract class MemoryResource extends VulkanResource {
     protected abstract VkMemoryRequirements queryMemoryRequirements(VkMemoryRequirements memRequirements);
 
     protected abstract void bindMemory(long memoryHandle);
-    
+
+    public StructView map(StructLayout layout) {
+        return new StructView(mapBytes(), layout);
+    }
+
     public PointerBuffer map() {
         return map(0L, VK10.VK_WHOLE_SIZE);
     }

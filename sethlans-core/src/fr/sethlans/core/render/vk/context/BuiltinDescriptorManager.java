@@ -8,16 +8,26 @@ import org.lwjgl.vulkan.VK10;
 
 import fr.sethlans.core.material.layout.BindingLayout;
 import fr.sethlans.core.render.Projection;
+import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.struct.GpuStruct;
+import fr.sethlans.core.render.struct.LayoutFormatter;
+import fr.sethlans.core.render.struct.StructLayoutGenerator;
+import fr.sethlans.core.render.struct.StructLayoutGenerator.StructLayout;
 import fr.sethlans.core.render.vk.descriptor.AbstractDescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.memory.MemorySize;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.uniform.BufferUniform;
 import fr.sethlans.core.render.vk.uniform.UpdateRate;
 
 public class BuiltinDescriptorManager {
+    
+    record Global(Matrix4f projection) implements GpuStruct {
+    }
+    
+    record Dynamic(Matrix4f view) implements GpuStruct {
+    }
     
     private final DescriptorPool descriptorPool;
     
@@ -36,8 +46,8 @@ public class BuiltinDescriptorManager {
         this.projection = new Projection(width, height);
         this.viewMatrix = new Matrix4f();
         
-        builtinBindings.put("Global", new BuiltinBinding("Global", UpdateRate.STATIC));
-        builtinBindings.put("Dynamic", new BuiltinBinding("Dynamic", UpdateRate.PER_FRAME));
+        builtinBindings.put("Global", new BuiltinBinding("Global", UpdateRate.STATIC, StructLayoutGenerator.generate(Global.class, LayoutFormatter.STD140)));
+        builtinBindings.put("Dynamic", new BuiltinBinding("Dynamic", UpdateRate.PER_FRAME, StructLayoutGenerator.generate(Dynamic.class, LayoutFormatter.STD140)));
     }
     
     void resize(LogicalDevice logicalDevice, int width, int height) {
@@ -81,9 +91,8 @@ public class BuiltinDescriptorManager {
                 var globalUniform = new VulkanBuffer(logicalDevice, MemorySize.floats(16 * VulkanGraphicsBackend.MAX_FRAMES_IN_FLIGHT), VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
                 globalUniform.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
                 vkBuffUniform.set(globalUniform);
-                var buffer = globalUniform.mapBytes();
-                viewMatrix.get(0, buffer);
-                viewMatrix.get(Float.BYTES * 16, buffer);
+                var buffer = globalUniform.map(builtin.layout());
+                buffer.set("view", viewMatrix);
                 globalUniform.unmap();
                 
             } else {
@@ -91,8 +100,8 @@ public class BuiltinDescriptorManager {
                 var globalUniform = new VulkanBuffer(logicalDevice, MemorySize.floats(16), VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
                 globalUniform.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
                 vkBuffUniform.set(globalUniform);
-                var matrixBuffer = globalUniform.mapBytes();
-                projection.store(0, matrixBuffer);
+                var buffer = globalUniform.map(builtin.layout());
+                buffer.set("projection", projection.getMatrix());
                 globalUniform.unmap();
             }
            
@@ -102,7 +111,7 @@ public class BuiltinDescriptorManager {
         return bufferUniform;
     }
     
-    public record BuiltinBinding(String name, UpdateRate updateRate) {
+    public record BuiltinBinding(String name, UpdateRate updateRate, StructLayout layout) {
         
     }
 }

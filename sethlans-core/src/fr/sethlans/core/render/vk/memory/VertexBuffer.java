@@ -6,6 +6,7 @@ import java.util.Collection;
 
 import org.lwjgl.vulkan.VK10;
 
+import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.scenegraph.mesh.Vertex;
 

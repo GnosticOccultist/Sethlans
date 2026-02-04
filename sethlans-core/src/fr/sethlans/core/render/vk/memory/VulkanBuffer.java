@@ -5,6 +5,7 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkBufferCreateInfo;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
+import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.device.MemoryResource;
 import fr.sethlans.core.render.vk.util.VkUtil;

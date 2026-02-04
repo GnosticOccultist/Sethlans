@@ -9,9 +9,9 @@ import org.lwjgl.vulkan.VkImageMemoryBarrier;
 
 import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.math.Mathf;
+import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.memory.MemorySize;
 import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 
 public class VulkanTexture {

@@ -22,4 +22,8 @@ public class Projection {
         this.projectionMatrix.identity().perspective((float) Math.toRadians(45f), (float) width / (float) height, 0.1f,
                 100.0f, true);
     }
+
+    public Matrix4f getMatrix() {
+        return projectionMatrix;
+    }
 }

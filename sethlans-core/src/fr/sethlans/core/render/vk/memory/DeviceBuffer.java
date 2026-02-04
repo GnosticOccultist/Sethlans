@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 
 import org.lwjgl.vulkan.VK10;
 
+import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 
 public class DeviceBuffer {
