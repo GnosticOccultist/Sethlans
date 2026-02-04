@@ -8,5 +8,7 @@ public enum BindingType {
 
     COMBINED_IMAGE_SAMPLER,
 
-    STORAGE_BUFFER;
+    STORAGE_BUFFER, 
+    
+    STORAGE_BUFFER_DYNAMIC;
 }

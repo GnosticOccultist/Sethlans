@@ -210,6 +210,8 @@ public class PipelineLibrary {
             return VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         case STORAGE_BUFFER:
             return VK10.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        case STORAGE_BUFFER_DYNAMIC:
+            return VK10.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
         default:
             throw new RuntimeException("Unrecognized Vulkan correspondance for binding type '" + type + "'!");
         }
