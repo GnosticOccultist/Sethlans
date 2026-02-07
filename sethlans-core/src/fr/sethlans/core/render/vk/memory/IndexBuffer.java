@@ -1,9 +1,6 @@
 package fr.sethlans.core.render.vk.memory;
 
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
-import java.nio.ShortBuffer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -12,10 +9,16 @@ import org.lwjgl.vulkan.KHRIndexTypeUint8;
 import org.lwjgl.vulkan.VK10;
 
 import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.buffer.NativeBuffer;
+import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.util.BufferUtils;
 
 public class IndexBuffer {
+
+    private static final VkFlag<BufferUsage> INDEX_BUFFER_USAGE = VkFlag.of(BufferUsage.TRANSFER_DST,
+            BufferUsage.INDEX);
 
     private DeviceBuffer deviceBuffer;
 
@@ -43,7 +46,7 @@ public class IndexBuffer {
         }
 
         this.deviceBuffer = new DeviceBuffer(logicalDevice, new MemorySize(indices.length, bytesPerElement),
-                VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_INDEX_BUFFER_BIT) {
+                INDEX_BUFFER_USAGE) {
 
             @Override
             protected void populate(ByteBuffer data) {
@@ -78,7 +81,7 @@ public class IndexBuffer {
         }
 
         this.deviceBuffer = new DeviceBuffer(logicalDevice, new MemorySize(indices.size(), bytesPerElement),
-                VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_INDEX_BUFFER_BIT) {
+                INDEX_BUFFER_USAGE) {
 
             @Override
             protected void populate(ByteBuffer data) {
@@ -93,33 +96,20 @@ public class IndexBuffer {
         };
     }
 
-    public IndexBuffer(LogicalDevice logicalDevice, Buffer indices) {
-        indices.rewind();
-        this.elementCount = indices.capacity();
-        var bpe = 1;
-        if (logicalDevice.physicalDevice().supportsByteIndex() && indices instanceof ByteBuffer) {
-            bpe = 1;
-            this.elementType = KHRIndexTypeUint8.VK_INDEX_TYPE_UINT8_KHR;
+    public IndexBuffer(LogicalDevice logicalDevice, NativeBuffer indices) {
+        this.elementCount = indices.size().getElements();
+        this.elementType = switch (indices.size().getBytesPerElement()) {
+        case Integer.BYTES -> VK10.VK_INDEX_TYPE_UINT32;
+        case Short.BYTES -> VK10.VK_INDEX_TYPE_UINT16;
+        case Byte.BYTES -> KHRIndexTypeUint8.VK_INDEX_TYPE_UINT8_KHR;
+        default -> throw new IllegalArgumentException("Unexpected value: " + indices.size().getBytesPerElement());
+        };
 
-        } else if (indices instanceof ShortBuffer) {
-            bpe = 2;
-            this.elementType = VK10.VK_INDEX_TYPE_UINT16;
-
-        } else {
-            bpe = 4;
-            this.elementType = VK10.VK_INDEX_TYPE_UINT32;
-        }
-
-        this.deviceBuffer = new DeviceBuffer(logicalDevice, new MemorySize(elementCount, bpe),
-                VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_INDEX_BUFFER_BIT) {
+        this.deviceBuffer = new DeviceBuffer(logicalDevice, MemorySize.copy(indices.size()), INDEX_BUFFER_USAGE) {
 
             @Override
             protected void populate(ByteBuffer data) {
-                switch (elementType) {
-                case VK10.VK_INDEX_TYPE_UINT32 -> data.asIntBuffer().put((IntBuffer) indices);
-                case VK10.VK_INDEX_TYPE_UINT16 -> data.asShortBuffer().put((ShortBuffer) indices);
-                case KHRIndexTypeUint8.VK_INDEX_TYPE_UINT8_KHR -> data.put((ByteBuffer) indices);
-                }
+                data.put(indices.mapBytes());
             }
         };
     }

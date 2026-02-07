@@ -36,13 +36,17 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.app.kernel.OS;
+import fr.sethlans.core.natives.AbstractNativeResource;
+import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.context.VulkanGraphicsBackend;
 import fr.sethlans.core.render.vk.context.VulkanInstance;
+import fr.sethlans.core.render.vk.memory.MemoryProperty;
+import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class PhysicalDevice {
+public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
 
     private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.device");
     
@@ -116,8 +120,6 @@ public class PhysicalDevice {
 
     private final VulkanInstance instance;
 
-    private VkPhysicalDevice handle;
-
     private String name;
 
     private int type = -1;
@@ -144,7 +146,9 @@ public class PhysicalDevice {
 
     public PhysicalDevice(long handle, VulkanInstance instance) {
         this.instance = instance;
-        this.handle = new VkPhysicalDevice(handle, instance.handle());
+        this.object = new VkPhysicalDevice(handle, instance.handle());
+        this.ref = NativeResource.get().register(this);
+        instance.getNativeReference().addDependent(ref);
     }
 
     private boolean hasAdequateSwapChainSupport(long surfaceHandle) {
@@ -173,7 +177,7 @@ public class PhysicalDevice {
             // Set up required features.
             var features = VkPhysicalDeviceFeatures.calloc(stack);
             // Request features for the physical device.
-            VK11.vkGetPhysicalDeviceFeatures(handle, features);
+            VK11.vkGetPhysicalDeviceFeatures(object, features);
 
             var sampleShading = config.getFloat(SethlansApplication.MIN_SAMPLE_SHADING_PROP,
                     SethlansApplication.DEFAULT_MIN_SAMPLE_SHADING);
@@ -216,7 +220,7 @@ public class PhysicalDevice {
                     .pNext(dynamicRenderingFeatures);
 
             // Request features2 for the physical device.
-            VK11.vkGetPhysicalDeviceFeatures2(handle, features2);
+            VK11.vkGetPhysicalDeviceFeatures2(object, features2);
             if (uint8Features.indexTypeUint8()) {
                 uint8Features.indexTypeUint8(true);
                 this.byteIndexSupported = true;
@@ -304,10 +308,10 @@ public class PhysicalDevice {
             }
 
             var pPointer = stack.mallocPointer(1);
-            var err = VK10.vkCreateDevice(handle, createInfo, null, pPointer);
+            var err = VK10.vkCreateDevice(object, createInfo, null, pPointer);
             VkUtil.throwOnFailure(err, "create logical device");
             var deviceHandle = pPointer.get(0);
-            var result = new VkDevice(deviceHandle, handle, createInfo);
+            var result = new VkDevice(deviceHandle, object, createInfo);
 
             return result;
         }
@@ -327,7 +331,7 @@ public class PhysicalDevice {
         // Count the number of extensions.
         String layerName = null;
         var pCount = stack.mallocInt(1);
-        var err = VK10.vkEnumerateDeviceExtensionProperties(handle, layerName, pCount, null);
+        var err = VK10.vkEnumerateDeviceExtensionProperties(object, layerName, pCount, null);
         VkUtil.throwOnFailure(err, "count physical device extensions.");
         var numExtensions = pCount.get(0);
 
@@ -335,7 +339,7 @@ public class PhysicalDevice {
 
         // Enumerate the available extensions.
         var pProperties = VkExtensionProperties.malloc(numExtensions, stack);
-        err = VK10.vkEnumerateDeviceExtensionProperties(handle, layerName, pCount, pProperties);
+        err = VK10.vkEnumerateDeviceExtensionProperties(object, layerName, pCount, pProperties);
         VkUtil.throwOnFailure(err, "enumerate physical device extensions.");
 
         this.availableExtensions = new TreeSet<>();
@@ -359,7 +363,7 @@ public class PhysicalDevice {
     private void gatherToolProperties(MemoryStack stack) {
         // Count the number of extensions.
         var pCount = stack.mallocInt(1);
-        var err = VK13.vkGetPhysicalDeviceToolProperties(handle, pCount, null);
+        var err = VK13.vkGetPhysicalDeviceToolProperties(object, pCount, null);
         VkUtil.throwOnFailure(err, "count physical device tool properties.");
         var numToolProps = pCount.get(0);
 
@@ -367,7 +371,7 @@ public class PhysicalDevice {
 
         // Enumerate the tool properties.
         var pToolProperties = VkPhysicalDeviceToolProperties.malloc(numToolProps, stack);
-        err = VK13.vkGetPhysicalDeviceToolProperties(handle, pCount, pToolProperties);
+        err = VK13.vkGetPhysicalDeviceToolProperties(object, pCount, pToolProperties);
         VkUtil.throwOnFailure(err, "enumerate physical tool properties.");
 
         this.availableToolProperties = new TreeSet<>();
@@ -380,7 +384,7 @@ public class PhysicalDevice {
 
     private void gatherDeviceProperties(MemoryStack stack) {
         var properties = VkPhysicalDeviceProperties.calloc(stack);
-        VK10.vkGetPhysicalDeviceProperties(handle, properties);
+        VK10.vkGetPhysicalDeviceProperties(object, properties);
 
         this.name = properties.deviceNameString();
         this.maxPushConstantsSize = properties.limits().maxPushConstantsSize();
@@ -412,7 +416,7 @@ public class PhysicalDevice {
     public boolean supportFormatFeature(int imageTiling, int format, int requiredFeatures) {
         try (var stack = MemoryStack.stackPush()) {
             var pFormatProperties = VkFormatProperties.calloc(stack);
-            VK10.vkGetPhysicalDeviceFormatProperties(handle, format, pFormatProperties);
+            VK10.vkGetPhysicalDeviceFormatProperties(object, format, pFormatProperties);
 
             int features;
             switch (imageTiling) {
@@ -439,7 +443,7 @@ public class PhysicalDevice {
             var pFormatProperties = VkFormatProperties.calloc(stack);
 
             for (var format : formats) {
-                VK10.vkGetPhysicalDeviceFormatProperties(handle, format, pFormatProperties);
+                VK10.vkGetPhysicalDeviceFormatProperties(object, format, pFormatProperties);
 
                 int features;
                 switch (imageTiling) {
@@ -462,11 +466,11 @@ public class PhysicalDevice {
         throw new RuntimeException("Failed to find a supported format!");
     }
 
-    public Integer gatherMemoryType(int typeFilter, int requiredProperties) {
+    public Integer gatherMemoryType(int typeFilter, VkFlag<MemoryProperty> memProperty) {
         try (var stack = MemoryStack.stackPush()) {
             // Gather the available memory types.
             var memProperties = VkPhysicalDeviceMemoryProperties.malloc(stack);
-            VK10.vkGetPhysicalDeviceMemoryProperties(handle, memProperties);
+            VK10.vkGetPhysicalDeviceMemoryProperties(object, memProperties);
 
             var numTypes = memProperties.memoryTypeCount();
             for (var typeIndex = 0; typeIndex < numTypes; ++typeIndex) {
@@ -475,7 +479,7 @@ public class PhysicalDevice {
                     var memType = memProperties.memoryTypes(typeIndex);
                     var props = memType.propertyFlags();
                    
-                    if ((props & requiredProperties) == requiredProperties) {
+                    if ((props & memProperty.bits()) != 0) {
                         return typeIndex;
                     }
                 }
@@ -491,14 +495,14 @@ public class PhysicalDevice {
 
         // Count the number of queue families.
         var pCount = stack.mallocInt(1);
-        VK10.vkGetPhysicalDeviceQueueFamilyProperties(handle, pCount, null);
+        VK10.vkGetPhysicalDeviceQueueFamilyProperties(object, pCount, null);
         var numFamilies = pCount.get(0);
 
         logger.info("Found " + numFamilies + " queue families for " + this);
 
         // Enumerate the available queue families.
         var pProperties = VkQueueFamilyProperties.malloc(numFamilies, stack);
-        VK10.vkGetPhysicalDeviceQueueFamilyProperties(handle, pCount, pProperties);
+        VK10.vkGetPhysicalDeviceQueueFamilyProperties(object, pCount, pProperties);
         
         for (var i = 0; i < numFamilies; ++i) {
             var family = pProperties.get(i);
@@ -518,7 +522,7 @@ public class PhysicalDevice {
 
             // Check that presentation is supported for the surface, if it was requested.
             if (surfaceHandle != VK10.VK_NULL_HANDLE && !properties.hasPresentation()) {
-                var err = KHRSurface.vkGetPhysicalDeviceSurfaceSupportKHR(handle, i, surfaceHandle, pCount);
+                var err = KHRSurface.vkGetPhysicalDeviceSurfaceSupportKHR(object, i, surfaceHandle, pCount);
                 VkUtil.throwOnFailure(err, "test for presentation support");
                 var supported = pCount.get(0);
                 if (supported == VK10.VK_TRUE) {
@@ -615,7 +619,14 @@ public class PhysicalDevice {
     }
 
     public VkPhysicalDevice handle() {
-        return handle;
+        return object;
+    }
+    
+    @Override
+    public Runnable createDestroyAction() {
+        return () -> {
+
+        };
     }
 
     @Override

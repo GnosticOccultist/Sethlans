@@ -35,16 +35,16 @@ import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.app.kernel.OS;
+import fr.sethlans.core.natives.AbstractNativeResource;
+import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.vk.device.PhysicalDevice;
 import fr.sethlans.core.render.vk.device.PhysicalDeviceComparator;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class VulkanInstance {
+public class VulkanInstance extends AbstractNativeResource<VkInstance> {
 
     private static final Logger logger = FactoryLogger.getLogger("sethlans-core.vk.context");
-
-    private VkInstance handle;
     
     private VkAutopsySession autopsySession;
     
@@ -108,15 +108,16 @@ public class VulkanInstance {
             VkUtil.throwOnFailure(err, "create Vulkan instance");
             var vkHandle = pPointer.get(0);
 
-            this.handle = new VkInstance(vkHandle, createInfo);
+            this.object = new VkInstance(vkHandle, createInfo);
+            this.ref = NativeResource.get().register(this);
 
             if (debug) {
                 VkAutopsyConfig autopsyConfig = new VkAutopsyConfig();
-                this.autopsySession = VkAutopsy.create(handle, callback, autopsyConfig);
+                this.autopsySession = VkAutopsy.create(object, callback, autopsyConfig);
                 autopsySession.setFrameSupplier(VulkanFrame::currentFrame);
                 
                 var pMessenger = stack.mallocLong(1);
-                err = EXTDebugUtils.vkCreateDebugUtilsMessengerEXT(handle, messengerCreateInfo, null, pMessenger);
+                err = EXTDebugUtils.vkCreateDebugUtilsMessengerEXT(object, messengerCreateInfo, null, pMessenger);
                 VkUtil.throwOnFailure(err, "create debug utils");
                 vkDebugHandle = pMessenger.get(0);
             }
@@ -291,7 +292,7 @@ public class VulkanInstance {
     private PointerBuffer getPhysicalDevices(MemoryStack stack) {
         // Count the number of available devices.
         var pCount = stack.mallocInt(1);
-        var err = VK10.vkEnumeratePhysicalDevices(handle, pCount, null);
+        var err = VK10.vkEnumeratePhysicalDevices(object, pCount, null);
         VkUtil.throwOnFailure(err, "count physical devices");
         var numDevices = pCount.get(0);
 
@@ -299,7 +300,7 @@ public class VulkanInstance {
 
         // Enumerate the available devices.
         var pPointers = stack.mallocPointer(numDevices);
-        err = VK10.vkEnumeratePhysicalDevices(handle, pCount, pPointers);
+        err = VK10.vkEnumeratePhysicalDevices(object, pCount, pPointers);
         VkUtil.throwOnFailure(err, "enumerate physical devices");
 
         return pPointers;
@@ -315,29 +316,32 @@ public class VulkanInstance {
     }
 
     public VkInstance handle() {
-        return handle;
+        return object;
     }
+    
+    @Override
+    public Runnable createDestroyAction() {
+        return () -> {
+            logger.info("Destroying Vulkan instance");
 
-    public void destroy() {
-        logger.info("Destroying Vulkan instance");
+            if (vkDebugHandle != VK10.VK_NULL_HANDLE) {
+                EXTDebugUtils.vkDestroyDebugUtilsMessengerEXT(object, vkDebugHandle, null);
+                vkDebugHandle = VK10.VK_NULL_HANDLE;
+            }
 
-        if (vkDebugHandle != VK10.VK_NULL_HANDLE) {
-            EXTDebugUtils.vkDestroyDebugUtilsMessengerEXT(handle, vkDebugHandle, null);
-            vkDebugHandle = VK10.VK_NULL_HANDLE;
-        }
+            if (object != null) {
+                VK10.vkDestroyInstance(object, null);
+                object = null;
+            }
 
-        if (handle != null) {
-            VK10.vkDestroyInstance(handle, null);
-            handle = null;
-        }
-
-        if (debugMessengerCallback != null) {
-            debugMessengerCallback.free();
-            debugMessengerCallback = null;
-        }
-        
-        if (autopsySession != null)  {
-            autopsySession.close();
-        }
+            if (debugMessengerCallback != null) {
+                debugMessengerCallback.free();
+                debugMessengerCallback = null;
+            }
+            
+            if (autopsySession != null)  {
+                autopsySession.close();
+            }
+        };
     }
 }

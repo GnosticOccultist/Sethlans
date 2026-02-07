@@ -1,7 +1,5 @@
 package fr.sethlans.core.render.vk.image;
 
-import java.nio.ByteBuffer;
-
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkImageBlit;
@@ -10,9 +8,12 @@ import org.lwjgl.vulkan.VkImageMemoryBarrier;
 import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.math.Mathf;
 import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.buffer.NativeBuffer;
+import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
+import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.memory.VulkanBuffer;
+import fr.sethlans.core.render.vk.memory.MemoryProperty;
 
 public class VulkanTexture {
 
@@ -30,27 +31,26 @@ public class VulkanTexture {
                 texture.image().data());
     }
 
-    public VulkanTexture(LogicalDevice device, int width, int height, int imageFormat, ByteBuffer data) {
+    public VulkanTexture(LogicalDevice device, int width, int height, int imageFormat, NativeBuffer data) {
         this.device = device;
 
         var maxDimension = Math.max(width, height);
         var mipLevels = 1 + Mathf.log2(maxDimension);
 
         // Create a temporary staging buffer.
-        var size = new MemorySize(data.remaining(), 1);
-        var stagingBuffer = new VulkanBuffer(device, size, VK10.VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-        stagingBuffer.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        var size = MemorySize.copy(data.size());
+        var stagingBuffer = new BaseVulkanBuffer(device, size, BufferUsage.TRANSFER_SRC, MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT));
+        stagingBuffer.allocate();
 
         // Map the staging buffer memory to a buffer.
         var buffer = stagingBuffer.mapBytes();
-        buffer.put(data);
-        data.flip();
+        buffer.put(data.mapBytes());
         stagingBuffer.unmap();
 
         this.image = new VulkanImage(
                 device, width, height, imageFormat, mipLevels, VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT
                         | VK10.VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK10.VK_IMAGE_USAGE_SAMPLED_BIT,
-                VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+                        MemoryProperty.DEVICE_LOCAL);
 
         // Transition the image layout.
         try (var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED,
@@ -61,9 +61,9 @@ public class VulkanTexture {
         }
 
         // Destroy the staging buffer.
-        stagingBuffer.assignToDevice(null);
+        stagingBuffer.getNativeReference().destroy();
 
-        this.imageView = new ImageView(device, image.handle(), image.format(), VK10.VK_IMAGE_ASPECT_COLOR_BIT);
+        this.imageView = new ImageView(device, image, VK10.VK_IMAGE_ASPECT_COLOR_BIT);
         this.sampler = new TextureSampler(device, image.mipLevels(), true);
     }
 

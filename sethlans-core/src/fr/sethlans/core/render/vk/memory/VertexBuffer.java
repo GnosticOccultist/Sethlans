@@ -1,22 +1,24 @@
 package fr.sethlans.core.render.vk.memory;
 
 import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 import java.util.Collection;
 
-import org.lwjgl.vulkan.VK10;
-
 import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.buffer.NativeBuffer;
+import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.scenegraph.mesh.Vertex;
 
 public final class VertexBuffer {
 
+    private static final VkFlag<BufferUsage> VERTEX_BUFFER_USAGE = VkFlag.of(BufferUsage.TRANSFER_DST,
+            BufferUsage.VERTEX);
+
     private final DeviceBuffer deviceBuffer;
 
     public VertexBuffer(LogicalDevice logicalDevice, float[] vertexData, int fpv) {
-        this.deviceBuffer = new DeviceBuffer(logicalDevice, MemorySize.floats(vertexData.length),
-                VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) {
+        this.deviceBuffer = new DeviceBuffer(logicalDevice, MemorySize.floats(vertexData.length), VERTEX_BUFFER_USAGE) {
 
             @Override
             protected void populate(ByteBuffer data) {
@@ -27,7 +29,7 @@ public final class VertexBuffer {
 
     public VertexBuffer(LogicalDevice logicalDevice, Collection<Vertex> vertices, int fpv) {
         this.deviceBuffer = new DeviceBuffer(logicalDevice, MemorySize.floats(vertices.size() * fpv),
-                VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) {
+                VERTEX_BUFFER_USAGE) {
 
             @Override
             protected void populate(ByteBuffer data) {
@@ -40,15 +42,13 @@ public final class VertexBuffer {
             }
         };
     }
-    
-    public VertexBuffer(LogicalDevice logicalDevice, FloatBuffer buffer, int fpv) {
-        buffer.rewind();
-        this.deviceBuffer = new DeviceBuffer(logicalDevice, MemorySize.floats(buffer.capacity()),
-                VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) {
+
+    public VertexBuffer(LogicalDevice logicalDevice, NativeBuffer buffer, int fpv) {
+        this.deviceBuffer = new DeviceBuffer(logicalDevice, MemorySize.copy(buffer.size()), VERTEX_BUFFER_USAGE) {
 
             @Override
             protected void populate(ByteBuffer data) {
-                data.asFloatBuffer().put(buffer);
+                data.put(buffer.mapBytes());
             }
         };
     }

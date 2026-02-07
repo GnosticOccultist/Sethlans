@@ -1,23 +1,22 @@
 package fr.sethlans.core.scenegraph.mesh;
 
-import java.nio.Buffer;
-import java.nio.FloatBuffer;
 import java.util.Collection;
 import java.util.List;
 
 import fr.alchemy.utilities.Validator;
 import fr.sethlans.core.render.backend.BackendObject;
+import fr.sethlans.core.render.buffer.NativeBuffer;
 import fr.sethlans.core.util.BufferUtils;
 
 public class Mesh extends BackendObject {
 
-    private Topology topology;
+    private Topology topology = Topology.TRIANGLES;
 
     private int vertexCount;
 
-    private FloatBuffer vertexData;
+    private NativeBuffer vertexData;
 
-    private Buffer indices;
+    private NativeBuffer indices;
 
     private int fpv;
 
@@ -55,11 +54,11 @@ public class Mesh extends BackendObject {
         return topology;
     }
 
-    public FloatBuffer getVertexData() {
+    public NativeBuffer getVertexData() {
         return vertexData;
     }
 
-    public Buffer getIndices() {
+    public NativeBuffer getIndices() {
         return indices;
     }
 }

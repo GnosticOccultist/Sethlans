@@ -34,7 +34,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
     
     public static final String DYNAMIC_RENDERING_PROP = "DynamicRendering";
     
-    public static final boolean DEFAULT_DYNAMIC_RENDERING = true;
+    public static final boolean DEFAULT_DYNAMIC_RENDERING = false;
 
     private VulkanContext context;
 
@@ -403,9 +403,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
             d.destroy();
         }
 
-        if (context != null) {
-            context.destroy();
-        }
+        context.getVulkanInstance().getNativeReference().destroy();
 
         terminateGlfw();
     }

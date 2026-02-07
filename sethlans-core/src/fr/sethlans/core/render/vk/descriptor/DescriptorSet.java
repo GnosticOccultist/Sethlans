@@ -6,9 +6,9 @@ import org.lwjgl.vulkan.VkDescriptorBufferInfo;
 import org.lwjgl.vulkan.VkDescriptorImageInfo;
 import org.lwjgl.vulkan.VkWriteDescriptorSet;
 
+import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
-import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 
 public class DescriptorSet extends AbstractDescriptorSet {
 
@@ -19,11 +19,11 @@ public class DescriptorSet extends AbstractDescriptorSet {
         this.handle = handle;
     }
     
-    public DescriptorSet updateBufferDescriptorSet(VulkanBuffer buffer, int binding, long size) {
+    public DescriptorSet updateBufferDescriptorSet(BaseVulkanBuffer buffer, int binding, long size) {
         return updateBufferDescriptorSet(buffer, binding, 0, size);
     }
 
-    public DescriptorSet updateBufferDescriptorSet(VulkanBuffer buffer, int binding, long offset, long size) {
+    public DescriptorSet updateBufferDescriptorSet(BaseVulkanBuffer buffer, int binding, long offset, long size) {
         try (var stack = MemoryStack.stackPush()) {
             var bufferInfo = VkDescriptorBufferInfo.calloc(1, stack)
                     .buffer(buffer.handle())
@@ -44,11 +44,11 @@ public class DescriptorSet extends AbstractDescriptorSet {
         return this;
     }
     
-    public DescriptorSet updateDynamicBufferDescriptorSet(VulkanBuffer buffer, int binding, long size) {
+    public DescriptorSet updateDynamicBufferDescriptorSet(BaseVulkanBuffer buffer, int binding, long size) {
         return updateDynamicBufferDescriptorSet(buffer, binding, 0, size);
     }
     
-    public DescriptorSet updateDynamicBufferDescriptorSet(VulkanBuffer buffer, int binding, long offset, long size) {
+    public DescriptorSet updateDynamicBufferDescriptorSet(BaseVulkanBuffer buffer, int binding, long offset, long size) {
         try (var stack = MemoryStack.stackPush()) {
             var bufferInfo = VkDescriptorBufferInfo.calloc(1, stack)
                     .buffer(buffer.handle())

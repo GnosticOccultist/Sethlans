@@ -20,9 +20,11 @@ import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
+import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.memory.VulkanBuffer;
+import fr.sethlans.core.render.vk.memory.MemoryProperty;
 
 public abstract class SwapChain {
 
@@ -83,8 +85,9 @@ public abstract class SwapChain {
         var height = framebufferExtent.height();
         var channels = 4;
         var size = new MemorySize(width * height, channels);
-        var destination = new VulkanBuffer(context.getLogicalDevice(), size, VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        destination.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        var destination = new BaseVulkanBuffer(context.getLogicalDevice(), size, BufferUsage.TRANSFER_DST,
+                MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT));
+        destination.allocate();
 
         // Transition image to a valid transfer layout.
         try (var command = image.transitionImageLayout(attachment.finalLayout(),
@@ -115,7 +118,7 @@ public abstract class SwapChain {
 
         // Free memory and buffer.
         destination.unmap();
-        destination.assignToDevice(null);
+        destination.getNativeReference().destroy();
 
         var date = new SimpleDateFormat("dd.MM.yy_HH.mm.ss").format(new Date());
         var outputPath = Paths.get("resources/" + date + ".png");

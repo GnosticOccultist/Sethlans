@@ -5,14 +5,14 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.VK10;
 
+import fr.sethlans.core.natives.AbstractNativeResource;
+import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class Surface {
+public class Surface extends AbstractNativeResource<Long> {
 
     private final VulkanInstance instance;
-
-    private long handle;
 
     Surface(VulkanInstance instance, Window window) {
         this.instance = instance;
@@ -22,18 +22,22 @@ public class Surface {
             var pSurface = stack.mallocLong(1);
             var err = GLFWVulkan.glfwCreateWindowSurface(instance.handle(), window.handle(), null, pSurface);
             VkUtil.throwOnFailure(err, "create window surface");
-            handle = pSurface.get(0);
+            this.object = pSurface.get(0);
+
+            this.ref = NativeResource.get().register(this);
+            instance.getNativeReference().addDependent(ref);
         }
     }
 
     public long handle() {
-        return handle;
+        return getNativeObject();
     }
 
-    void destroy() {
-        if (handle != VK10.VK_NULL_HANDLE) {
-            KHRSurface.vkDestroySurfaceKHR(instance.handle(), handle, null);
-            this.handle = VK10.VK_NULL_HANDLE;
-        }
+    @Override
+    public Runnable createDestroyAction() {
+        return () -> {
+            KHRSurface.vkDestroySurfaceKHR(instance.handle(), getNativeObject(), null);
+            this.object = VK10.VK_NULL_HANDLE;
+        };
     }
 }

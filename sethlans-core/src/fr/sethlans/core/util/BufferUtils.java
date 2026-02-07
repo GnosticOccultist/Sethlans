@@ -1,12 +1,13 @@
 package fr.sethlans.core.util;
 
-import java.nio.Buffer;
-import java.nio.FloatBuffer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import fr.sethlans.core.render.buffer.ArenaBuffer;
+import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.buffer.NativeBuffer;
 import fr.sethlans.core.scenegraph.mesh.Vertex;
 
 public final class BufferUtils {
@@ -27,21 +28,22 @@ public final class BufferUtils {
 
     }
 
-    public static FloatBuffer create(float[] values) {
+    public static NativeBuffer create(float[] values) {
         if (values == null) {
             return null;
         }
 
-        var capacity = values.length;
-        var result = Allocator.allocFloat(capacity);
+        var size = MemorySize.floats(values.length);
+        var result = new ArenaBuffer(size);
 
-        result.put(values);
-        result.flip();
+        var buff = result.mapFloats();
+        buff.put(values);
+        buff.flip();
 
         return result;
     }
 
-    public static Buffer create(int[] values) {
+    public static NativeBuffer create(int[] values) {
         if (values == null) {
             return null;
         }
@@ -49,36 +51,34 @@ public final class BufferUtils {
         var capacity = values.length;
         var maxValue = Arrays.stream(values).max().getAsInt();
         var max = 1 + maxValue;
-        Buffer result = null;
+        NativeBuffer result = null;
 
         if (max <= UINT8_LIMIT) {
-            var buff = Allocator.alloc(capacity);
+            result = new ArenaBuffer(MemorySize.bytes(capacity));
+            var buff = result.mapBytes();
             for (int v : values) {
                 buff.put((byte) v);
             }
-            result = buff;
 
         } else if (max <= UINT16_LIMIT) {
-            var buff = Allocator.allocShort(capacity);
+            result = new ArenaBuffer(MemorySize.shorts(capacity));
+            var buff = result.mapShorts();
             for (int v : values) {
                 buff.put((short) v);
             }
-            result = buff;
 
         } else {
-            var buff = Allocator.allocInt(capacity);
+            result = new ArenaBuffer(MemorySize.ints(capacity));
+            var buff = result.mapInts();
             for (int v : values) {
                 buff.put(v);
             }
-            result = buff;
         }
-
-        result.flip();
 
         return result;
     }
 
-    public static Buffer create(Collection<Integer> values) {
+    public static NativeBuffer create(Collection<Integer> values) {
         if (values == null || values.isEmpty()) {
             return null;
         }
@@ -86,53 +86,50 @@ public final class BufferUtils {
         var capacity = values.size();
         var maxValue = Collections.max(values);
         var max = 1 + maxValue;
-        Buffer result = null;
+        NativeBuffer result = null;
 
         if (max <= UINT8_LIMIT) {
-            var buff = Allocator.alloc(capacity);
+            result = new ArenaBuffer(MemorySize.bytes(capacity));
+            var buff = result.mapBytes();
             for (int v : values) {
                 buff.put((byte) v);
             }
-            result = buff;
 
         } else if (max <= UINT16_LIMIT) {
-            var buff = Allocator.allocShort(capacity);
+            result = new ArenaBuffer(MemorySize.shorts(capacity));
+            var buff = result.mapShorts();
             for (int v : values) {
                 buff.put((short) v);
             }
-            result = buff;
 
         } else {
-            var buff = Allocator.allocInt(capacity);
+            result = new ArenaBuffer(MemorySize.ints(capacity));
+            var buff = result.mapInts();
             for (int v : values) {
                 buff.put(v);
             }
-            result = buff;
         }
-
-        result.flip();
 
         return result;
     }
 
-    public static FloatBuffer createVertex(List<Vertex> vertices) {
+    public static NativeBuffer createVertex(List<Vertex> vertices) {
         var ref = vertices.get(0);
         return createVertex(vertices, ref);
     }
 
-    public static FloatBuffer createVertex(List<Vertex> vertices, Vertex reference) {
+    public static NativeBuffer createVertex(List<Vertex> vertices, Vertex reference) {
         if (vertices == null || vertices.isEmpty()) {
             return null;
         }
 
-        var capacity = vertices.size() * reference.numFloats();
-        var result = Allocator.allocFloat(capacity);
+        var size = MemorySize.floats(vertices.size() * reference.numFloats());
+        var result = new ArenaBuffer(size);
 
+        var buff = result.mapFloats();
         for (var v : vertices) {
-            v.populate(result);
+            v.populate(buff);
         }
-
-        result.flip();
 
         return result;
     }

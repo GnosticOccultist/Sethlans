@@ -1,6 +1,6 @@
 package fr.sethlans.core.material;
 
-import java.nio.ByteBuffer;
+import fr.sethlans.core.render.buffer.NativeBuffer;
 
 public class Image {
 
@@ -10,9 +10,9 @@ public class Image {
 
     private ColorSpace colorSpace = ColorSpace.LINEAR;
 
-    private ByteBuffer data;
+    private NativeBuffer data;
 
-    public Image(int width, int height, Format format, ByteBuffer data) {
+    public Image(int width, int height, Format format, NativeBuffer data) {
         this.width = width;
         this.height = height;
         this.format = format;
@@ -43,7 +43,7 @@ public class Image {
         this.colorSpace = colorSpace;
     }
 
-    public ByteBuffer data() {
+    public NativeBuffer data() {
         return data;
     }
 
@@ -91,7 +91,7 @@ public class Image {
         DEPTH24_STENCIL8(32),
 
         DEPTH32_STENCIL8(40);
-        
+
         private int bitsPerPixel;
 
         private Format(int bitsPerPixel) {

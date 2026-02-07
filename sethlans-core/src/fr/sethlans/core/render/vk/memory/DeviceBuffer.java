@@ -2,28 +2,29 @@ package fr.sethlans.core.render.vk.memory;
 
 import java.nio.ByteBuffer;
 
-import org.lwjgl.vulkan.VK10;
-
 import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
+import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.util.VkFlag;
 
 public class DeviceBuffer {
 
     private final MemorySize size;
 
-    private final int usage;
+    private final VkFlag<BufferUsage> usage;
 
     private ByteBuffer data;
 
-    private VulkanBuffer buffer;
+    private BaseVulkanBuffer buffer;
 
-    public DeviceBuffer(LogicalDevice device, MemorySize size, int usage) {
+    public DeviceBuffer(LogicalDevice device, MemorySize size, VkFlag<BufferUsage> usage) {
         this.size = size;
         this.usage = usage;
 
         // Create a temporary staging buffer.
-        var stagingBuffer = new VulkanBuffer(device, size, VK10.VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-        stagingBuffer.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        var stagingBuffer = new BaseVulkanBuffer(device, size, BufferUsage.TRANSFER_SRC, MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT));
+        stagingBuffer.allocate();
 
         // Map the staging buffer memory to a buffer.
         this.data = stagingBuffer.mapBytes();
@@ -31,8 +32,8 @@ public class DeviceBuffer {
         stagingBuffer.unmap();
 
         // Finally create a device local buffer to use as a destination.
-        this.buffer = new VulkanBuffer(device, size, usage);
-        buffer.allocate(VK10.VK_MEMORY_HEAP_DEVICE_LOCAL_BIT);
+        this.buffer = new BaseVulkanBuffer(device, size, usage, MemoryProperty.DEVICE_LOCAL);
+        buffer.allocate();
 
         // Create a one-time submit command buffer.
         try (var command = device.singleUseTransferCommand()) {
@@ -41,7 +42,7 @@ public class DeviceBuffer {
         }
 
         // Destroy the staging buffer.
-        stagingBuffer.assignToDevice(null);
+        stagingBuffer.getNativeReference().destroy();
     }
 
     protected void populate(ByteBuffer data) {
@@ -52,7 +53,7 @@ public class DeviceBuffer {
         return size;
     }
 
-    public int usage() {
+    public VkFlag<BufferUsage> usage() {
         return usage;
     }
 

@@ -302,8 +302,9 @@ public class PresentationSwapChain extends SwapChain {
         }
 
         @Override
-        public void destroy() {
+        public Runnable createDestroyAction() {
             // No need to destroy swap-chain image.
+            return () -> {};
         }
     }
 }

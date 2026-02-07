@@ -12,23 +12,13 @@ import org.lwjgl.util.shaderc.Shaderc;
 import org.lwjgl.vulkan.VkPipelineShaderStageCreateInfo;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.device.VulkanResource;
 
-public class VulkanShaderProgram extends VulkanResource {
+public class VulkanShaderProgram {
 
     private final List<ShaderModule> modules;
 
     public VulkanShaderProgram(LogicalDevice logicalDevice) {
         this.modules = new ArrayList<>();
-        
-        assignToDevice(logicalDevice);
-    }
-    
-    @Override
-    protected void assignToDevice(LogicalDevice newDevice) {
-        destroy();
-
-        setLogicalDevice(newDevice);
     }
     
     public VulkanShaderProgram addModule(ShaderModule module) {
@@ -52,14 +42,6 @@ public class VulkanShaderProgram extends VulkanResource {
         }
 
         return stageCreateInfos;
-    }
-
-    public void destroy() {
-        for (var module : modules) {
-            module.destroy();
-        }
-
-        this.modules.clear();
     }
 
     public static ByteBuffer compileShader(String shaderFile, int shaderKind) throws IOException {

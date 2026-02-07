@@ -5,42 +5,20 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkImageViewCreateInfo;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.device.VulkanResource;
+import fr.sethlans.core.natives.NativeResource;
+import fr.sethlans.core.render.vk.device.AbstractDeviceResource;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class ImageView extends VulkanResource {
+public class ImageView extends AbstractDeviceResource {
 
-    private long imageHandle;
-
-    private int format;
-
-    private int aspectMask;
-
-    public ImageView(LogicalDevice logicalDevice, long imageHandle, int format, int aspectMask) {
-        this.imageHandle = imageHandle;
-        this.format = format;
-        this.aspectMask = aspectMask;
-
-        assignToDevice(logicalDevice);
-    }
-
-    @Override
-    protected void assignToDevice(LogicalDevice newDevice) {
-        destroy();
-
-        setLogicalDevice(newDevice);
-
-        if (newDevice != null) {
-            create();
-        }
-    }
-
-    private void create() {
+    public ImageView(LogicalDevice logicalDevice, VulkanImage image, int aspectMask) {
+        super(logicalDevice);
+        
         try (var stack = MemoryStack.stackPush()) {
             var createInfo = VkImageViewCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO)
-                    .format(format)
-                    .image(imageHandle)
+                    .format(image.format())
+                    .image(image.handle())
                     .viewType(VK10.VK_IMAGE_VIEW_TYPE_2D);
 
             // Don't swizzle color channels.
@@ -64,15 +42,17 @@ public class ImageView extends VulkanResource {
             VkUtil.throwOnFailure(err, "create image view");
             var handle = pHandle.get(0);
             assignHandle(handle);
+            
+            ref = NativeResource.get().register(this);
+            image.getNativeReference().addDependent(ref);
         }
     }
 
-    public void destroy() {
-        if (hasAssignedHandle()) {
-            var vkDevice = logicalDeviceHandle();
-
-            VK10.vkDestroyImageView(vkDevice, handle(), null);
+    @Override
+    public Runnable createDestroyAction() {
+        return () -> {
+            VK10.vkDestroyImageView(logicalDeviceHandle(), handle(), null);
             unassignHandle();
-        }
+        };
     }
 }

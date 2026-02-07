@@ -5,34 +5,15 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkSamplerCreateInfo;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.device.VulkanResource;
+import fr.sethlans.core.natives.NativeResource;
+import fr.sethlans.core.render.vk.device.AbstractDeviceResource;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-class TextureSampler extends VulkanResource {
-
-    private int mipLevels;
-
-    private boolean anisotropic;
+class TextureSampler extends AbstractDeviceResource {
 
     TextureSampler(LogicalDevice logicalDevice, int mipLevels, boolean anisotropic) {
-        this.mipLevels = mipLevels;
-        this.anisotropic = anisotropic;
-
-        assignToDevice(logicalDevice);
-    }
-
-    @Override
-    protected void assignToDevice(LogicalDevice newDevice) {
-        destroy();
-
-        setLogicalDevice(newDevice);
-
-        if (newDevice != null) {
-            create();
-        }
-    }
-
-    private void create() {
+        super(logicalDevice);
+        
         try (var stack = MemoryStack.stackPush()) {
             var physicalDevice = getLogicalDevice().physicalDevice();
             var useAnisotropicFilter = anisotropic && physicalDevice.supportsAnisotropicFiltering();
@@ -60,17 +41,18 @@ class TextureSampler extends VulkanResource {
             var err = VK10.vkCreateSampler(vkDevice, createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create texture sampler");
             var handle = pHandle.get(0);
+           
             assignHandle(handle);
+            ref = NativeResource.get().register(this);
+            logicalDevice.getNativeReference().addDependent(ref);
         }
     }
-
+    
     @Override
-    public void destroy() {
-        if (hasAssignedHandle()) {
-            var vkDevice = logicalDeviceHandle();
-            
-            VK10.vkDestroySampler(vkDevice, handle(), null);
+    public Runnable createDestroyAction() {
+        return () -> {
+            VK10.vkDestroySampler(logicalDeviceHandle(), handle(), null);
             unassignHandle();
-        }
+        };
     }
 }

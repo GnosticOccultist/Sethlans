@@ -1,7 +1,5 @@
 package fr.sethlans.core.render.vk.device;
 
-import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.lwjgl.PointerBuffer;
@@ -12,11 +10,11 @@ import org.lwjgl.vulkan.VkMemoryAllocateInfo;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
 import fr.sethlans.core.render.buffer.MemorySize;
-import fr.sethlans.core.render.struct.StructLayoutGenerator.StructLayout;
-import fr.sethlans.core.render.struct.StructView;
+import fr.sethlans.core.render.vk.memory.MemoryProperty;
+import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public abstract class MemoryResource extends VulkanResource {
+public abstract class MemoryResource extends AbstractDeviceResource {
 
     private final MemorySize size;
 
@@ -25,16 +23,24 @@ public abstract class MemoryResource extends VulkanResource {
     private PointerBuffer mapping = null;
 
     private long memoryHandle = VK10.VK_NULL_HANDLE;
+    
+    private VkFlag<MemoryProperty> memProperty;
 
-    public MemoryResource() {
-        this(new MemorySize(0, 1));
-    }
-
-    public MemoryResource(MemorySize size) {
-        this.size = size;
+    public MemoryResource(LogicalDevice device) {
+        this(device, new MemorySize(0, 1), MemoryProperty.DEVICE_LOCAL);
     }
     
-    public void allocate(int requiredProperties) {
+    public MemoryResource(LogicalDevice device, MemorySize size) {
+        this(device, size, MemoryProperty.DEVICE_LOCAL);
+    }
+
+    public MemoryResource(LogicalDevice device, MemorySize size, VkFlag<MemoryProperty> memProperty) {
+        super(device);
+        this.size = size;
+        this.memProperty = memProperty;
+    }
+    
+    public void allocate() {
         assert hasAssignedHandle();
 
         if (memoryHandle != VK10.VK_NULL_HANDLE) {
@@ -48,7 +54,7 @@ public abstract class MemoryResource extends VulkanResource {
 
             // Create allocation info struct.
             var typeFilter = memRequirements.memoryTypeBits();
-            var memoryType = getLogicalDevice().physicalDevice().gatherMemoryType(typeFilter, requiredProperties);
+            var memoryType = getLogicalDevice().physicalDevice().gatherMemoryType(typeFilter, memProperty);
             var allocInfo = VkMemoryAllocateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
                     .allocationSize(memRequirements.size())
@@ -68,20 +74,12 @@ public abstract class MemoryResource extends VulkanResource {
 
     protected abstract void bindMemory(long memoryHandle);
 
-    public StructView map(StructLayout layout) {
-        return new StructView(mapBytes(), layout);
-    }
-
-    public PointerBuffer map() {
-        return map(0L, VK10.VK_WHOLE_SIZE);
-    }
-
-    public PointerBuffer map(long offset) {
-        return map(offset, VK10.VK_WHOLE_SIZE);
-    }
-
-    public PointerBuffer map(long offset, long size) {
+    public PointerBuffer map(int offset, int size) {
         assert memoryHandle != VK10.VK_NULL_HANDLE;
+        
+        if (!memProperty.contains(MemoryProperty.HOST_VISIBLE)) {
+            throw new IllegalStateException("Unable to map memory that is not host visible.");
+        }
         if (mapped.getAndSet(true)) {
             throw new IllegalStateException("Memory already mapped.");
         }
@@ -95,30 +93,6 @@ public abstract class MemoryResource extends VulkanResource {
         VkUtil.throwOnFailure(err, "map a buffer's memory");
 
         return mapping;
-    }
-    
-    public ByteBuffer mapBytes(int offset, int size) {
-        return map(offset * Byte.BYTES, size * Byte.BYTES).getByteBuffer(0, size);
-    }
-
-    public ByteBuffer mapBytes(int offset) {
-        return mapBytes(offset, size().getBytes() - offset);
-    }
-
-    public ByteBuffer mapBytes() {
-        return mapBytes(0, size().getBytes());
-    }
-
-    public FloatBuffer mapFloats(int offset, int size) {
-        return map(offset * Float.BYTES, size * Float.BYTES).getFloatBuffer(0, size);
-    }
-
-    public FloatBuffer mapFloats(int offset) {
-        return mapFloats(offset, size().getFloats() - offset);
-    }
-
-    public FloatBuffer mapFloats() {
-        return mapFloats(0, size().getFloats());
     }
 
     public void unmap() {
@@ -142,17 +116,23 @@ public abstract class MemoryResource extends VulkanResource {
         return memoryHandle;
     }
 
-    @Override
-    public void destroy() {
-        if (memoryHandle != VK10.VK_NULL_HANDLE) {
-            var vkDevice = logicalDeviceHandle();
+    public VkFlag<MemoryProperty> getMemProperty() {
+        return memProperty;
+    }
 
-            VK10.vkFreeMemory(vkDevice, memoryHandle, null);
-            this.memoryHandle = VK10.VK_NULL_HANDLE;
-        }
-        
-        if (mapping != null)  {
-            MemoryUtil.memFree(mapping);
-        }
+    @Override
+    public Runnable createDestroyAction() {
+        return () -> {
+            if (memoryHandle != VK10.VK_NULL_HANDLE) {
+                var vkDevice = logicalDeviceHandle();
+
+                VK10.vkFreeMemory(vkDevice, memoryHandle, null);
+                this.memoryHandle = VK10.VK_NULL_HANDLE;
+            }
+            
+            if (mapping != null)  {
+                MemoryUtil.memFree(mapping);
+            }
+        };
     }
 }

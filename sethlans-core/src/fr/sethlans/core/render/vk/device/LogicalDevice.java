@@ -1,8 +1,5 @@
 package fr.sethlans.core.render.vk.device;
 
-import java.util.Map;
-import java.util.WeakHashMap;
-
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkDevice;
@@ -11,21 +8,19 @@ import org.lwjgl.vulkan.VkQueue;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.SethlansApplication;
+import fr.sethlans.core.natives.AbstractNativeResource;
+import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.command.CommandPool;
 import fr.sethlans.core.render.vk.command.SingleUseCommand;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class LogicalDevice {
+public class LogicalDevice extends AbstractNativeResource<VkDevice> {
 
     private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.device");
 
     private final PhysicalDevice physicalDevice;
-
-    private final Map<VulkanResource, Object> resources = new WeakHashMap<>();
-
-    private VkDevice handle;
 
     private VkQueue graphicsQueue;
     private VkQueue transferQueue;
@@ -36,7 +31,9 @@ public class LogicalDevice {
 
     public LogicalDevice(VulkanContext context) {
         this.physicalDevice = context.getPhysicalDevice();
-        this.handle = physicalDevice.createLogicalDevice(context);
+        this.object = physicalDevice.createLogicalDevice(context);
+        this.ref = NativeResource.get().register(this);
+        physicalDevice.getNativeReference().addDependent(ref);
 
         var config = context.getBackend().getApplication().getConfig();
         var surfaceHandle = context.surfaceHandle();
@@ -64,19 +61,9 @@ public class LogicalDevice {
         }
     }
 
-    protected void register(VulkanResource resource) {
-        this.resources.put(resource, null);
-    }
-
-    protected void unregister(VulkanResource resource) {
-        assert resources.containsKey(resource) : resource;
-
-        this.resources.remove(resource);
-    }
-
     public void waitIdle() {
-        if (handle != null) {
-            var err = VK10.vkDeviceWaitIdle(handle);
+        if (object != null) {
+            var err = VK10.vkDeviceWaitIdle(object);
             VkUtil.throwOnFailure(err, "wait for device");
         }
     }
@@ -89,9 +76,9 @@ public class LogicalDevice {
     VkQueue getQueue(MemoryStack stack, int familyIndex) {
         var pPointer = stack.mallocPointer(1);
         // Get the first queue in the family.
-        VK10.vkGetDeviceQueue(handle, familyIndex, 0, pPointer);
+        VK10.vkGetDeviceQueue(object, familyIndex, 0, pPointer);
         var queueHandle = pPointer.get(0);
-        var result = new VkQueue(queueHandle, handle);
+        var result = new VkQueue(queueHandle, object);
 
         return result;
     }
@@ -129,29 +116,15 @@ public class LogicalDevice {
     }
 
     public VkDevice handle() {
-        return handle;
+        return object;
     }
-
-    public void destroy() {
-        logger.info("Destroying Vulkan resources from " + physicalDevice);
-
-        for (var resource : resources.keySet()) {
-            resource.destroy();
-        }
-
-        if (transferPool != null) {
-            transferPool.destroy();
-            this.transferPool = null;
-        }
-
-        if (commandPool != null) {
-            commandPool.destroy();
-            this.commandPool = null;
-        }
-
-        if (handle != null) {
-            VK10.vkDestroyDevice(handle, null);
-            this.handle = null;
-        }
+    
+    @Override
+    public Runnable createDestroyAction() {
+       return () -> {
+           logger.info("Destroyed resources from " + physicalDevice);
+           VK10.vkDestroyDevice(object, null);
+           this.object = null;
+        };
     }
 }

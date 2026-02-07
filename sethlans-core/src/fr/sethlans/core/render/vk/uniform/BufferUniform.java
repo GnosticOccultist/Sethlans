@@ -7,21 +7,21 @@ import org.lwjgl.vulkan.VkDescriptorBufferInfo;
 import org.lwjgl.vulkan.VkWriteDescriptorSet;
 
 import fr.sethlans.core.material.layout.BindingLayout;
+import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.descriptor.AbstractSetWriter;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetWriter;
-import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 
-public class BufferUniform implements VulkanUniform<VulkanBuffer> {
+public class BufferUniform implements VulkanUniform<BaseVulkanBuffer> {
 
-    private VulkanBuffer value;
+    private BaseVulkanBuffer value;
 
     @Override
-    public void set(VulkanBuffer value) {
+    public void set(BaseVulkanBuffer value) {
         this.value = value;
     }
 
     @Override
-    public VulkanBuffer get() {
+    public BaseVulkanBuffer get() {
         return value;
     }
 
@@ -36,10 +36,10 @@ public class BufferUniform implements VulkanUniform<VulkanBuffer> {
     
     private static class Writer extends AbstractSetWriter {
 
-        private final VulkanBuffer buffer;
+        private final BaseVulkanBuffer buffer;
         private final long id, bytes;
 
-        private Writer(BindingLayout bindingLayout, VulkanBuffer buffer) {
+        private Writer(BindingLayout bindingLayout, BaseVulkanBuffer buffer) {
             super(bindingLayout, 0, 1);
             this.buffer = buffer;
             this.id = buffer.handle();

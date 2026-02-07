@@ -23,12 +23,14 @@ import org.lwjgl.vulkan.VkRenderPassBeginInfo;
 import org.lwjgl.vulkan.VkSubmitInfo;
 import org.lwjgl.vulkan.VkViewport;
 
+import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
+import fr.sethlans.core.render.vk.buffer.BufferUsage;
+import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanImage;
 import fr.sethlans.core.render.vk.memory.DeviceBuffer;
 import fr.sethlans.core.render.vk.memory.IndexBuffer;
 import fr.sethlans.core.render.vk.memory.VertexBuffer;
-import fr.sethlans.core.render.vk.memory.VulkanBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.pipeline.AbstractPipeline;
 import fr.sethlans.core.render.vk.pipeline.AbstractPipeline.BindPoint;
@@ -95,7 +97,9 @@ public class CommandBuffer {
     }
 
     public CommandBuffer copyBuffer(VulkanBuffer source, VulkanBuffer destination) {
-        assert source.size() == destination.size();
+        assert source.size().getBytes() == source.size().getBytes();
+        assert source.getUsage().contains(BufferUsage.TRANSFER_SRC);
+        assert destination.getUsage().contains(BufferUsage.TRANSFER_DST);
 
         try (var stack = MemoryStack.stackPush()) {
             var pRegion = VkBufferCopy.calloc(1, stack)
@@ -109,7 +113,9 @@ public class CommandBuffer {
         return this;
     }
 
-    public CommandBuffer copyBuffer(VulkanBuffer source, VulkanImage destination) {
+    public CommandBuffer copyBuffer(BaseVulkanBuffer source, VulkanImage destination) {
+        assert source.getUsage().contains(BufferUsage.TRANSFER_SRC);
+        
         try (var stack = MemoryStack.stackPush()) {
             var pRegion = VkBufferImageCopy.calloc(1, stack)
                     .bufferOffset(0)
@@ -130,7 +136,7 @@ public class CommandBuffer {
         return this;
     }
 
-    public CommandBuffer copyImage(VulkanImage source, int imageLayout, VulkanBuffer destination) {
+    public CommandBuffer copyImage(VulkanImage source, int imageLayout, BaseVulkanBuffer destination) {
         try (var stack = MemoryStack.stackPush()) {
             var pRegion = VkBufferImageCopy.calloc(1, stack)
                     .bufferOffset(0)

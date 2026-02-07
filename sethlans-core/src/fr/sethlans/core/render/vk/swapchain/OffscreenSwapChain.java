@@ -9,13 +9,16 @@ import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
+import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.context.VulkanContext;
-import fr.sethlans.core.render.vk.memory.VulkanBuffer;
+import fr.sethlans.core.render.vk.memory.MemoryProperty;
+import fr.sethlans.core.render.vk.util.VkFlag;
 
 public class OffscreenSwapChain extends SwapChain {
 
     int index = 0;
-    private VulkanBuffer screenBuffer;
+    private BaseVulkanBuffer screenBuffer;
 
     private final AtomicBoolean resizeNeeded = new AtomicBoolean(false);
 
@@ -50,9 +53,9 @@ public class OffscreenSwapChain extends SwapChain {
         var height = framebufferExtent.height();
         var channels = 4;
         var size = new MemorySize(width * height, channels);
-        this.screenBuffer = new VulkanBuffer(logicalDevice(), size, VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        screenBuffer.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-                | VK10.VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+        this.screenBuffer = new BaseVulkanBuffer(logicalDevice(), size, BufferUsage.TRANSFER_DST,
+                VkFlag.of(MemoryProperty.HOST_VISIBLE, MemoryProperty.HOST_COHERENT, MemoryProperty.HOST_CACHED));
+        screenBuffer.allocate();
 
         logger.info("Requested " + width + " " + height + "  images for the swapchain.");
     }
@@ -81,15 +84,15 @@ public class OffscreenSwapChain extends SwapChain {
                 }
             }
 
-            screenBuffer.destroy();
+            screenBuffer.getNativeReference().destroy();
 
             var width = framebufferExtent.width();
             var height = framebufferExtent.height();
             var channels = 4;
             var size = new MemorySize(width * height, channels);
-            this.screenBuffer = new VulkanBuffer(logicalDevice(), size, VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-            screenBuffer.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-                    | VK10.VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+            this.screenBuffer = new BaseVulkanBuffer(logicalDevice(), size, BufferUsage.TRANSFER_DST,
+                    VkFlag.of(MemoryProperty.HOST_VISIBLE, MemoryProperty.HOST_COHERENT, MemoryProperty.HOST_CACHED));
+            screenBuffer.allocate();
 
             resizeNeeded.getAndSet(false);
         }
@@ -141,10 +144,6 @@ public class OffscreenSwapChain extends SwapChain {
             for (var frameBuffer : frameBuffers) {
                 frameBuffer.destroy();
             }
-        }
-
-        if (screenBuffer != null) {
-            screenBuffer.destroy();
         }
 
         super.destroy();

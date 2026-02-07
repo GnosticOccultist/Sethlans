@@ -8,10 +8,10 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.kernel.OS;
 import fr.sethlans.core.app.kernel.OSArch;
+import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.RenderEngine;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
-import fr.sethlans.core.util.NativeObjectCleaner;
 
 public abstract class SethlansApplication {
 
@@ -235,6 +235,6 @@ public abstract class SethlansApplication {
 
         renderEngine.terminate();
 
-        NativeObjectCleaner.cleanAll();
+        NativeResource.get().clear();
     }
 }

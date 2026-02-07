@@ -9,9 +9,13 @@ import org.lwjgl.vulkan.VkMemoryRequirements;
 
 import fr.sethlans.core.material.Image.ColorSpace;
 import fr.sethlans.core.material.Image.Format;
+import fr.sethlans.core.natives.NativeResource;
+import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.vk.command.SingleUseCommand;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.device.MemoryResource;
+import fr.sethlans.core.render.vk.memory.MemoryProperty;
+import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class VulkanImage extends MemoryResource {
@@ -29,6 +33,7 @@ public class VulkanImage extends MemoryResource {
     private int usage;
 
     protected VulkanImage(LogicalDevice device, long imageHandle, int width, int height, int format, int usage) {
+        super(device);
         this.width = width;
         this.height = height;
         this.format = format;
@@ -36,25 +41,24 @@ public class VulkanImage extends MemoryResource {
         this.sampleCount = VK10.VK_SAMPLE_COUNT_1_BIT;
         this.usage = usage;
         
-        setLogicalDevice(device);
         assignHandle(imageHandle);
-    }
-
-    public VulkanImage(LogicalDevice device, int width, int height, int format, int usage) {
-        this(device, width, height, format, 1, VK10.VK_SAMPLE_COUNT_1_BIT, usage);
+        
+        ref = NativeResource.get().register(this);
+        getLogicalDevice().getNativeReference().addDependent(ref);
     }
     
-    public VulkanImage(LogicalDevice device, int width, int height, int format, int usage, int requiredProperties) {
-        this(device, width, height, format, 1, VK10.VK_SAMPLE_COUNT_1_BIT, usage, requiredProperties);
+    public VulkanImage(LogicalDevice device, int width, int height, int format, int usage, VkFlag<MemoryProperty> memProperty) {
+        this(device, width, height, format, 1, VK10.VK_SAMPLE_COUNT_1_BIT, usage, memProperty);
     }
 
     public VulkanImage(LogicalDevice device, int width, int height, int format, int mipLevels, int usage,
-            int requiredProperties) {
-        this(device, width, height, format, mipLevels, VK10.VK_SAMPLE_COUNT_1_BIT, usage, requiredProperties);
+            VkFlag<MemoryProperty> memProperty) {
+        this(device, width, height, format, mipLevels, VK10.VK_SAMPLE_COUNT_1_BIT, usage, memProperty);
     }
 
     public VulkanImage(LogicalDevice device, int width, int height, int format, int mipLevels, int sampleCount, int usage,
-            int requiredProperties) {
+            VkFlag<MemoryProperty> memProperty) {
+        super(device, new MemorySize(width * height, 4), memProperty);
         this.width = width;
         this.height = height;
         this.format = format;
@@ -62,19 +66,8 @@ public class VulkanImage extends MemoryResource {
         this.sampleCount = sampleCount;
         this.usage = usage;
 
-        assignToDevice(device);
-        allocate(requiredProperties);
-    }
-    
-    @Override
-    protected void assignToDevice(LogicalDevice newDevice) {
-        destroy();
-
-        setLogicalDevice(newDevice);
-
-        if (newDevice != null) {
-            create();
-        }
+        create();
+        allocate();
     }
 
     private void create() {
@@ -102,7 +95,10 @@ public class VulkanImage extends MemoryResource {
             var err = VK10.vkCreateImage(vkDevice, createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create image");
             var handle = pHandle.get(0);
+            
             assignHandle(handle);
+            ref = NativeResource.get().register(this);
+            getLogicalDevice().getNativeReference().addDependent(ref);
         }
     }
     
@@ -313,14 +309,13 @@ public class VulkanImage extends MemoryResource {
     }
 
     @Override
-    public void destroy() {
-        super.destroy();
-
-        if (hasAssignedHandle()) {
-            var vkDevice = logicalDeviceHandle();
-            VK10.vkDestroyImage(vkDevice, handle(), null);
+    public Runnable createDestroyAction() {
+        return () -> {
+            super.createDestroyAction().run();
+            
+            VK10.vkDestroyImage(logicalDeviceHandle(), handle(), null);
             unassignHandle();
-        }
+        };
     }
 
     public static int getVkFormat(Format format, ColorSpace colorSpace) {

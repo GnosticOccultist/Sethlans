@@ -7,6 +7,7 @@ import org.lwjgl.vulkan.VkExtent2D;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.ImageView;
 import fr.sethlans.core.render.vk.image.VulkanImage;
+import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.PresentationImage;
 
 public class Attachment {
@@ -24,7 +25,7 @@ public class Attachment {
     public Attachment(LogicalDevice device, AttachmentDescriptor descriptor, PresentationImage image) {
         this.descriptor = descriptor;
         this.image = image;
-        this.imageView = new ImageView(device, image.handle(), image.format(), VK10.VK_IMAGE_ASPECT_COLOR_BIT);
+        this.imageView = new ImageView(device, image, VK10.VK_IMAGE_ASPECT_COLOR_BIT);
         this.finalLayout = KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_STORE;
     }
@@ -53,8 +54,8 @@ public class Attachment {
         }
 
         this.image = new VulkanImage(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
-                VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        this.imageView = new ImageView(device, image.handle(), format, aspectMask);
+                MemoryProperty.DEVICE_LOCAL);
+        this.imageView = new ImageView(device, image, aspectMask);
 
         // Transition the image to an optimal layout.
         try (var _ = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout)) {
@@ -82,8 +83,8 @@ public class Attachment {
         }
 
         this.image = new VulkanImage(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
-                VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        this.imageView = new ImageView(device, image.handle(), format, aspectMask);
+                MemoryProperty.DEVICE_LOCAL);
+        this.imageView = new ImageView(device, image, aspectMask);
 
         // Transition the image to an optimal layout.
         try (var _ = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout)) {
@@ -116,7 +117,6 @@ public class Attachment {
     }
 
     void destroy() {
-        image.destroy();
-        imageView.destroy();
+        image.getNativeReference().destroy();
     }
 }

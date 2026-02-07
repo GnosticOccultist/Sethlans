@@ -4,8 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.joml.Matrix4f;
-import org.lwjgl.vulkan.VK10;
-
 import fr.sethlans.core.material.layout.BindingLayout;
 import fr.sethlans.core.render.Projection;
 import fr.sethlans.core.render.buffer.MemorySize;
@@ -13,11 +11,13 @@ import fr.sethlans.core.render.struct.GpuStruct;
 import fr.sethlans.core.render.struct.LayoutFormatter;
 import fr.sethlans.core.render.struct.StructLayoutGenerator;
 import fr.sethlans.core.render.struct.StructLayoutGenerator.StructLayout;
+import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
+import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.descriptor.AbstractDescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.memory.VulkanBuffer;
+import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.uniform.BufferUniform;
 import fr.sethlans.core.render.vk.uniform.UpdateRate;
 
@@ -88,8 +88,8 @@ public class BuiltinDescriptorManager {
             BufferUniform vkBuffUniform = null;
             if (k.updateRate == UpdateRate.PER_FRAME) {
                 vkBuffUniform = new BufferUniform();
-                var globalUniform = new VulkanBuffer(logicalDevice, MemorySize.floats(16 * VulkanGraphicsBackend.MAX_FRAMES_IN_FLIGHT), VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-                globalUniform.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+                var globalUniform = new BaseVulkanBuffer(logicalDevice, MemorySize.floats(16 * VulkanGraphicsBackend.MAX_FRAMES_IN_FLIGHT), BufferUsage.UNIFORM, MemoryProperty.HOST_VISIBLE);
+                globalUniform.allocate();
                 vkBuffUniform.set(globalUniform);
                 var buffer = globalUniform.map(builtin.layout());
                 buffer.set("view", viewMatrix);
@@ -97,8 +97,8 @@ public class BuiltinDescriptorManager {
                 
             } else {
                 vkBuffUniform = new BufferUniform();
-                var globalUniform = new VulkanBuffer(logicalDevice, MemorySize.floats(16), VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-                globalUniform.allocate(VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+                var globalUniform = new BaseVulkanBuffer(logicalDevice, MemorySize.floats(16), BufferUsage.UNIFORM, MemoryProperty.HOST_VISIBLE);
+                globalUniform.allocate();
                 vkBuffUniform.set(globalUniform);
                 var buffer = globalUniform.map(builtin.layout());
                 buffer.set("projection", projection.getMatrix());

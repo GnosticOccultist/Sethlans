@@ -16,7 +16,8 @@ import fr.sethlans.core.material.Image.ColorSpace;
 import fr.sethlans.core.material.Image.Format;
 import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.material.Texture.Type;
-import fr.sethlans.core.util.Allocator;
+import fr.sethlans.core.render.buffer.ArenaBuffer;
+import fr.sethlans.core.render.buffer.MemorySize;
 
 public class TextureLoader {
 
@@ -41,10 +42,11 @@ public class TextureLoader {
             var w = image.getWidth();
             var h = image.getHeight();
 
-            var numBytes = w * h * 4;
+            var size = new MemorySize(w * h, 4);
 
-            var pixels = Allocator.alloc(numBytes);
+            var pixels = new ArenaBuffer(size);
 
+            var buff = pixels.mapBytes();
             for (var y = 0; y < h; ++y) {
                 for (var x = 0; x < w; ++x) {
                     var argb = image.getRGB(x, y);
@@ -52,11 +54,11 @@ public class TextureLoader {
                     var g = (byte) ((argb >> 8) & 0xFF);
                     var b = (byte) (argb & 0xFF);
                     var a = (byte) ((argb >> 24) & 0xFF);
-                    pixels.put(r).put(g).put(b).put(a);
+                    buff.put(r).put(g).put(b).put(a);
                 }
             }
-
-            pixels.flip();
+            buff.flip();
+            pixels.unmap();
 
             var img = new Image(w, h, Format.RGBA8, pixels);
 

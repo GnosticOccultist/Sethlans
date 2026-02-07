@@ -39,6 +39,10 @@ public class Geometry {
     public Mesh getMesh() {
         return mesh;
     }
+    
+    public MaterialInstance getMaterialInstance() {
+        return material;
+    }
 
     public Material getMaterial() {
         return material.getMaterial();

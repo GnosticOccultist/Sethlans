@@ -67,19 +67,4 @@ public class VulkanContext {
     public LogicalDevice getLogicalDevice() {
         return logicalDevice;
     }
-
-    public void destroy() {
-        if (logicalDevice != null) {
-            logicalDevice.destroy();
-            logicalDevice = null;
-        }
-
-        if (surface != null) {
-            surface.destroy();
-        }
-
-        if (vulkanInstance != null) {
-            vulkanInstance.destroy();
-        }
-    }
 }
