@@ -30,9 +30,9 @@ public class VulkanImage extends MemoryResource {
 
     private int sampleCount;
 
-    private int usage;
+    private VkFlag<ImageUsage> usage;
 
-    protected VulkanImage(LogicalDevice device, long imageHandle, int width, int height, int format, int usage) {
+    protected VulkanImage(LogicalDevice device, long imageHandle, int width, int height, int format, VkFlag<ImageUsage> usage) {
         super(device);
         this.width = width;
         this.height = height;
@@ -47,16 +47,16 @@ public class VulkanImage extends MemoryResource {
         getLogicalDevice().getNativeReference().addDependent(ref);
     }
     
-    public VulkanImage(LogicalDevice device, int width, int height, int format, int usage, VkFlag<MemoryProperty> memProperty) {
+    public VulkanImage(LogicalDevice device, int width, int height, int format, VkFlag<ImageUsage> usage, VkFlag<MemoryProperty> memProperty) {
         this(device, width, height, format, 1, VK10.VK_SAMPLE_COUNT_1_BIT, usage, memProperty);
     }
 
-    public VulkanImage(LogicalDevice device, int width, int height, int format, int mipLevels, int usage,
+    public VulkanImage(LogicalDevice device, int width, int height, int format, int mipLevels, VkFlag<ImageUsage> usage,
             VkFlag<MemoryProperty> memProperty) {
         this(device, width, height, format, mipLevels, VK10.VK_SAMPLE_COUNT_1_BIT, usage, memProperty);
     }
 
-    public VulkanImage(LogicalDevice device, int width, int height, int format, int mipLevels, int sampleCount, int usage,
+    public VulkanImage(LogicalDevice device, int width, int height, int format, int mipLevels, int sampleCount, VkFlag<ImageUsage> usage,
             VkFlag<MemoryProperty> memProperty) {
         super(device, new MemorySize(width * height, 4), memProperty);
         this.width = width;
@@ -88,7 +88,7 @@ public class VulkanImage extends MemoryResource {
                     .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
                     .sharingMode(VK10.VK_SHARING_MODE_EXCLUSIVE)
                     .tiling(VK10.VK_IMAGE_TILING_OPTIMAL)
-                    .usage(usage);
+                    .usage(getUsage().bits());
 
             var vkDevice = logicalDeviceHandle();
             var pHandle = stack.mallocLong(1);
@@ -304,7 +304,7 @@ public class VulkanImage extends MemoryResource {
         return format;
     }
 
-    public int usage() {
+    public VkFlag<ImageUsage> getUsage() {
         return usage;
     }
 

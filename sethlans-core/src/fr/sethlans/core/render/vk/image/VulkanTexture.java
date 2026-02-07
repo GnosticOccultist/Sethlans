@@ -14,6 +14,7 @@ import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
+import fr.sethlans.core.render.vk.util.VkFlag;
 
 public class VulkanTexture {
 
@@ -47,10 +48,9 @@ public class VulkanTexture {
         buffer.put(data.mapBytes());
         stagingBuffer.unmap();
 
-        this.image = new VulkanImage(
-                device, width, height, imageFormat, mipLevels, VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-                        | VK10.VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK10.VK_IMAGE_USAGE_SAMPLED_BIT,
-                        MemoryProperty.DEVICE_LOCAL);
+        this.image = new VulkanImage(device, width, height, imageFormat, mipLevels,
+                VkFlag.of(ImageUsage.TRANSFER_SRC, ImageUsage.TRANSFER_DST, ImageUsage.SAMPLED),
+                MemoryProperty.DEVICE_LOCAL);
 
         // Transition the image layout.
         try (var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED,

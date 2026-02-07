@@ -4,6 +4,9 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkAttachmentDescription;
 import org.lwjgl.vulkan.VkClearValue;
 
+import fr.sethlans.core.render.vk.image.ImageUsage;
+import fr.sethlans.core.render.vk.util.VkFlag;
+
 public class AttachmentDescriptor {
 
     private final VkAttachmentDescription description = VkAttachmentDescription.calloc();
@@ -14,7 +17,7 @@ public class AttachmentDescriptor {
     private boolean primary;
     
     private AttachmentDescriptor resolveTo;
-    private int usage = -1;
+    private VkFlag<ImageUsage> usage = VkFlag.empty();
 
     public VkAttachmentDescription description() {
         return description;
@@ -57,11 +60,11 @@ public class AttachmentDescriptor {
         return resolveTo;
     }
     
-    public int usage() {
+    public VkFlag<ImageUsage> usage() {
         return usage;
     }
     
-    public AttachmentDescriptor usage(int usage) {
+    public AttachmentDescriptor usage(VkFlag<ImageUsage> usage) {
         this.usage = usage;
         return this;
     }

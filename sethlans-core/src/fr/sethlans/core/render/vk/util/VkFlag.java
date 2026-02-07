@@ -43,6 +43,10 @@ public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Int
     default boolean contains(int bits) {
         return (bits() & bits) == bits;
     }
+    
+    default boolean isEmpty() {
+        return bits() == 0;
+    }
 
     @Override
     default Iterator<Integer> iterator() {

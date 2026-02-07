@@ -3,7 +3,6 @@ package fr.sethlans.core.render.vk.context;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
@@ -56,7 +55,7 @@ public class VulkanRenderer {
     private VulkanFrame currentFrame;
 
     private PipelineLibrary pipelineLibrary;
-    
+
     private BuiltinDescriptorManager builtinDescriptorManager;
 
     public VulkanRenderer(VulkanContext context, ConfigFile config, SwapChain swapChain) {
@@ -78,7 +77,8 @@ public class VulkanRenderer {
         Arrays.fill(drawCommands, new DrawCommand(this, logicalDevice.createGraphicsCommand()));
 
         this.descriptorPool = new DescriptorPool(logicalDevice, 16);
-        this.builtinDescriptorManager = new BuiltinDescriptorManager(descriptorPool, swapChain.width(), swapChain.height());
+        this.builtinDescriptorManager = new BuiltinDescriptorManager(descriptorPool, swapChain.width(),
+                swapChain.height());
     }
 
     public void resize() {
@@ -143,7 +143,7 @@ public class VulkanRenderer {
 
         command.end();
     }
-    
+
     public void bind(AbstractPipeline pipeline, MaterialLayout materialLayout, CommandBuffer command, int imageIndex) {
         var layouts = pipeline.getLayout().getSetLayouts();
 
@@ -154,26 +154,29 @@ public class VulkanRenderer {
                     List<DescriptorSetWriter> writers = new ArrayList<>();
                     AbstractDescriptorSet desc = null;
                     if (bindLayout.builtin() != null) {
-                        var descLayout = pipelineLibrary.getOrCreate(context.getLogicalDevice(), entry.getKey(), bindLayout);
+                        var descLayout = pipelineLibrary.getOrCreate(context.getLogicalDevice(), entry.getKey(),
+                                bindLayout);
                         desc = builtinDescriptorManager.getOrCreate(bindLayout, descLayout);
-                        var buff = builtinDescriptorManager.getOrCreate(context.getLogicalDevice(), bindLayout.builtin());
+                        var buff = builtinDescriptorManager.getOrCreate(context.getLogicalDevice(),
+                                bindLayout.builtin());
                         writers.add(buff.createWriter(bindLayout));
-                        
+
                     } else {
                         if (bindLayout.name().equals("TextureSampler")) {
                             if (samplerDescriptorSet == null) {
-                                var samplerDescriptorSetLayout = pipelineLibrary.getOrCreate(context.getLogicalDevice(), entry.getKey(), bindLayout);
+                                var samplerDescriptorSetLayout = pipelineLibrary.getOrCreate(context.getLogicalDevice(),
+                                        entry.getKey(), bindLayout);
                                 this.samplerDescriptorSet = descriptorPool.allocate(samplerDescriptorSetLayout);
                             }
                             desc = samplerDescriptorSet;
                         }
                     }
-                    
+
                     desc.write(writers, imageIndex);
                     pDescriptorSets.put(desc.handle(imageIndex));
                 }
             }
-            
+
             pDescriptorSets.flip();
             command.bindDescriptorSets(pipeline.getLayout().handle(), pipeline.getBindPoint(), pDescriptorSets, null);
         }
@@ -183,8 +186,9 @@ public class VulkanRenderer {
         var logicalDevice = context.getLogicalDevice();
         var mesh = geometry.getMesh();
         var layout = pipeline.getLayout();
-        
-        bind(pipeline, geometry.getMaterial().getDefaultMaterialPass().getLayout(), command, imageIndex);
+        var material = geometry.getMaterialInstance();
+
+        bind(pipeline, material.getMaterial().getDefaultMaterialPass().getLayout(), command, imageIndex);
 
         VulkanMesh vkMesh = null;
         if (mesh.hasBackendObject()) {
@@ -232,14 +236,14 @@ public class VulkanRenderer {
                 samplerDescriptorSet.updateTextureDescriptorSet(vkTexture, 0);
             }
         }
-        
+
         var pushConstants = layout.getPushConstants();
         for (var pushConstant : pushConstants) {
-            command.pushConstants(layout.handle(), ShaderLibrary.getVkTypes(pushConstant.shaderTypes()), 0, geometry.getModelMatrix());
+            command.pushConstants(layout.handle(), ShaderLibrary.getVkTypes(pushConstant.shaderTypes()), 0,
+                    geometry.getModelMatrix());
         }
 
-        command.bindVertexBuffer(vkMesh.getVertexBuffer())
-                .bindIndexBuffer(vkMesh.getIndexBuffer());
+        command.bindVertexBuffer(vkMesh.getVertexBuffer()).bindIndexBuffer(vkMesh.getIndexBuffer());
 
         return vkMesh;
     }
@@ -257,7 +261,7 @@ public class VulkanRenderer {
     public SwapChain getSwapChain() {
         return swapChain;
     }
-    
+
     public int getCurrentFrameIndex() {
         return context.getBackend().getCurrentFrameIndex();
     }

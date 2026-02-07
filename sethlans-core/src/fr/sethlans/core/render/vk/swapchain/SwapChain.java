@@ -24,6 +24,7 @@ import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 
 public abstract class SwapChain {
@@ -62,6 +63,7 @@ public abstract class SwapChain {
                 SethlansApplication.DEFAULT_MSSA_SAMPLES);
         var maxSampleCount = context.getPhysicalDevice().maxSamplesCount();
         this.sampleCount = Math.min(requestedSampleCount, maxSampleCount);
+        this.sampleCount = Math.max(sampleCount, VK10.VK_SAMPLE_COUNT_1_BIT);
         logger.info("Using " + sampleCount + " samples (requested= " + requestedSampleCount + ", max= " + maxSampleCount
                 + ").");
     }
@@ -76,7 +78,7 @@ public abstract class SwapChain {
 
         var attachment = getPrimaryAttachment(frameIndex);
         var image = attachment.image;
-        if ((image.usage() & VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT) == 0) {
+        if (!image.getUsage().contains(ImageUsage.TRANSFER_SRC)) {
             throw new IllegalStateException("Surface images doesn't support transferring to a buffer!");
         }
         

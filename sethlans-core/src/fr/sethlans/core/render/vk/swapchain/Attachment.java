@@ -5,10 +5,12 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkExtent2D;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.image.ImageView;
 import fr.sethlans.core.render.vk.image.VulkanImage;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.PresentationImage;
+import fr.sethlans.core.render.vk.util.VkFlag;
 
 public class Attachment {
     
@@ -31,22 +33,22 @@ public class Attachment {
     }
 
     public Attachment(LogicalDevice device, AttachmentDescriptor descriptor, VkExtent2D extent, int format,
-            int aspectMask, int sampleCount, int usage) {
+            int aspectMask, int sampleCount, VkFlag<ImageUsage> usage) {
         this.descriptor = descriptor;
         this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
         if (aspectMask == VK10.VK_IMAGE_ASPECT_COLOR_BIT) {
             // Transient color buffer attachment.
             this.finalLayout = VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            if (usage == -1) {
-                usage = VK10.VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+            if (usage.isEmpty()) {
+                usage = VkFlag.of(ImageUsage.TRANSIENT_ATTACHMENT, ImageUsage.COLOR_ATTACHMENT);
             }
 
         } else if (aspectMask == VK10.VK_IMAGE_ASPECT_DEPTH_BIT) {
             // Depth buffer attachment.
             this.finalLayout = VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            if (usage == -1) {
-                usage = VK10.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            if (usage.isEmpty()) {
+                usage = VkFlag.of(ImageUsage.DEPTH_STENCIL_ATTACHMENT);
             }
 
         } else {
@@ -67,16 +69,16 @@ public class Attachment {
             int aspectMask, int sampleCount) {
         this.descriptor = descriptor;
         this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        var usage = VK10.VK_IMAGE_USAGE_SAMPLED_BIT;
+        VkFlag<ImageUsage> usage = ImageUsage.SAMPLED;
         if (aspectMask == VK10.VK_IMAGE_ASPECT_COLOR_BIT) {
             // Transient color buffer attachment.
             this.finalLayout = VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            usage = VK10.VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+            usage = VkFlag.of(ImageUsage.TRANSIENT_ATTACHMENT, ImageUsage.COLOR_ATTACHMENT);
 
         } else if (aspectMask == VK10.VK_IMAGE_ASPECT_DEPTH_BIT) {
             // Depth buffer attachment.
             this.finalLayout = VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            usage = VK10.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            usage = VkFlag.of(ImageUsage.DEPTH_STENCIL_ATTACHMENT);
 
         } else {
             throw new IllegalArgumentException("Illegal aspect mask for attachment " + aspectMask);

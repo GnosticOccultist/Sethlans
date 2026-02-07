@@ -16,6 +16,7 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.backend.GlfwBasedGraphicsBackend;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.pipeline.PipelineCache;
 import fr.sethlans.core.render.vk.swapchain.AttachmentDescriptor;
 import fr.sethlans.core.render.vk.swapchain.OffscreenSwapChain;
@@ -24,6 +25,7 @@ import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.SubpassDependency;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
+import fr.sethlans.core.render.vk.util.VkFlag;
 
 public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
@@ -34,7 +36,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
     
     public static final String DYNAMIC_RENDERING_PROP = "DynamicRendering";
     
-    public static final boolean DEFAULT_DYNAMIC_RENDERING = false;
+    public static final boolean DEFAULT_DYNAMIC_RENDERING = true;
 
     private VulkanContext context;
 
@@ -318,7 +320,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
                 .stencilStoreOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE) // Ignore stencil operations.
                 .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED);
         presentationDesc.clearValue().color().float32(0, 0.5f).float32(1, 0.7f).float32(2, 0.9f).float32(3, 1.0f);
-        presentationDesc.usage(VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+        presentationDesc.usage(VkFlag.of(ImageUsage.COLOR_ATTACHMENT, ImageUsage.TRANSFER_SRC));
 
         var depthDesc = new AttachmentDescriptor();
         depthDesc.finalLayout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL).format(depthFormat)

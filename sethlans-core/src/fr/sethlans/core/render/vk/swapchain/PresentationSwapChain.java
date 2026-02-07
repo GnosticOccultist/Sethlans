@@ -14,8 +14,10 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
 import fr.sethlans.core.render.vk.context.VulkanContext;
+import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.image.VulkanImage;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame.State;
+import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class PresentationSwapChain extends SwapChain {
@@ -24,7 +26,7 @@ public class PresentationSwapChain extends SwapChain {
 
     private long handle = VK10.VK_NULL_HANDLE;
 
-    private int imageUsage;
+    private VkFlag<ImageUsage> imageUsage;
 
     private VkSurfaceFormatKHR surfaceFormat;
 
@@ -132,7 +134,7 @@ public class PresentationSwapChain extends SwapChain {
                 .imageFormat(imageFormat())
                 .minImageCount(imageCount)
                 .oldSwapchain(oldSwapchain)
-                .imageUsage(imageUsage) // Render the images to the surface.
+                .imageUsage(imageUsage.bits()) // Render the images to the surface.
                 .preTransform(surfaceProperties.currentTransform()) // Use the current transformation mode.
                 .surface(surfaceHandle)
                 .imageColorSpace(surfaceFormat.colorSpace())
@@ -237,11 +239,11 @@ public class PresentationSwapChain extends SwapChain {
         return result;
     }
 
-    protected int getImageUsage(SurfaceProperties surfaceProperties) {
+    protected VkFlag<ImageUsage> getImageUsage(SurfaceProperties surfaceProperties) {
         var supportTransfer = surfaceProperties.supportsUsage(VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
-        var imageUsage = VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        var imageUsage = ImageUsage.COLOR_ATTACHMENT;
         if (supportTransfer) {
-            imageUsage |= VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+            imageUsage.add(ImageUsage.TRANSFER_SRC);
         } else {
             logger.warning(
                     "Swapchain surface doesn't support image transfer usage, some features might not work properly!");
@@ -296,9 +298,9 @@ public class PresentationSwapChain extends SwapChain {
 
     class PresentationImage extends VulkanImage {
 
-        PresentationImage(long imageHandle, int imageUsage) {
+        PresentationImage(long imageHandle, VkFlag<ImageUsage> usage) {
             super(logicalDevice(), imageHandle, framebufferExtent.width(), framebufferExtent.height(), imageFormat(),
-                    imageUsage);
+                    usage);
         }
 
         @Override
