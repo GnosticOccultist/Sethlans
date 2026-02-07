@@ -11,7 +11,7 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class ImageView extends AbstractDeviceResource {
 
-    public ImageView(LogicalDevice logicalDevice, VulkanImage image, int aspectMask) {
+    public ImageView(LogicalDevice logicalDevice, BaseVulkanImage image, int aspectMask) {
         super(logicalDevice);
         
         try (var stack = MemoryStack.stackPush()) {

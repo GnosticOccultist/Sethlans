@@ -89,7 +89,6 @@ public abstract class SwapChain {
         var size = new MemorySize(width * height, channels);
         var destination = new BaseVulkanBuffer(context.getLogicalDevice(), size, BufferUsage.TRANSFER_DST,
                 MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT));
-        destination.allocate();
 
         // Transition image to a valid transfer layout.
         try (var command = image.transitionImageLayout(attachment.finalLayout(),

@@ -23,7 +23,6 @@ import org.lwjgl.vulkan.VkRenderPassBeginInfo;
 import org.lwjgl.vulkan.VkSubmitInfo;
 import org.lwjgl.vulkan.VkViewport;
 
-import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
@@ -113,7 +112,7 @@ public class CommandBuffer {
         return this;
     }
 
-    public CommandBuffer copyBuffer(BaseVulkanBuffer source, VulkanImage destination) {
+    public CommandBuffer copyBuffer(VulkanBuffer source, VulkanImage destination) {
         assert source.getUsage().contains(BufferUsage.TRANSFER_SRC);
         
         try (var stack = MemoryStack.stackPush()) {
@@ -136,7 +135,7 @@ public class CommandBuffer {
         return this;
     }
 
-    public CommandBuffer copyImage(VulkanImage source, int imageLayout, BaseVulkanBuffer destination) {
+    public CommandBuffer copyImage(VulkanImage source, int imageLayout, VulkanBuffer destination) {
         try (var stack = MemoryStack.stackPush()) {
             var pRegion = VkBufferImageCopy.calloc(1, stack)
                     .bufferOffset(0)

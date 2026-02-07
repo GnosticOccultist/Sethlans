@@ -89,7 +89,6 @@ public class BuiltinDescriptorManager {
             if (k.updateRate == UpdateRate.PER_FRAME) {
                 vkBuffUniform = new BufferUniform();
                 var globalUniform = new BaseVulkanBuffer(logicalDevice, MemorySize.floats(16 * VulkanGraphicsBackend.MAX_FRAMES_IN_FLIGHT), BufferUsage.UNIFORM, MemoryProperty.HOST_VISIBLE);
-                globalUniform.allocate();
                 vkBuffUniform.set(globalUniform);
                 var buffer = globalUniform.map(builtin.layout());
                 buffer.set("view", viewMatrix);
@@ -98,7 +97,6 @@ public class BuiltinDescriptorManager {
             } else {
                 vkBuffUniform = new BufferUniform();
                 var globalUniform = new BaseVulkanBuffer(logicalDevice, MemorySize.floats(16), BufferUsage.UNIFORM, MemoryProperty.HOST_VISIBLE);
-                globalUniform.allocate();
                 vkBuffUniform.set(globalUniform);
                 var buffer = globalUniform.map(builtin.layout());
                 buffer.set("projection", projection.getMatrix());

@@ -55,7 +55,6 @@ public class OffscreenSwapChain extends SwapChain {
         var size = new MemorySize(width * height, channels);
         this.screenBuffer = new BaseVulkanBuffer(logicalDevice(), size, BufferUsage.TRANSFER_DST,
                 VkFlag.of(MemoryProperty.HOST_VISIBLE, MemoryProperty.HOST_COHERENT, MemoryProperty.HOST_CACHED));
-        screenBuffer.allocate();
 
         logger.info("Requested " + width + " " + height + "  images for the swapchain.");
     }
@@ -92,7 +91,6 @@ public class OffscreenSwapChain extends SwapChain {
             var size = new MemorySize(width * height, channels);
             this.screenBuffer = new BaseVulkanBuffer(logicalDevice(), size, BufferUsage.TRANSFER_DST,
                     VkFlag.of(MemoryProperty.HOST_VISIBLE, MemoryProperty.HOST_COHERENT, MemoryProperty.HOST_CACHED));
-            screenBuffer.allocate();
 
             resizeNeeded.getAndSet(false);
         }

@@ -15,7 +15,7 @@ import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.image.ImageUsage;
-import fr.sethlans.core.render.vk.image.VulkanImage;
+import fr.sethlans.core.render.vk.image.BaseVulkanImage;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame.State;
 import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
@@ -296,7 +296,7 @@ public class PresentationSwapChain extends SwapChain {
         }
     }
 
-    class PresentationImage extends VulkanImage {
+    class PresentationImage extends BaseVulkanImage {
 
         PresentationImage(long imageHandle, VkFlag<ImageUsage> usage) {
             super(logicalDevice(), imageHandle, framebufferExtent.width(), framebufferExtent.height(), imageFormat(),

@@ -23,8 +23,8 @@ public class DeviceBuffer {
         this.usage = usage;
 
         // Create a temporary staging buffer.
-        var stagingBuffer = new BaseVulkanBuffer(device, size, BufferUsage.TRANSFER_SRC, MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT));
-        stagingBuffer.allocate();
+        var stagingBuffer = new BaseVulkanBuffer(device, size, BufferUsage.TRANSFER_SRC,
+                MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT));
 
         // Map the staging buffer memory to a buffer.
         this.data = stagingBuffer.mapBytes();
@@ -33,7 +33,6 @@ public class DeviceBuffer {
 
         // Finally create a device local buffer to use as a destination.
         this.buffer = new BaseVulkanBuffer(device, size, usage, MemoryProperty.DEVICE_LOCAL);
-        buffer.allocate();
 
         // Create a one-time submit command buffer.
         try (var command = device.singleUseTransferCommand()) {

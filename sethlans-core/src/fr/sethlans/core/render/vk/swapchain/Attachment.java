@@ -7,7 +7,7 @@ import org.lwjgl.vulkan.VkExtent2D;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.image.ImageView;
-import fr.sethlans.core.render.vk.image.VulkanImage;
+import fr.sethlans.core.render.vk.image.BaseVulkanImage;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.PresentationImage;
 import fr.sethlans.core.render.vk.util.VkFlag;
@@ -16,7 +16,7 @@ public class Attachment {
     
     final AttachmentDescriptor descriptor;
 
-    final VulkanImage image;
+    final BaseVulkanImage image;
 
     final ImageView imageView;
 
@@ -55,7 +55,7 @@ public class Attachment {
             throw new IllegalArgumentException("Illegal aspect mask for attachment " + aspectMask);
         }
 
-        this.image = new VulkanImage(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
+        this.image = new BaseVulkanImage(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
                 MemoryProperty.DEVICE_LOCAL);
         this.imageView = new ImageView(device, image, aspectMask);
 
@@ -84,7 +84,7 @@ public class Attachment {
             throw new IllegalArgumentException("Illegal aspect mask for attachment " + aspectMask);
         }
 
-        this.image = new VulkanImage(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
+        this.image = new BaseVulkanImage(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
                 MemoryProperty.DEVICE_LOCAL);
         this.imageView = new ImageView(device, image, aspectMask);
 
@@ -98,7 +98,7 @@ public class Attachment {
         return imageView;
     }
 
-    public VulkanImage image() {
+    public BaseVulkanImage image() {
         return image;
     }
 

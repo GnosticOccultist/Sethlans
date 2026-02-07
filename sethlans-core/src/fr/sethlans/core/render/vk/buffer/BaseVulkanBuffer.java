@@ -1,5 +1,6 @@
 package fr.sethlans.core.render.vk.buffer;
 
+import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkBufferCreateInfo;
@@ -7,21 +8,28 @@ import org.lwjgl.vulkan.VkMemoryRequirements;
 
 import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.vk.device.AbstractDeviceResource;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.device.MemoryResource;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
+import fr.sethlans.core.render.vk.memory.MemoryResource;
 import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class BaseVulkanBuffer extends MemoryResource implements VulkanBuffer {
+public class BaseVulkanBuffer extends AbstractDeviceResource implements VulkanBuffer {
+    
+    private MemoryResource memory;
+    
+    private MemorySize size;
 
     private VkFlag<BufferUsage> usage;
 
     private boolean concurrent = false;
 
     public BaseVulkanBuffer(LogicalDevice logicalDevice, MemorySize size, VkFlag<BufferUsage> usage, VkFlag<MemoryProperty> memProperty) {
-        super(logicalDevice, size, memProperty);
+        super(logicalDevice);
+        this.size = size;
         this.usage = usage;
+        this.memory = new MemoryResource(logicalDevice, size.getBytes(), memProperty);
         
         try (var stack = MemoryStack.stackPush()) {
 
@@ -39,24 +47,32 @@ public class BaseVulkanBuffer extends MemoryResource implements VulkanBuffer {
             var handle = pBuffer.get(0);
            
             assignHandle(handle);
+            
+            var memRequirements = VkMemoryRequirements.malloc(stack);
+            VK10.vkGetBufferMemoryRequirements(vkDevice, handle(), memRequirements);
+            
+            memory.allocate(stack, memRequirements);
+            memory.bindMemory(this);
+            
             ref = NativeResource.get().register(this);
             logicalDevice.getNativeReference().addDependent(ref);
+            memory.getNativeReference().addDependent(ref);
         }
     }
 
     @Override
-    protected VkMemoryRequirements queryMemoryRequirements(VkMemoryRequirements memRequirements) {
-        var vkDevice = logicalDeviceHandle();
-        VK10.vkGetBufferMemoryRequirements(vkDevice, handle(), memRequirements);
-        return memRequirements;
+    public PointerBuffer map(int offset, int size) {
+        return memory.map(offset, size);
     }
 
     @Override
-    protected void bindMemory(long memoryHandle) {
-        // Bind allocated memory to the buffer object.
-        var vkDevice = logicalDeviceHandle();
-        var err = VK10.vkBindBufferMemory(vkDevice, handle(), memoryHandle, 0);
-        VkUtil.throwOnFailure(err, "bind memory to a buffer");
+    public void unmap() {
+        memory.unmap();
+    }
+
+    @Override
+    public MemorySize size() {
+        return size;
     }
 
     @Override
@@ -72,8 +88,6 @@ public class BaseVulkanBuffer extends MemoryResource implements VulkanBuffer {
     @Override
     public Runnable createDestroyAction() {
         return () -> {
-            super.createDestroyAction().run();
-            
             VK10.vkDestroyBuffer(logicalDeviceHandle(), handle(), null);
             unassignHandle();
         };

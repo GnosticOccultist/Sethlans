@@ -20,7 +20,7 @@ public class VulkanTexture {
 
     private final LogicalDevice device;
 
-    private VulkanImage image;
+    private BaseVulkanImage image;
 
     private ImageView imageView;
 
@@ -28,7 +28,7 @@ public class VulkanTexture {
     
     public VulkanTexture(LogicalDevice device, Texture texture) {
         this(device, texture.image().width(), texture.image().height(),
-                VulkanImage.getVkFormat(texture.image().format(), texture.image().colorSpace()),
+                BaseVulkanImage.getVkFormat(texture.image().format(), texture.image().colorSpace()),
                 texture.image().data());
     }
 
@@ -41,14 +41,13 @@ public class VulkanTexture {
         // Create a temporary staging buffer.
         var size = MemorySize.copy(data.size());
         var stagingBuffer = new BaseVulkanBuffer(device, size, BufferUsage.TRANSFER_SRC, MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT));
-        stagingBuffer.allocate();
 
         // Map the staging buffer memory to a buffer.
         var buffer = stagingBuffer.mapBytes();
         buffer.put(data.mapBytes());
         stagingBuffer.unmap();
 
-        this.image = new VulkanImage(device, width, height, imageFormat, mipLevels,
+        this.image = new BaseVulkanImage(device, width, height, imageFormat, mipLevels,
                 VkFlag.of(ImageUsage.TRANSFER_SRC, ImageUsage.TRANSFER_DST, ImageUsage.SAMPLED),
                 MemoryProperty.DEVICE_LOCAL);
 
