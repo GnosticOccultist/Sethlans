@@ -5,10 +5,12 @@ import java.util.TreeSet;
 
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.EXTGraphicsPipelineLibrary;
 import org.lwjgl.vulkan.EXTIndexTypeUint8;
 import org.lwjgl.vulkan.EXTSwapchainColorspace;
 import org.lwjgl.vulkan.KHRDynamicRendering;
 import org.lwjgl.vulkan.KHRIndexTypeUint8;
+import org.lwjgl.vulkan.KHRPipelineLibrary;
 import org.lwjgl.vulkan.KHRPortabilitySubset;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
@@ -24,6 +26,7 @@ import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkPhysicalDeviceDynamicRenderingFeaturesKHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures2;
+import org.lwjgl.vulkan.VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT;
 import org.lwjgl.vulkan.VkPhysicalDeviceIndexTypeUint8FeaturesKHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties;
 import org.lwjgl.vulkan.VkPhysicalDevicePortabilitySubsetFeaturesKHR;
@@ -84,6 +87,12 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
         if (pd.hasExtension(EXTSwapchainColorspace.VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME)) {
             score += 10f;
         }
+        
+        // This is a major plus if the device supports graphics pipeline library.
+        if (pd.hasExtension(KHRPipelineLibrary.VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME) 
+                && pd.hasExtension(EXTGraphicsPipelineLibrary.VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME)) {
+            score += 100f;
+        }
 
         // Discrete GPUs have a significant performance advantage over integrated GPUs.
         if (pd.type() == VK10.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
@@ -109,6 +118,12 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
                 || pd.hasExtension(KHRIndexTypeUint8.VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME)) {
             score += 10f;
         }
+        
+        // This is a major plus if the device supports graphics pipeline library.
+        if (pd.hasExtension(KHRPipelineLibrary.VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME) 
+                && pd.hasExtension(EXTGraphicsPipelineLibrary.VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME)) {
+            score += 100f;
+        }
 
         // Discrete GPUs have a significant performance advantage over integrated GPUs.
         if (pd.type() == VK10.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
@@ -131,6 +146,8 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
     private long minUboAlignment = -1;
 
     private int maxPushConstantsSize = -1;
+    
+    private boolean depthClamp;
 
     private boolean byteIndexSupported;
     
@@ -143,6 +160,8 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
     private Set<String> availableToolProperties;
 
     private boolean dynamicRenderingSupported;
+
+    private boolean graphicsPipelineLibrarySupported;
 
     public PhysicalDevice(long handle, VulkanInstance instance) {
         this.instance = instance;
@@ -201,6 +220,16 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
                 features.samplerAnisotropy(true);
                 logger.info("Anisotropic filtering supported by " + this + ", maxAnisotropy= " + maxAnisotropy + ".");
             }
+            
+            if (!features.depthClamp()) {
+                logger.warning(
+                        "Physical device " + this + " doesn't support depth clamping.");
+                this.depthClamp = false;
+            } else {
+                features.depthClamp(true);
+                this.depthClamp = true;
+                logger.info("Depth clamping supported by " + this + ".");
+            }
 
             createInfo.pEnabledFeatures(features);
             
@@ -210,14 +239,18 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
             var portabilityFeatures = VkPhysicalDevicePortabilitySubsetFeaturesKHR.calloc(stack);
             
             var dynamicRenderingFeatures = VkPhysicalDeviceDynamicRenderingFeaturesKHR.calloc(stack)
-                    .sType(KHRDynamicRendering.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR)
-                    .dynamicRendering(true);
+                    .sType(KHRDynamicRendering.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR);
+            
+            var graphicsPipelineLibraryFeatures =
+                    VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT.calloc(stack)
+                        .sType(EXTGraphicsPipelineLibrary.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT);
 
             var features2 = VkPhysicalDeviceFeatures2.calloc(stack)
                     .sType(VK11.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2)
                     .pNext(uint8Features)
                     .pNext(portabilityFeatures)
-                    .pNext(dynamicRenderingFeatures);
+                    .pNext(dynamicRenderingFeatures)
+                    .pNext(graphicsPipelineLibraryFeatures);
 
             // Request features2 for the physical device.
             VK11.vkGetPhysicalDeviceFeatures2(object, features2);
@@ -253,6 +286,15 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
                 logger.warning("Physical device " + this
                         + " doesn't support dynamic rendering. Renderer will use render pass instead.");
             }
+            
+            if (graphicsPipelineLibraryFeatures.graphicsPipelineLibrary()) {
+                graphicsPipelineLibraryFeatures.graphicsPipelineLibrary(true);
+                this.graphicsPipelineLibrarySupported = true;
+                logger.info("Graphics pipeline library supported by " + this + ".");
+
+                // Request graphics pipeline library support.
+                createInfo.pNext(graphicsPipelineLibraryFeatures);
+            }
 
             // Enable all available queue families.
             var properties = gatherQueueFamilyProperties(stack, surfaceHandle);
@@ -287,11 +329,18 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
                 requiredExtensions = VkUtil.appendStringPointer(requiredExtensions,
                         EXTIndexTypeUint8.VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME, stack);
             }
-            
+
             var osArch = application.getOsArch();
             if (osArch.os().equals(OS.MAC_OS)) {
-                requiredExtensions = VkUtil.appendStringPointer(requiredExtensions, KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
-                        stack);
+                requiredExtensions = VkUtil.appendStringPointer(requiredExtensions,
+                        KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME, stack);
+            }
+
+            if (supportsGraphicsPipelineLibrary()) {
+                requiredExtensions = VkUtil.appendStringPointer(requiredExtensions,
+                        KHRPipelineLibrary.VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME, stack);
+                requiredExtensions = VkUtil.appendStringPointer(requiredExtensions,
+                        EXTGraphicsPipelineLibrary.VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME, stack);
             }
             
             createInfo.ppEnabledExtensionNames(requiredExtensions);
@@ -574,6 +623,10 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
         return minUboAlignment;
     }
 
+    public boolean supportsDepthClamp() {
+        return depthClamp;
+    }
+
     public boolean supportsByteIndex() {
         return byteIndexSupported;
     }
@@ -592,6 +645,10 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
 
     public boolean supportsDynamicRendering() {
         return dynamicRenderingSupported;
+    }
+
+    public boolean supportsGraphicsPipelineLibrary() {
+        return graphicsPipelineLibrarySupported;
     }
 
     public int type() {
