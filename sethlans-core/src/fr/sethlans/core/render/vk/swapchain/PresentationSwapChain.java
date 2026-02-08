@@ -102,7 +102,6 @@ public class PresentationSwapChain extends SwapChain {
                 }
             }
             
-            
             window.resize(framebufferExtent(stack));
         }
     }

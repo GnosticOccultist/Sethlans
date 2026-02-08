@@ -26,6 +26,7 @@ import org.lwjgl.vulkan.VkViewport;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.image.VulkanImage;
 import fr.sethlans.core.render.vk.memory.DeviceBuffer;
 import fr.sethlans.core.render.vk.memory.IndexBuffer;
@@ -89,6 +90,8 @@ public class CommandBuffer {
     }
 
     public CommandBuffer addBlit(VulkanImage image, VkImageBlit.Buffer pBlits) {
+        assert image.getUsage().contains(ImageUsage.TRANSFER_SRC);
+        
         var imageHandle = image.handle();
         VK10.vkCmdBlitImage(handle, imageHandle, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, imageHandle,
                 VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pBlits, VK10.VK_FILTER_LINEAR);
@@ -114,6 +117,7 @@ public class CommandBuffer {
 
     public CommandBuffer copyBuffer(VulkanBuffer source, VulkanImage destination) {
         assert source.getUsage().contains(BufferUsage.TRANSFER_SRC);
+        assert destination.getUsage().contains(ImageUsage.TRANSFER_DST);
         
         try (var stack = MemoryStack.stackPush()) {
             var pRegion = VkBufferImageCopy.calloc(1, stack)
@@ -136,6 +140,9 @@ public class CommandBuffer {
     }
 
     public CommandBuffer copyImage(VulkanImage source, int imageLayout, VulkanBuffer destination) {
+        assert source.getUsage().contains(ImageUsage.TRANSFER_SRC);
+        assert destination.getUsage().contains(BufferUsage.TRANSFER_DST);
+        
         try (var stack = MemoryStack.stackPush()) {
             var pRegion = VkBufferImageCopy.calloc(1, stack)
                     .bufferOffset(0)
