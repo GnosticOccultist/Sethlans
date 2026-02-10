@@ -35,5 +35,4 @@ public enum ImageUsage implements VkFlag<ImageUsage> {
     public int bits() {
         return vkBit;
     }
-
 }

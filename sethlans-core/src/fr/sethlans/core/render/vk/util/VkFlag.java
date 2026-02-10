@@ -1,10 +1,21 @@
 package fr.sethlans.core.render.vk.util;
 
+import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.function.Function;
 
 public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Integer> {
 
     static <T extends VkFlag<T>> VkFlag<T> of(int bits) {
+        return new VkFlagImpl<>(bits);
+    }
+    
+    static <V extends Enum<V>, T extends VkFlag<T>> VkFlag<T> of(EnumSet<V> enums, Function<V, T> mapper) {
+        int bits = 0;
+        for (var e : enums) {
+            bits |= mapper.apply(e).bits();
+        }
+        
         return new VkFlagImpl<>(bits);
     }
 
@@ -42,6 +53,10 @@ public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Int
 
     default boolean contains(int bits) {
         return (bits() & bits) == bits;
+    }
+    
+    default boolean containedIn(int bits) {
+        return (bits & bits()) == bits();
     }
     
     default boolean isEmpty() {

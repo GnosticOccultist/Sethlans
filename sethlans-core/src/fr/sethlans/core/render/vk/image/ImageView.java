@@ -17,7 +17,7 @@ public class ImageView extends AbstractDeviceResource {
         try (var stack = MemoryStack.stackPush()) {
             var createInfo = VkImageViewCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO)
-                    .format(image.format())
+                    .format(image.format().vkEnum())
                     .image(image.handle())
                     .viewType(VK10.VK_IMAGE_VIEW_TYPE_2D);
 

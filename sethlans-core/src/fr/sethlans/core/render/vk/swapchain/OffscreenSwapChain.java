@@ -12,6 +12,7 @@ import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.context.VulkanContext;
+import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.util.VkFlag;
 
@@ -35,7 +36,7 @@ public class OffscreenSwapChain extends SwapChain {
             var desiredHeight = config.getInteger(SethlansApplication.WINDOW_HEIGHT_PROP, Window.DEFAULT_HEIGHT);
             
             this.imageCount = imageCount;
-            this.imageFormat = gammaCorrection ? VK10.VK_FORMAT_B8G8R8A8_SRGB : VK10.VK_FORMAT_B8G8R8A8_UNORM;
+            this.imageFormat = gammaCorrection ? VulkanFormat.B8G8R8A8_SRGB : VulkanFormat.B8G8R8A8_UNORM;
             this.framebufferExtent.set(desiredWidth, desiredHeight);
 
             this.attachments = new AttachmentSet(logicalDevice(), this, stack, null, descriptors);

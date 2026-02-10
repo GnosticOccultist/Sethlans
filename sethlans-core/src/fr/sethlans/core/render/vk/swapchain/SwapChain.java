@@ -24,7 +24,10 @@ import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.image.FormatFeature;
 import fr.sethlans.core.render.vk.image.ImageUsage;
+import fr.sethlans.core.render.vk.image.VulkanFormat;
+import fr.sethlans.core.render.vk.image.VulkanImage.Tiling;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 
 public abstract class SwapChain {
@@ -41,9 +44,9 @@ public abstract class SwapChain {
 
     protected FrameBuffer[] frameBuffers;
 
-    protected int imageFormat;
+    protected VulkanFormat imageFormat;
 
-    protected int depthFormat;
+    protected VulkanFormat depthFormat;
 
     protected int sampleCount;
     
@@ -55,9 +58,9 @@ public abstract class SwapChain {
 
         var physicalDevice = context.getPhysicalDevice();
 
-        this.depthFormat = physicalDevice.findSupportedFormat(VK10.VK_IMAGE_TILING_OPTIMAL,
-                VK10.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT, VK10.VK_FORMAT_D32_SFLOAT,
-                VK10.VK_FORMAT_D32_SFLOAT_S8_UINT, VK10.VK_FORMAT_D24_UNORM_S8_UINT);
+        this.depthFormat = physicalDevice.findSupportedFormat(Tiling.OPTIMAL,
+                FormatFeature.DEPTH_STENCIL_ATTACHMENT, VulkanFormat.DEPTH32_SFLOAT,
+                VulkanFormat.DEPTH32_SFLOAT_STENCIL8_UINT, VulkanFormat.DEPTH24_UNORM_STENCIL8_UINT);
 
         var requestedSampleCount = config.getInteger(SethlansApplication.MSAA_SAMPLES_PROP,
                 SethlansApplication.DEFAULT_MSSA_SAMPLES);
@@ -168,7 +171,7 @@ public abstract class SwapChain {
         return frameBuffers[imageIndex];
     }
 
-    public int imageFormat() {
+    public VulkanFormat imageFormat() {
         return imageFormat;
     }
 
@@ -176,7 +179,7 @@ public abstract class SwapChain {
         return sampleCount;
     }
 
-    public int depthFormat() {
+    public VulkanFormat depthFormat() {
         return depthFormat;
     }
 

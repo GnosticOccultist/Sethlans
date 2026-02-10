@@ -50,7 +50,7 @@ public class VulkanMesh {
     }
 
     public static VkPipelineInputAssemblyStateCreateInfo createInputAssemblyState(LogicalDevice logicalDevice,
-            Topology topology, MemoryStack stack) {
+            Topology topology, boolean primitiveRestart, MemoryStack stack) {
         int vkTopology = 0;
 
         switch (topology) {
@@ -100,7 +100,7 @@ public class VulkanMesh {
         var iasCreateInfo = VkPipelineInputAssemblyStateCreateInfo.calloc(stack)
                 .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO)
                 .topology(vkTopology)
-                .primitiveRestartEnable(false);
+                .primitiveRestartEnable(primitiveRestart);
 
         return iasCreateInfo;
     }

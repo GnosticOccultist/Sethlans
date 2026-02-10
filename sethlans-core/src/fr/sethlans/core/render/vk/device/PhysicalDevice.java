@@ -6,6 +6,7 @@ import java.util.TreeSet;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.EXTGraphicsPipelineLibrary;
+import org.lwjgl.vulkan.EXTImageDrmFormatModifier;
 import org.lwjgl.vulkan.EXTIndexTypeUint8;
 import org.lwjgl.vulkan.EXTSwapchainColorspace;
 import org.lwjgl.vulkan.KHRDynamicRendering;
@@ -20,8 +21,10 @@ import org.lwjgl.vulkan.VK13;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkDeviceCreateInfo;
 import org.lwjgl.vulkan.VkDeviceQueueCreateInfo;
+import org.lwjgl.vulkan.VkDrmFormatModifierPropertiesListEXT;
 import org.lwjgl.vulkan.VkExtensionProperties;
 import org.lwjgl.vulkan.VkFormatProperties;
+import org.lwjgl.vulkan.VkFormatProperties2;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkPhysicalDeviceDynamicRenderingFeaturesKHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures;
@@ -45,6 +48,9 @@ import fr.sethlans.core.render.vk.context.SurfaceProperties;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.context.VulkanGraphicsBackend;
 import fr.sethlans.core.render.vk.context.VulkanInstance;
+import fr.sethlans.core.render.vk.image.FormatFeature;
+import fr.sethlans.core.render.vk.image.VulkanFormat;
+import fr.sethlans.core.render.vk.image.VulkanImage.Tiling;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
@@ -462,24 +468,46 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
         }
     }
 
-    public boolean supportFormatFeature(int imageTiling, int format, int requiredFeatures) {
+    public boolean supportFormatFeature(Tiling imageTiling, VulkanFormat format, VkFlag<FormatFeature> requiredFeatures) {
         try (var stack = MemoryStack.stackPush()) {
             var pFormatProperties = VkFormatProperties.calloc(stack);
-            VK10.vkGetPhysicalDeviceFormatProperties(object, format, pFormatProperties);
+            VK10.vkGetPhysicalDeviceFormatProperties(object, format.vkEnum(), pFormatProperties);
 
-            int features;
+            var features = 0;
             switch (imageTiling) {
-            case VK10.VK_IMAGE_TILING_LINEAR:
+            case Tiling.LINEAR:
                 features = pFormatProperties.linearTilingFeatures();
                 break;
-            case VK10.VK_IMAGE_TILING_OPTIMAL:
+            case Tiling.OPTIMAL:
                 features = pFormatProperties.optimalTilingFeatures();
                 break;
+            case Tiling.DRM_FORMAT_MODIFIER:
+                var drmFormatModifierProperties = VkDrmFormatModifierPropertiesListEXT.calloc(stack)
+                        .sType(EXTImageDrmFormatModifier.VK_STRUCTURE_TYPE_DRM_FORMAT_MODIFIER_PROPERTIES_LIST_EXT);
+                var pFormatProperties2 = VkFormatProperties2.calloc(stack)
+                        .pNext(drmFormatModifierProperties);
+
+                VK11.vkGetPhysicalDeviceFormatProperties2(object, format.vkEnum(), pFormatProperties2);
+                var count = drmFormatModifierProperties.drmFormatModifierCount();
+                if (count == 0) {
+                    return false;
+                }
+
+                var modifiers = drmFormatModifierProperties.pDrmFormatModifierProperties();
+                for (int i = 0; i < count; i++) {
+                    features = modifiers.drmFormatModifierTilingFeatures();
+
+                    if (requiredFeatures.containedIn(features)) {
+                        return true;
+                    }
+                }
+
+                break;
             default:
-                throw new IllegalArgumentException("Unsupported image tiling: " + imageTiling);
+                throw new IllegalArgumentException("Unsupported image tiling " + imageTiling + "!");
             }
 
-            if ((features & requiredFeatures) == requiredFeatures) {
+            if (requiredFeatures.containedIn(features)) {
                 return true;
             }
         }
@@ -487,26 +515,49 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
         return false;
     }
 
-    public int findSupportedFormat(int imageTiling, int requiredFeatures, int... formats) {
+    public VulkanFormat findSupportedFormat(Tiling imageTiling, VkFlag<FormatFeature> requiredFeatures,
+            VulkanFormat... formats) {
         try (var stack = MemoryStack.stackPush()) {
             var pFormatProperties = VkFormatProperties.calloc(stack);
 
             for (var format : formats) {
-                VK10.vkGetPhysicalDeviceFormatProperties(object, format, pFormatProperties);
+                VK10.vkGetPhysicalDeviceFormatProperties(object, format.vkEnum(), pFormatProperties);
 
-                int features;
+                var features = 0;
                 switch (imageTiling) {
-                case VK10.VK_IMAGE_TILING_LINEAR:
+                case Tiling.LINEAR:
                     features = pFormatProperties.linearTilingFeatures();
                     break;
-                case VK10.VK_IMAGE_TILING_OPTIMAL:
+                case Tiling.OPTIMAL:
                     features = pFormatProperties.optimalTilingFeatures();
                     break;
+                case Tiling.DRM_FORMAT_MODIFIER:
+                    var drmFormatModifierProperties = VkDrmFormatModifierPropertiesListEXT.calloc(stack)
+                            .sType(EXTImageDrmFormatModifier.VK_STRUCTURE_TYPE_DRM_FORMAT_MODIFIER_PROPERTIES_LIST_EXT);
+                    var pFormatProperties2 = VkFormatProperties2.calloc(stack)
+                            .pNext(drmFormatModifierProperties);
+
+                    VK11.vkGetPhysicalDeviceFormatProperties2(object, format.vkEnum(), pFormatProperties2);
+                    var count = drmFormatModifierProperties.drmFormatModifierCount();
+                    if (count == 0) {
+                        continue;
+                    }
+
+                    var modifiers = drmFormatModifierProperties.pDrmFormatModifierProperties();
+                    for (int i = 0; i < count; i++) {
+                        features = modifiers.drmFormatModifierTilingFeatures();
+
+                        if (requiredFeatures.containedIn(features)) {
+                            return format;
+                        }
+                    }
+
+                    break;
                 default:
-                    throw new IllegalArgumentException("Unsupported image tiling: " + imageTiling);
+                    throw new IllegalArgumentException("Unsupported image tiling " + imageTiling + "!");
                 }
 
-                if ((features & requiredFeatures) == requiredFeatures) {
+                if (requiredFeatures.containedIn(features)) {
                     return format;
                 }
             }

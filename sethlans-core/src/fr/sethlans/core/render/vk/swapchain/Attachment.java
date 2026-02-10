@@ -7,6 +7,7 @@ import org.lwjgl.vulkan.VkExtent2D;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.image.ImageView;
+import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.image.BaseVulkanImage;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.PresentationImage;
@@ -32,7 +33,7 @@ public class Attachment {
         this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_STORE;
     }
 
-    public Attachment(LogicalDevice device, AttachmentDescriptor descriptor, VkExtent2D extent, int format,
+    public Attachment(LogicalDevice device, AttachmentDescriptor descriptor, VkExtent2D extent, VulkanFormat format,
             int aspectMask, int sampleCount, VkFlag<ImageUsage> usage) {
         this.descriptor = descriptor;
         this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -65,7 +66,7 @@ public class Attachment {
         }
     }
 
-    public Attachment(LogicalDevice device, AttachmentDescriptor descriptor, VkExtent2D extent, int format,
+    public Attachment(LogicalDevice device, AttachmentDescriptor descriptor, VkExtent2D extent, VulkanFormat format,
             int aspectMask, int sampleCount) {
         this.descriptor = descriptor;
         this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -106,7 +107,7 @@ public class Attachment {
         return finalLayout;
     }
 
-    public int imageFormat() {
+    public VulkanFormat imageFormat() {
         return image.format();
     }
 

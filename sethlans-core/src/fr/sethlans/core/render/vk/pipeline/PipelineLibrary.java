@@ -12,11 +12,13 @@ import fr.sethlans.core.material.MaterialLayout;
 import fr.sethlans.core.material.MaterialPass;
 import fr.sethlans.core.material.layout.BindingLayout;
 import fr.sethlans.core.material.layout.BindingType;
+import fr.sethlans.core.natives.cache.Cache;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.shader.ShaderLibrary;
+import fr.sethlans.core.render.vk.shader.ShaderModule;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
+import fr.sethlans.core.render.vk.util.VkShader;
 import fr.sethlans.core.scenegraph.mesh.Topology;
 
 public class PipelineLibrary {
@@ -26,10 +28,12 @@ public class PipelineLibrary {
     private static final long C1 = 0xff51afd7ed558ccdL;
 
     private static final long C2 = 0xc4ceb9fe1a85ec53L;
+    
+    private final Cache<Long, Pipeline> inMemPipelineCache = new Cache<>(p -> (long) p.hashCode());
+    
+    private final Cache<Long, ShaderModule> shaderCache = new Cache<>(s -> (long) s.hashCode());
 
-    private final ShaderLibrary shaderLibrary;
-
-    private final Map<Long, AbstractPipeline> pipelineIndex = new HashMap<>();
+   // private final Map<Long, AbstractPipeline> pipelineIndex = new HashMap<>();
 
     private final Map<Long, PipelineLayout> pipelineLayoutIndex = new HashMap<>();
 
@@ -45,7 +49,6 @@ public class PipelineLibrary {
         this.pipelineCache = pipelineCache;
         this.renderPass = renderPass;
         this.swapChain = swapChain;
-        this.shaderLibrary = new ShaderLibrary();
     }
 
     public PipelineLayout getOrCreate(LogicalDevice device, MaterialLayout layout) {
@@ -78,43 +81,28 @@ public class PipelineLibrary {
                     + Long.toHexString(k));
 
             var vkLayout = new DescriptorSetLayout(device, layout.binding(), layout.count(), getVkType(layout.type()),
-                    ShaderLibrary.getVkTypes(layout.shaderTypes()));
+                    VkShader.getShaderStages(layout.shaderTypes()));
             return vkLayout;
         });
 
         return descSetLayout;
     }
 
-    public AbstractPipeline getOrCreate(LogicalDevice device, Topology topology, MaterialPass materialPass) {
-        long hash = hash(topology, materialPass);
-        var pipeline = pipelineIndex.computeIfAbsent(hash, k -> {
-            
-            var pipelineLayout = getOrCreate(device, materialPass.getLayout());
+    public Pipeline getOrCreate(LogicalDevice device, Topology topology, MaterialPass materialPass) {
+        
+        var pipelineLayout = getOrCreate(device, materialPass.getLayout());
 
-            var sources = materialPass.getShaderSources();
-
-            var programHash = 0L;
-            for (var source : sources) {
-                programHash = mix(programHash, source.getKey().ordinal());
-                programHash = mix(programHash, source.getValue().hashCode());
-            }
-
-            programHash = fmix64(programHash);
-
-            var program = shaderLibrary.getOrCreate(device, programHash, sources);
-
-            logger.info("Creating pipeline for material pass '" + materialPass.getFullName() + "', hash= 0x"
-                    + Long.toHexString(k));
-
-            AbstractPipeline vkPipeline;
-            if (materialPass.isComputePass()) {
-                vkPipeline = new ComputePipeline(device, pipelineCache, program, pipelineLayout);
-            } else {
-                vkPipeline = new GraphicsPipeline(device, pipelineCache, renderPass, swapChain, program, topology,
-                        pipelineLayout);
-            }
-
-            return vkPipeline;
+        var pipeline = GraphicsPipeline.build(device, pipelineLayout, b -> {
+            b.apply(materialPass, shaderCache);
+            b.setRenderPass(renderPass);
+            b.setPipelineCache(pipelineCache);
+            b.setTopology(topology);
+            b.setCache(inMemPipelineCache);
+            b.setDynamic(DynamicState.VIEWPORT, true);
+            b.setDynamic(DynamicState.SCISSOR, true);
+            b.setColorAttachmentFormat(swapChain.imageFormat());
+            b.setDepthAttachmentFormat(swapChain.depthFormat());
+            b.setSampleCount(swapChain.sampleCount());
         });
 
         return pipeline;
@@ -218,13 +206,8 @@ public class PipelineLibrary {
     }
 
     public void destroy() {
-        pipelineIndex.values().forEach(AbstractPipeline::destroy);
-        pipelineIndex.clear();
         
         pipelineLayoutIndex.values().forEach(PipelineLayout::destroy);
         pipelineLayoutIndex.clear();
-
-        descSetLayoutIndex.values().forEach(DescriptorSetLayout::destroy);
-        descSetLayoutIndex.clear();
     }
 }

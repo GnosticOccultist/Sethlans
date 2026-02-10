@@ -1,6 +1,8 @@
 package fr.sethlans.core.material;
 
-public class MaterialInstance {
+import fr.sethlans.core.render.backend.BackendObject;
+
+public class MaterialInstance extends BackendObject {
 
     private Material material;
 

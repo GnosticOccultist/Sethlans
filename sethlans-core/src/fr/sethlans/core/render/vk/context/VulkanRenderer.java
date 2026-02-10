@@ -20,13 +20,12 @@ import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetWriter;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
-import fr.sethlans.core.render.vk.pipeline.AbstractPipeline;
-import fr.sethlans.core.render.vk.pipeline.PipelineLayout;
+import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineLibrary;
-import fr.sethlans.core.render.vk.shader.ShaderLibrary;
 import fr.sethlans.core.render.vk.swapchain.DrawCommand;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
+import fr.sethlans.core.render.vk.util.VkShader;
 import fr.sethlans.core.scenegraph.Geometry;
 import fr.sethlans.core.scenegraph.mesh.Topology;
 
@@ -144,7 +143,7 @@ public class VulkanRenderer {
         command.end();
     }
 
-    public void bind(AbstractPipeline pipeline, MaterialLayout materialLayout, CommandBuffer command, int imageIndex) {
+    public void bind(Pipeline pipeline, MaterialLayout materialLayout, CommandBuffer command, int imageIndex) {
         var layouts = pipeline.getLayout().getSetLayouts();
 
         try (var stack = MemoryStack.stackPush()) {
@@ -182,7 +181,7 @@ public class VulkanRenderer {
         }
     }
 
-    public VulkanMesh bind(AbstractPipeline pipeline, Geometry geometry, CommandBuffer command, int imageIndex) {
+    public VulkanMesh bind(Pipeline pipeline, Geometry geometry, CommandBuffer command, int imageIndex) {
         var logicalDevice = context.getLogicalDevice();
         var mesh = geometry.getMesh();
         var layout = pipeline.getLayout();
@@ -239,7 +238,7 @@ public class VulkanRenderer {
 
         var pushConstants = layout.getPushConstants();
         for (var pushConstant : pushConstants) {
-            command.pushConstants(layout.handle(), ShaderLibrary.getVkTypes(pushConstant.shaderTypes()), 0,
+            command.pushConstants(layout.handle(), VkShader.getShaderStages(pushConstant.shaderTypes()), 0,
                     geometry.getModelMatrix());
         }
 
@@ -248,12 +247,7 @@ public class VulkanRenderer {
         return vkMesh;
     }
 
-    public PipelineLayout getPipelineLayout(MaterialPass materialPass) {
-        var pipelineLayout = pipelineLibrary.getOrCreate(context.getLogicalDevice(), materialPass.getLayout());
-        return pipelineLayout;
-    }
-
-    public AbstractPipeline getPipeline(Topology topology, MaterialPass materialPass) {
+    public Pipeline getPipeline(Topology topology, MaterialPass materialPass) {
         var pipeline = pipelineLibrary.getOrCreate(context.getLogicalDevice(), topology, materialPass);
         return pipeline;
     }

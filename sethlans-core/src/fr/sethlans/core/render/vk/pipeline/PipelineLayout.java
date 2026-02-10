@@ -14,7 +14,7 @@ import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.material.layout.PushConstantLayout;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.shader.ShaderLibrary;
+import fr.sethlans.core.render.vk.util.VkShader;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class PipelineLayout {
@@ -50,7 +50,7 @@ public class PipelineLayout {
 
                 // Create a push constant state.
                 pPushConstantRanges.get(i)
-                        .stageFlags(ShaderLibrary.getVkTypes(pc.shaderTypes()))
+                        .stageFlags(VkShader.getShaderStages(pc.shaderTypes()).bits())
                         .offset(pc.offset())
                         .size(pushSize);
             }

@@ -13,6 +13,7 @@ import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.image.VulkanImage.Tiling;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.util.VkFlag;
 
@@ -32,7 +33,7 @@ public class VulkanTexture {
                 texture.image().data());
     }
 
-    public VulkanTexture(LogicalDevice device, int width, int height, int imageFormat, NativeBuffer data) {
+    public VulkanTexture(LogicalDevice device, int width, int height, VulkanFormat imageFormat, NativeBuffer data) {
         this.device = device;
 
         var maxDimension = Math.max(width, height);
@@ -68,8 +69,8 @@ public class VulkanTexture {
 
     private void generateMipmaps(CommandBuffer command) {
         var physicalDevice = device.physicalDevice();
-        if (!physicalDevice.supportFormatFeature(VK10.VK_IMAGE_TILING_OPTIMAL, image.format(),
-                VK10.VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+        if (!physicalDevice.supportFormatFeature(Tiling.OPTIMAL, image.format(),
+                FormatFeature.SAMPLED_IMAGE_FILTER_LINEAR)) {
             throw new IllegalStateException("Texture image " + image.format() + " doesn't support linear blitting!");
         }
 

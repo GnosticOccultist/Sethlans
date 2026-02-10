@@ -5,6 +5,8 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map.Entry;
 
+import fr.sethlans.core.render.state.RenderState;
+
 public class MaterialPass {
     
     private final Material material;
@@ -14,6 +16,8 @@ public class MaterialPass {
     private long sortId = -1;
     
     private MaterialLayout layout;
+    
+    private final RenderState renderState = new RenderState();
     
     private final EnumMap<ShaderType, ShaderModuleInfo> sources = new EnumMap<>(ShaderType.class);
     
@@ -36,6 +40,10 @@ public class MaterialPass {
 
     public String getName() {
         return name;
+    }
+
+    public RenderState getRenderState() {
+        return renderState;
     }
 
     public MaterialLayout getLayout() {

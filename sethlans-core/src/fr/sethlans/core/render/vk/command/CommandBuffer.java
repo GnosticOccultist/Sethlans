@@ -32,13 +32,15 @@ import fr.sethlans.core.render.vk.memory.DeviceBuffer;
 import fr.sethlans.core.render.vk.memory.IndexBuffer;
 import fr.sethlans.core.render.vk.memory.VertexBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
-import fr.sethlans.core.render.vk.pipeline.AbstractPipeline;
 import fr.sethlans.core.render.vk.pipeline.AbstractPipeline.BindPoint;
+import fr.sethlans.core.render.vk.shader.ShaderStage;
+import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.swapchain.FrameBuffer;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.render.vk.sync.Fence;
+import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class CommandBuffer {
@@ -187,7 +189,7 @@ public class CommandBuffer {
         return this;
     }
 
-    public CommandBuffer bindPipeline(AbstractPipeline pipeline) {
+    public CommandBuffer bindPipeline(Pipeline pipeline) {
         VK10.vkCmdBindPipeline(handle, pipeline.getBindPoint().getVkEnum(), pipeline.handle());
         return this;
     }
@@ -205,19 +207,19 @@ public class CommandBuffer {
         return this;
     }
 
-    public CommandBuffer pushConstants(long pipelineLayoutHandle, int stageFlags, int offset, Matrix4f matrix) {
+    public CommandBuffer pushConstants(long pipelineLayoutHandle, VkFlag<ShaderStage> stageFlags, int offset, Matrix4f matrix) {
         try (var stack = MemoryStack.stackPush()) {
             var buffer = stack.malloc(16 * Float.BYTES);
             matrix.get(buffer);
-            VK10.vkCmdPushConstants(handle, pipelineLayoutHandle, stageFlags, offset, buffer);
+            VK10.vkCmdPushConstants(handle, pipelineLayoutHandle, stageFlags.bits(), offset, buffer);
         }
 
         return this;
     }
 
-    public CommandBuffer pushConstants(long pipelineLayoutHandle, int stageFlags, int offset,
+    public CommandBuffer pushConstants(long pipelineLayoutHandle, VkFlag<ShaderStage> stageFlags, int offset,
             ByteBuffer constantBuffer) {
-        VK10.vkCmdPushConstants(handle, pipelineLayoutHandle, stageFlags, offset, constantBuffer);
+        VK10.vkCmdPushConstants(handle, pipelineLayoutHandle, stageFlags.bits(), offset, constantBuffer);
         return this;
     }
     

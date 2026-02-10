@@ -24,7 +24,7 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
 
     private int height;
 
-    private int format;
+    private VulkanFormat format;
 
     private int mipLevels;
 
@@ -34,7 +34,7 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
 
     private VkFlag<ImageUsage> usage;
 
-    protected BaseVulkanImage(LogicalDevice device, long imageHandle, int width, int height, int format, VkFlag<ImageUsage> usage) {
+    protected BaseVulkanImage(LogicalDevice device, long imageHandle, int width, int height, VulkanFormat format, VkFlag<ImageUsage> usage) {
         super(device);
         this.width = width;
         this.height = height;
@@ -49,16 +49,16 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
         getLogicalDevice().getNativeReference().addDependent(ref);
     }
     
-    public BaseVulkanImage(LogicalDevice device, int width, int height, int format, VkFlag<ImageUsage> usage, VkFlag<MemoryProperty> memProperty) {
+    public BaseVulkanImage(LogicalDevice device, int width, int height, VulkanFormat format, VkFlag<ImageUsage> usage, VkFlag<MemoryProperty> memProperty) {
         this(device, width, height, format, 1, VK10.VK_SAMPLE_COUNT_1_BIT, usage, memProperty);
     }
 
-    public BaseVulkanImage(LogicalDevice device, int width, int height, int format, int mipLevels, VkFlag<ImageUsage> usage,
+    public BaseVulkanImage(LogicalDevice device, int width, int height, VulkanFormat format, int mipLevels, VkFlag<ImageUsage> usage,
             VkFlag<MemoryProperty> memProperty) {
         this(device, width, height, format, mipLevels, VK10.VK_SAMPLE_COUNT_1_BIT, usage, memProperty);
     }
 
-    public BaseVulkanImage(LogicalDevice device, int width, int height, int format, int mipLevels, int sampleCount, VkFlag<ImageUsage> usage,
+    public BaseVulkanImage(LogicalDevice device, int width, int height, VulkanFormat format, int mipLevels, int sampleCount, VkFlag<ImageUsage> usage,
             VkFlag<MemoryProperty> memProperty) {
         super(device);
         this.width = width;
@@ -78,7 +78,7 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
             var createInfo = VkImageCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO)
                     .imageType(VK10.VK_IMAGE_TYPE_2D)
-                    .format(format)
+                    .format(format().vkEnum())
                     .extent(it -> it
                             .width(width)
                             .height(height)
@@ -122,11 +122,13 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
                 aspectMask = VK10.VK_IMAGE_ASPECT_DEPTH_BIT;
 
                 switch (format) {
-                case VK10.VK_FORMAT_D16_UNORM_S8_UINT:
-                case VK10.VK_FORMAT_D24_UNORM_S8_UINT:
-                case VK10.VK_FORMAT_D32_SFLOAT_S8_UINT:
+                case VulkanFormat.DEPTH16_UNORM_STENCIL8_UINT:
+                case VulkanFormat.DEPTH24_UNORM_STENCIL8_UINT:
+                case VulkanFormat.DEPTH32_SFLOAT_STENCIL8_UINT:
                     // Expecting a stencil component.
                     aspectMask |= VK10.VK_IMAGE_ASPECT_STENCIL_BIT;
+                    break;
+                default:
                     break;
                 }
             }
@@ -295,7 +297,8 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
         return sampleCount;
     }
 
-    public int format() {
+    @Override
+    public VulkanFormat format() {
         return format;
     }
 
@@ -312,46 +315,46 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
         };
     }
 
-    public static int getVkFormat(Format format, ColorSpace colorSpace) {
-        var vkFormat = VK10.VK_FORMAT_UNDEFINED;
+    public static VulkanFormat getVkFormat(Format format, ColorSpace colorSpace) {
+        var vkFormat = VulkanFormat.UNDEFINED;
         if (colorSpace.equals(ColorSpace.LINEAR)) {
             vkFormat = switch (format) {
-            case UNDEFINED -> VK10.VK_FORMAT_UNDEFINED;
-            case R8 -> VK10.VK_FORMAT_R8_UNORM;
-            case RG8 -> VK10.VK_FORMAT_R8G8_UNORM;
-            case RGB8 -> VK10.VK_FORMAT_R8G8B8_UNORM;
-            case RGBA8 -> VK10.VK_FORMAT_R8G8B8A8_UNORM;
-            case BGR8 -> VK10.VK_FORMAT_B8G8R8_UNORM;
-            case BGRA8 -> VK10.VK_FORMAT_B8G8R8A8_UNORM;
+            case UNDEFINED -> VulkanFormat.UNDEFINED;
+            case R8 -> VulkanFormat.R8_UNORM;
+            case RG8 -> VulkanFormat.R8G8_UNORM;
+            case RGB8 -> VulkanFormat.R8G8B8_UNORM;
+            case RGBA8 -> VulkanFormat.R8G8B8A8_UNORM;
+            case BGR8 -> VulkanFormat.B8G8R8_UNORM;
+            case BGRA8 -> VulkanFormat.B8G8R8A8_UNORM;
 
-            case DEPTH16 -> VK10.VK_FORMAT_D16_UNORM;
-            case DEPTH24 -> VK10.VK_FORMAT_X8_D24_UNORM_PACK32;
-            case DEPTH32F -> VK10.VK_FORMAT_D32_SFLOAT;
-            case STENCIL8 -> VK10.VK_FORMAT_S8_UINT;
-            case DEPTH16_STENCIL8 -> VK10.VK_FORMAT_D24_UNORM_S8_UINT;
-            case DEPTH24_STENCIL8 -> VK10.VK_FORMAT_D24_UNORM_S8_UINT;
-            case DEPTH32_STENCIL8 -> VK10.VK_FORMAT_D32_SFLOAT_S8_UINT;
-            default -> VK10.VK_FORMAT_UNDEFINED;
+            case DEPTH16 -> VulkanFormat.DEPTH16_UNORM;
+            case DEPTH24 -> VulkanFormat.DEPTH24_UNORM;
+            case DEPTH32F -> VulkanFormat.DEPTH32_SFLOAT;
+            case STENCIL8 -> VulkanFormat.STENCIL8_UINT;
+            case DEPTH16_STENCIL8 -> VulkanFormat.DEPTH24_UNORM_STENCIL8_UINT;
+            case DEPTH24_STENCIL8 -> VulkanFormat.DEPTH24_UNORM_STENCIL8_UINT;
+            case DEPTH32_STENCIL8 -> VulkanFormat.DEPTH32_SFLOAT_STENCIL8_UINT;
+            default -> VulkanFormat.UNDEFINED;
             };
 
         } else if (colorSpace.equals(ColorSpace.sRGB)) {
             vkFormat = switch (format) {
-            case UNDEFINED -> VK10.VK_FORMAT_UNDEFINED;
-            case R8 -> VK10.VK_FORMAT_R8_SRGB;
-            case RG8 -> VK10.VK_FORMAT_R8G8_SRGB;
-            case RGB8 -> VK10.VK_FORMAT_R8G8B8_SRGB;
-            case RGBA8 -> VK10.VK_FORMAT_R8G8B8A8_SRGB;
-            case BGR8 -> VK10.VK_FORMAT_B8G8R8_SRGB;
-            case BGRA8 -> VK10.VK_FORMAT_B8G8R8A8_SRGB;
+            case UNDEFINED -> VulkanFormat.UNDEFINED;
+            case R8 -> VulkanFormat.R8_SRGB;
+            case RG8 -> VulkanFormat.R8G8_SRGB;
+            case RGB8 -> VulkanFormat.R8G8B8_SRGB;
+            case RGBA8 -> VulkanFormat.R8G8B8A8_SRGB;
+            case BGR8 -> VulkanFormat.B8G8R8_SRGB;
+            case BGRA8 -> VulkanFormat.B8G8R8A8_SRGB;
 
-            case DEPTH16 -> VK10.VK_FORMAT_D16_UNORM;
-            case DEPTH24 -> VK10.VK_FORMAT_X8_D24_UNORM_PACK32;
-            case DEPTH32F -> VK10.VK_FORMAT_D32_SFLOAT;
-            case STENCIL8 -> VK10.VK_FORMAT_S8_UINT;
-            case DEPTH16_STENCIL8 -> VK10.VK_FORMAT_D24_UNORM_S8_UINT;
-            case DEPTH24_STENCIL8 -> VK10.VK_FORMAT_D24_UNORM_S8_UINT;
-            case DEPTH32_STENCIL8 -> VK10.VK_FORMAT_D32_SFLOAT_S8_UINT;
-            default -> VK10.VK_FORMAT_UNDEFINED;
+            case DEPTH16 -> VulkanFormat.DEPTH16_UNORM;
+            case DEPTH24 -> VulkanFormat.DEPTH24_UNORM;
+            case DEPTH32F -> VulkanFormat.DEPTH32_SFLOAT;
+            case STENCIL8 -> VulkanFormat.STENCIL8_UINT;
+            case DEPTH16_STENCIL8 -> VulkanFormat.DEPTH24_UNORM_STENCIL8_UINT;
+            case DEPTH24_STENCIL8 -> VulkanFormat.DEPTH24_UNORM_STENCIL8_UINT;
+            case DEPTH32_STENCIL8 -> VulkanFormat.DEPTH32_SFLOAT_STENCIL8_UINT;
+            default -> VulkanFormat.UNDEFINED;
             };
         }
 

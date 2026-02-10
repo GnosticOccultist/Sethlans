@@ -12,6 +12,7 @@ import org.lwjgl.vulkan.VkSurfaceFormatKHR;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.render.vk.device.PhysicalDevice;
+import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class SurfaceProperties {
@@ -107,18 +108,18 @@ public class SurfaceProperties {
         return formats.hasRemaining();
     }
 
-    public VkSurfaceFormatKHR getFirstSurfaceFormat() {
+    public SurfaceFormat getFirstSurfaceFormat() {
         var format = formats.get(0);
-        return format;
+        return new SurfaceFormat(format);
     }
 
-    public Optional<VkSurfaceFormatKHR> getSurfaceFormat(int format, int colorSpace) {
+    public Optional<SurfaceFormat> getSurfaceFormat(VulkanFormat format, int colorSpace) {
         // Find the matching surface format.
         for (var i = 0; i < formats.capacity(); ++i) {
             var f = formats.get(i);
             
-            if (f.format() == format && f.colorSpace() == colorSpace) {
-                return Optional.of(f);
+            if (f.format() == format.vkEnum() && f.colorSpace() == colorSpace) {
+                return Optional.of(new SurfaceFormat(f));
             }
         }
 
@@ -141,5 +142,12 @@ public class SurfaceProperties {
 
         // All Vulkan implementations support FIFO mode.
         return KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
+    }
+
+    public record SurfaceFormat(VulkanFormat format, int colorSpace) {
+
+        SurfaceFormat(VkSurfaceFormatKHR surfaceFormat) {
+            this(VulkanFormat.fromVkFormat(surfaceFormat.format()), surfaceFormat.colorSpace());
+        }
     }
 }

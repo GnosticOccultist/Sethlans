@@ -16,7 +16,10 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.backend.GlfwBasedGraphicsBackend;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.image.FormatFeature;
 import fr.sethlans.core.render.vk.image.ImageUsage;
+import fr.sethlans.core.render.vk.image.VulkanFormat;
+import fr.sethlans.core.render.vk.image.VulkanImage.Tiling;
 import fr.sethlans.core.render.vk.pipeline.PipelineCache;
 import fr.sethlans.core.render.vk.swapchain.AttachmentDescriptor;
 import fr.sethlans.core.render.vk.swapchain.OffscreenSwapChain;
@@ -125,9 +128,9 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
                     VK10.VK_ACCESS_SHADER_READ_BIT, VK10.VK_DEPENDENCY_BY_REGION_BIT));
         }
 
-        var depthFormat = physicalDevice.findSupportedFormat(VK10.VK_IMAGE_TILING_OPTIMAL,
-                VK10.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT, VK10.VK_FORMAT_D32_SFLOAT,
-                VK10.VK_FORMAT_D32_SFLOAT_S8_UINT, VK10.VK_FORMAT_D24_UNORM_S8_UINT);
+        var depthFormat = physicalDevice.findSupportedFormat(Tiling.OPTIMAL,
+                FormatFeature.DEPTH_STENCIL_ATTACHMENT, VulkanFormat.DEPTH32_SFLOAT,
+                VulkanFormat.DEPTH32_SFLOAT_STENCIL8_UINT, VulkanFormat.DEPTH24_UNORM_STENCIL8_UINT);
 
         var requestedSampleCount = config.getInteger(SethlansApplication.MSAA_SAMPLES_PROP,
                 SethlansApplication.DEFAULT_MSSA_SAMPLES);
@@ -263,7 +266,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         renderer.resize();
     }
 
-    private AttachmentDescriptor[] getAttachmentDescriptors(int depthFormat, int sampleCount) {
+    private AttachmentDescriptor[] getAttachmentDescriptors(VulkanFormat depthFormat, int sampleCount) {
         AttachmentDescriptor[] descriptors = null;
 
         var presentationDesc = new AttachmentDescriptor();
@@ -277,7 +280,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         presentationDesc.clearValue().color().float32(0, 0.5f).float32(1, 0.7f).float32(2, 0.9f).float32(3, 1.0f);
 
         var depthDesc = new AttachmentDescriptor();
-        depthDesc.finalLayout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL).format(depthFormat)
+        depthDesc.finalLayout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL).format(depthFormat.vkEnum())
                 .samples(sampleCount).loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR)
                 .storeOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE).initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED);
         depthDesc.clearValue().depthStencil().depth(1.0f);
@@ -308,7 +311,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         return descriptors;
     }
 
-    private AttachmentDescriptor[] getOffscreenAttachmentDescriptors(int depthFormat, int sampleCount) {
+    private AttachmentDescriptor[] getOffscreenAttachmentDescriptors(VulkanFormat depthFormat, int sampleCount) {
         AttachmentDescriptor[] descriptors = null;
 
         var presentationDesc = new AttachmentDescriptor();
@@ -323,7 +326,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         presentationDesc.usage(VkFlag.of(ImageUsage.COLOR_ATTACHMENT, ImageUsage.TRANSFER_SRC));
 
         var depthDesc = new AttachmentDescriptor();
-        depthDesc.finalLayout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL).format(depthFormat)
+        depthDesc.finalLayout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL).format(depthFormat.vkEnum())
                 .samples(sampleCount).loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR)
                 .storeOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE).initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED);
         depthDesc.clearValue().depthStencil().depth(1.0f);

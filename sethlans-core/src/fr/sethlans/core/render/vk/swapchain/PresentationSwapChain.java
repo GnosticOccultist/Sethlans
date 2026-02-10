@@ -6,15 +6,16 @@ import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkPresentInfoKHR;
-import org.lwjgl.vulkan.VkSurfaceFormatKHR;
 import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
+import fr.sethlans.core.render.vk.context.SurfaceProperties.SurfaceFormat;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.image.ImageUsage;
+import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.image.BaseVulkanImage;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame.State;
 import fr.sethlans.core.render.vk.util.VkFlag;
@@ -28,7 +29,7 @@ public class PresentationSwapChain extends SwapChain {
 
     private VkFlag<ImageUsage> imageUsage;
 
-    private VkSurfaceFormatKHR surfaceFormat;
+    private SurfaceFormat surfaceFormat;
 
     public PresentationSwapChain(VulkanContext context, ConfigFile config, Window window, RenderPass renderPass, AttachmentDescriptor[] descriptors) {
         super(context, config);
@@ -40,13 +41,13 @@ public class PresentationSwapChain extends SwapChain {
             var physicalDevice = context.getPhysicalDevice();
             var surfaceProperties = physicalDevice.gatherSurfaceProperties(surfaceHandle, stack);
 
-            var format = VK10.VK_FORMAT_B8G8R8A8_SRGB;
+            var format = VulkanFormat.B8G8R8A8_SRGB;
             var colorSpace = KHRSurface.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
             var gammaCorrection = config.getBoolean(SethlansApplication.GAMMA_CORRECTION_PROP,
                     SethlansApplication.DEFAULT_GAMMA_CORRECTION);
             if (!gammaCorrection && physicalDevice
                     .hasExtension(EXTSwapchainColorspace.VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME)) {
-                format = VK10.VK_FORMAT_B8G8R8A8_UNORM;
+                format = VulkanFormat.B8G8R8A8_UNORM;
                 colorSpace = EXTSwapchainColorspace.VK_COLOR_SPACE_PASS_THROUGH_EXT;
             } else if (!gammaCorrection && !physicalDevice
                     .hasExtension(EXTSwapchainColorspace.VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME)) {
@@ -130,7 +131,7 @@ public class PresentationSwapChain extends SwapChain {
                 .compositeAlpha(KHRSurface.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) // Ignore the alpha component when compositing with other windows.
                 .imageArrayLayers(1)
                 .imageExtent(framebufferExtent)
-                .imageFormat(imageFormat())
+                .imageFormat(imageFormat().vkEnum())
                 .minImageCount(imageCount)
                 .oldSwapchain(oldSwapchain)
                 .imageUsage(imageUsage.bits()) // Render the images to the surface.
