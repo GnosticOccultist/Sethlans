@@ -19,7 +19,7 @@ public abstract class AbstractPipeline extends AbstractDeviceResource implements
 
     private final BindPoint bindPoint;
 
-    private final PipelineLayout layout;
+    protected final PipelineLayout layout;
 
     protected PipelineCache pipelineCache;
 

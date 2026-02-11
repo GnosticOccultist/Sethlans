@@ -1,5 +1,6 @@
 package fr.sethlans.core.render.vk.pipeline;
 
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import org.lwjgl.system.MemoryStack;
@@ -31,6 +32,31 @@ public class ComputePipeline extends AbstractPipeline {
     
     public VkFlag<Create> getCreateFlags() {
         return createFlags;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(createFlags, parent, stage);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        
+        var other = (ComputePipeline) obj;
+        return layout == other.layout && pipelineCache == other.pipelineCache && createFlags.is(other.createFlags)
+                && Objects.equals(parent, other.parent) && Objects.equals(stage, other.stage);
+    }
+    
+    @Override
+    public String toString() {
+        return "ComputePipeline [parent=" + parent + ", createFlags=" + createFlags + ", stage=" + stage + "]";
     }
 
     public static ComputePipeline build(LogicalDevice logicalDevice, PipelineLayout layout, Consumer<Builder> config) {

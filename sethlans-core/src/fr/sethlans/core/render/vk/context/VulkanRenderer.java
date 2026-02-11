@@ -23,6 +23,7 @@ import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetWriter;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
+import fr.sethlans.core.render.vk.pipeline.GraphicsPipeline;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineLibrary;
 import fr.sethlans.core.render.vk.swapchain.DrawCommand;
@@ -115,8 +116,6 @@ public class VulkanRenderer {
             command.beginRenderPass(swapChain, swapChain.frameBuffer(currentFrame.imageIndex()),
                     context.getBackend().getRenderPass());
         }
-
-        command.setViewport(swapChain);
     }
 
     public void endRender(VulkanFrame frame) {
@@ -260,7 +259,7 @@ public class VulkanRenderer {
         return vkMesh;
     }
 
-    public Pipeline getPipeline(Topology topology, MaterialPass materialPass) {
+    public GraphicsPipeline getPipeline(Topology topology, MaterialPass materialPass) {
         var pipeline = pipelineLibrary.getOrCreate(context.getLogicalDevice(), topology, materialPass);
         return pipeline;
     }

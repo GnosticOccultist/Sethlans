@@ -52,7 +52,7 @@ public class PipelineLibrary {
         return pipelineLayout;
     }
 
-    public Pipeline getOrCreate(LogicalDevice device, Topology topology, MaterialPass materialPass) {
+    public GraphicsPipeline getOrCreate(LogicalDevice device, Topology topology, MaterialPass materialPass) {
 
         var pipelineLayout = getOrCreate(device, materialPass.getLayout());
 

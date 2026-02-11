@@ -3,7 +3,8 @@ package fr.sethlans.core.render.vk.swapchain;
 import fr.sethlans.core.material.MaterialPass;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.context.VulkanRenderer;
-import fr.sethlans.core.render.vk.pipeline.Pipeline;
+import fr.sethlans.core.render.vk.pipeline.DynamicState;
+import fr.sethlans.core.render.vk.pipeline.GraphicsPipeline;
 import fr.sethlans.core.scenegraph.Geometry;
 import fr.sethlans.core.scenegraph.mesh.Topology;
 
@@ -15,7 +16,7 @@ public class DrawCommand {
     
     private boolean started = false;
 
-    private Pipeline pipeline;
+    private GraphicsPipeline pipeline;
 
     public DrawCommand(VulkanRenderer renderer, CommandBuffer command) {
         this.renderer = renderer;
@@ -26,11 +27,19 @@ public class DrawCommand {
         if (started) {
             throw new IllegalStateException("DrawCommand already started!");
         }
-        
+
         renderer.beginDraw(this);
         pipeline = renderer.getPipeline(Topology.TRIANGLES, materialPass);
         command.bindPipeline(pipeline);
-        
+
+        if (pipeline.isDynamic(DynamicState.VIEWPORT)) {
+            command.setViewport(renderer.getSwapChain());
+        }
+
+        if (pipeline.isDynamic(DynamicState.SCISSOR)) {
+            command.setScissor(renderer.getSwapChain());
+        }
+
         this.started = true;
     }
 

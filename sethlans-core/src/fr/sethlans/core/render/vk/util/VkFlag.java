@@ -10,13 +10,13 @@ public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Int
     static <T extends VkFlag<T>> VkFlag<T> of(int bits) {
         return new VkFlagImpl<>(bits);
     }
-    
+
     static <V extends Enum<V>, T extends VkFlag<T>> VkFlag<T> of(EnumSet<V> enums, Function<V, T> mapper) {
         int bits = 0;
         for (var e : enums) {
             bits |= mapper.apply(e).bits();
         }
-        
+
         return new VkFlagImpl<>(bits);
     }
 
@@ -47,7 +47,7 @@ public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Int
 
         return this;
     }
-    
+
     default VkFlag<T> addIf(boolean b, VkFlag<T> flag) {
         return b ? add(flag) : this;
     }
@@ -59,11 +59,19 @@ public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Int
     default boolean contains(int bits) {
         return (bits() & bits) == bits;
     }
-    
+
     default boolean containedIn(int bits) {
         return (bits & bits()) == bits();
     }
-    
+
+    default boolean is(VkFlag<T> flag) {
+        return bits() == flag.bits();
+    }
+
+    default boolean is(int bits) {
+        return bits() == bits;
+    }
+
     default boolean isEmpty() {
         return bits() == 0;
     }
@@ -109,7 +117,7 @@ public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Int
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            
+
             var other = (VkFlagImpl<?>) obj;
             return bits == other.bits;
         }

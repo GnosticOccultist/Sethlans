@@ -297,12 +297,20 @@ public class CommandBuffer {
             viewport.maxDepth(1f);
             viewport.minDepth(0f);
 
+            VK10.vkCmdSetViewport(handle, 0, viewport);
+            return this;
+        }
+    }
+
+    public CommandBuffer setScissor(SwapChain swapChain) {
+        try (var stack = MemoryStack.stackPush()) {
+            var framebufferExtent = swapChain.framebufferExtent(stack);
+
             // Define scissor to discard pixels outside the framebuffer.
             var scissor = VkRect2D.calloc(1, stack);
             scissor.offset(VkOffset2D.calloc(stack).set(0, 0));
             scissor.extent(framebufferExtent);
 
-            VK10.vkCmdSetViewport(handle, 0, viewport);
             VK10.vkCmdSetScissor(handle, 0, scissor);
             return this;
         }

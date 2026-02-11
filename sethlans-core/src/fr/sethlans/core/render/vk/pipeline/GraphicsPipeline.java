@@ -23,7 +23,6 @@ import org.lwjgl.vulkan.VkPipelineVertexInputStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineViewportStateCreateInfo;
 import org.lwjgl.vulkan.VkVertexInputAttributeDescription;
 import org.lwjgl.vulkan.VkVertexInputBindingDescription;
-
 import fr.sethlans.core.material.MaterialPass;
 import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.natives.cache.Cache;
@@ -41,19 +40,19 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 import fr.sethlans.core.scenegraph.mesh.Topology;
 
 public class GraphicsPipeline extends AbstractPipeline {
-    
+
     private RenderPass renderPass;
-    
+
     private GraphicsPipeline parent;
-    
+
     private VkFlag<Create> createFlags = VkFlag.empty();
-    
+
     private VulkanFormat colorAttachmentFormat, depthAttachmentFormat;
-    
+
     private PipelineCache pipelineCache;
-    
+
     private final Collection<ShaderModule> shaders = new ArrayList<>();
-    
+
     private Topology topology = Topology.TRIANGLES;
 
     private boolean primitiveRestart = false;
@@ -73,14 +72,18 @@ public class GraphicsPipeline extends AbstractPipeline {
     protected GraphicsPipeline(LogicalDevice logicalDevice, PipelineLayout layout) {
         super(logicalDevice, BindPoint.GRAPHICS, layout);
     }
-    
+
     public VkFlag<Create> getCreateFlags() {
         return createFlags;
     }
 
+    public boolean isDynamic(DynamicState state) {
+        return dynamicStates.contains(state);
+    }
+
     @Override
     public int hashCode() {
-        int result = Objects.hash(alphaToCoverage, alphaToOne, colorAttachmentFormat,
+        int result = Objects.hash(alphaToCoverage, alphaToOne, colorAttachmentFormat, createFlags,
                 depthAttachmentFormat, dynamicStates, minSampleShading, parent, pipelineCache, primitiveRestart,
                 rasterizationState, renderPass, sampleCount, shaders, topology);
         return result;
@@ -95,10 +98,11 @@ public class GraphicsPipeline extends AbstractPipeline {
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        
+
         var other = (GraphicsPipeline) obj;
-        return alphaToCoverage == other.alphaToCoverage && alphaToOne == other.alphaToOne
-                && colorAttachmentFormat == other.colorAttachmentFormat
+        return layout == other.layout && pipelineCache == other.pipelineCache
+                && alphaToCoverage == other.alphaToCoverage && alphaToOne == other.alphaToOne
+                && colorAttachmentFormat == other.colorAttachmentFormat && createFlags.is(other.createFlags)
                 && depthAttachmentFormat == other.depthAttachmentFormat
                 && Objects.equals(dynamicStates, other.dynamicStates)
                 && Float.floatToIntBits(minSampleShading) == Float.floatToIntBits(other.minSampleShading)
@@ -111,12 +115,12 @@ public class GraphicsPipeline extends AbstractPipeline {
 
     @Override
     public String toString() {
-        return "GraphicsPipeline [renderPass=" + renderPass + ", parent=" + parent + ", colorAttachmentFormat="
-                + colorAttachmentFormat + ", depthAttachmentFormat=" + depthAttachmentFormat + ", pipelineCache="
-                + pipelineCache + ", shaders=" + shaders + ", topology=" + topology + ", primitiveRestart="
-                + primitiveRestart + ", rasterizationState=" + rasterizationState + ", sampleCount=" + sampleCount
-                + ", alphaToCoverage=" + alphaToCoverage + ", alphaToOne=" + alphaToOne + ", minSampleShading="
-                + minSampleShading + ", dynamicStates=" + dynamicStates + "]";
+        return "GraphicsPipeline [renderPass=" + renderPass + ", parent=" + parent + ", createFlags=" + createFlags
+                + ", colorAttachmentFormat=" + colorAttachmentFormat + ", depthAttachmentFormat="
+                + depthAttachmentFormat + ", pipelineCache=" + pipelineCache + ", shaders=" + shaders + ", topology="
+                + topology + ", primitiveRestart=" + primitiveRestart + ", rasterizationState=" + rasterizationState
+                + ", sampleCount=" + sampleCount + ", alphaToCoverage=" + alphaToCoverage + ", alphaToOne=" + alphaToOne
+                + ", minSampleShading=" + minSampleShading + ", dynamicStates=" + dynamicStates + "]";
     }
 
     public static GraphicsPipeline build(LogicalDevice logicalDevice, PipelineLayout layout, Consumer<Builder> config) {
@@ -124,7 +128,7 @@ public class GraphicsPipeline extends AbstractPipeline {
         config.accept(b);
         return b.build();
     }
-    
+
     public class Builder extends CacheableNativeBuilder<Long, Pipeline, GraphicsPipeline> {
 
         @Override
