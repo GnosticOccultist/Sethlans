@@ -1,6 +1,5 @@
 package fr.sethlans.core.render.vk.swapchain;
 
-import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkExtent2D;
 
@@ -8,6 +7,7 @@ import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.image.ImageView;
 import fr.sethlans.core.render.vk.image.VulkanFormat;
+import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.BaseVulkanImage;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.PresentationImage;
@@ -21,7 +21,7 @@ public class Attachment {
 
     final ImageView imageView;
 
-    final int finalLayout;
+    final Layout finalLayout;
 
     final int storeOp;
 
@@ -29,7 +29,7 @@ public class Attachment {
         this.descriptor = descriptor;
         this.image = image;
         this.imageView = new ImageView(device, image, VK10.VK_IMAGE_ASPECT_COLOR_BIT);
-        this.finalLayout = KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        this.finalLayout = Layout.PRESENT_SRC_KHR;
         this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_STORE;
     }
 
@@ -40,14 +40,14 @@ public class Attachment {
 
         if (aspectMask == VK10.VK_IMAGE_ASPECT_COLOR_BIT) {
             // Transient color buffer attachment.
-            this.finalLayout = VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            this.finalLayout = Layout.COLOR_ATTACHMENT_OPTIMAL;
             if (usage.isEmpty()) {
                 usage = VkFlag.of(ImageUsage.TRANSIENT_ATTACHMENT, ImageUsage.COLOR_ATTACHMENT);
             }
 
         } else if (aspectMask == VK10.VK_IMAGE_ASPECT_DEPTH_BIT) {
             // Depth buffer attachment.
-            this.finalLayout = VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            this.finalLayout = Layout.DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
             if (usage.isEmpty()) {
                 usage = VkFlag.of(ImageUsage.DEPTH_STENCIL_ATTACHMENT);
             }
@@ -61,7 +61,7 @@ public class Attachment {
         this.imageView = new ImageView(device, image, aspectMask);
 
         // Transition the image to an optimal layout.
-        try (var _ = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout)) {
+        try (var _ = image.transitionLayout(finalLayout)) {
 
         }
     }
@@ -73,12 +73,12 @@ public class Attachment {
         VkFlag<ImageUsage> usage = ImageUsage.SAMPLED;
         if (aspectMask == VK10.VK_IMAGE_ASPECT_COLOR_BIT) {
             // Transient color buffer attachment.
-            this.finalLayout = VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            this.finalLayout = Layout.COLOR_ATTACHMENT_OPTIMAL;
             usage = VkFlag.of(ImageUsage.TRANSIENT_ATTACHMENT, ImageUsage.COLOR_ATTACHMENT);
 
         } else if (aspectMask == VK10.VK_IMAGE_ASPECT_DEPTH_BIT) {
             // Depth buffer attachment.
-            this.finalLayout = VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            this.finalLayout = Layout.DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
             usage = VkFlag.of(ImageUsage.DEPTH_STENCIL_ATTACHMENT);
 
         } else {
@@ -90,7 +90,7 @@ public class Attachment {
         this.imageView = new ImageView(device, image, aspectMask);
 
         // Transition the image to an optimal layout.
-        try (var _ = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED, finalLayout)) {
+        try (var _ = image.transitionLayout(finalLayout)) {
 
         }
     }
@@ -103,7 +103,7 @@ public class Attachment {
         return image;
     }
 
-    int finalLayout() {
+    Layout finalLayout() {
         return finalLayout;
     }
 

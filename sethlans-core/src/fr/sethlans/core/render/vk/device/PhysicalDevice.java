@@ -15,6 +15,7 @@ import org.lwjgl.vulkan.KHRPipelineLibrary;
 import org.lwjgl.vulkan.KHRPortabilitySubset;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
+import org.lwjgl.vulkan.KHRSynchronization2;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VK11;
 import org.lwjgl.vulkan.VK13;
@@ -34,6 +35,7 @@ import org.lwjgl.vulkan.VkPhysicalDeviceIndexTypeUint8FeaturesKHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties;
 import org.lwjgl.vulkan.VkPhysicalDevicePortabilitySubsetFeaturesKHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
+import org.lwjgl.vulkan.VkPhysicalDeviceSynchronization2Features;
 import org.lwjgl.vulkan.VkPhysicalDeviceToolProperties;
 import org.lwjgl.vulkan.VkQueueFamilyProperties;
 
@@ -166,6 +168,8 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
     private Set<String> availableToolProperties;
 
     private boolean dynamicRenderingSupported;
+    
+    private boolean synchronization2Supported;
 
     private boolean graphicsPipelineLibrarySupported;
 
@@ -247,6 +251,9 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
             var dynamicRenderingFeatures = VkPhysicalDeviceDynamicRenderingFeaturesKHR.calloc(stack)
                     .sType(KHRDynamicRendering.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR);
             
+            var sync2Features = VkPhysicalDeviceSynchronization2Features.calloc(stack)
+                    .sType(KHRSynchronization2.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR);
+            
             var graphicsPipelineLibraryFeatures =
                     VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT.calloc(stack)
                         .sType(EXTGraphicsPipelineLibrary.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT);
@@ -256,6 +263,7 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
                     .pNext(uint8Features)
                     .pNext(portabilityFeatures)
                     .pNext(dynamicRenderingFeatures)
+                    .pNext(sync2Features)
                     .pNext(graphicsPipelineLibraryFeatures);
 
             // Request features2 for the physical device.
@@ -291,6 +299,15 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
             } else if (dynamicRendering) {
                 logger.warning("Physical device " + this
                         + " doesn't support dynamic rendering. Renderer will use render pass instead.");
+            }
+            
+            if (sync2Features.synchronization2()) {
+                sync2Features.synchronization2(true);
+                this.synchronization2Supported = true;
+                logger.info("Synchronization2 supported by " + this + ".");
+
+                // Request synchronization2 support.
+                createInfo.pNext(sync2Features);
             }
             
             if (graphicsPipelineLibraryFeatures.graphicsPipelineLibrary()) {
@@ -696,6 +713,10 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
 
     public boolean supportsDynamicRendering() {
         return dynamicRenderingSupported;
+    }
+    
+    public boolean supportsSynchronization2() {
+        return synchronization2Supported;
     }
 
     public boolean supportsGraphicsPipelineLibrary() {

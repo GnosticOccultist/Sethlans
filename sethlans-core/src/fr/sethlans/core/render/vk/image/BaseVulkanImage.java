@@ -1,10 +1,12 @@
 package fr.sethlans.core.render.vk.image;
 
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
+import org.lwjgl.vulkan.VK13;
+import org.lwjgl.vulkan.VkDependencyInfo;
 import org.lwjgl.vulkan.VkImageCreateInfo;
 import org.lwjgl.vulkan.VkImageMemoryBarrier;
+import org.lwjgl.vulkan.VkImageMemoryBarrier2;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
 import fr.sethlans.core.material.Image.ColorSpace;
@@ -33,6 +35,12 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
     private MemoryResource memory;
 
     private VkFlag<ImageUsage> usage;
+    
+    private Layout layout = Layout.UNDEFINED;
+    
+    private Tiling tiling = Tiling.OPTIMAL;
+    
+    private boolean concurrent = false;
 
     protected BaseVulkanImage(LogicalDevice device, long imageHandle, int width, int height, VulkanFormat format, VkFlag<ImageUsage> usage) {
         super(device);
@@ -86,9 +94,9 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
                     .mipLevels(mipLevels)
                     .arrayLayers(1)
                     .samples(sampleCount)
-                    .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED)
-                    .sharingMode(VK10.VK_SHARING_MODE_EXCLUSIVE)
-                    .tiling(VK10.VK_IMAGE_TILING_OPTIMAL)
+                    .initialLayout(layout.vkEnum())
+                    .sharingMode(isConcurrent() ? VK10.VK_SHARING_MODE_CONCURRENT : VK10.VK_SHARING_MODE_EXCLUSIVE)
+                    .tiling(getTiling().vkEnum())
                     .usage(getUsage().bits());
 
             var vkDevice = logicalDeviceHandle();
@@ -109,173 +117,71 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
             memory.getNativeReference().addDependent(ref);
         }
     }
-
-    public SingleUseCommand transitionImageLayout(int oldLayout, int newLayout) {
-        return transitionImageLayout(null, oldLayout, newLayout);
-    }
-
-    public SingleUseCommand transitionImageLayout(SingleUseCommand existingCommand, int oldLayout, int newLayout) {
+    
+    @Override
+    public SingleUseCommand transitionLayout(SingleUseCommand existingCommand, Layout dstLayout) {
+        // Create a one-time submit command buffer.
+        var command = existingCommand != null ? existingCommand : getLogicalDevice().singleUseGraphicsCommand();
+        if (existingCommand == null) {
+            command.beginRecording();
+        }
+        
+        var supportsSync2 = getLogicalDevice().physicalDevice().supportsSynchronization2();
         try (var stack = MemoryStack.stackPush()) {
+            if (supportsSync2) {
+                transitionLayout2(command, dstLayout);
+                
+            } else {
+                var pBarrier = VkImageMemoryBarrier.calloc(1, stack)
+                        .sType(VK10.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
+                        .oldLayout(layout.vkEnum())
+                        .newLayout(dstLayout.vkEnum())
+                        .srcQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
+                        .dstQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
+                        .image(handle())
+                        .srcAccessMask(layout.getAccess().bits())
+                        .dstAccessMask(dstLayout.getAccess().bits())
+                        .subresourceRange(it -> it
+                                .aspectMask(format().getAspects().bits())
+                                .baseMipLevel(0)
+                                .levelCount(mipLevels)
+                                .baseArrayLayer(0)
+                                .layerCount(1));
 
-            var aspectMask = VK10.VK_IMAGE_ASPECT_COLOR_BIT;
-            if (newLayout == VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-                aspectMask = VK10.VK_IMAGE_ASPECT_DEPTH_BIT;
-
-                switch (format) {
-                case VulkanFormat.DEPTH16_UNORM_STENCIL8_UINT:
-                case VulkanFormat.DEPTH24_UNORM_STENCIL8_UINT:
-                case VulkanFormat.DEPTH32_SFLOAT_STENCIL8_UINT:
-                    // Expecting a stencil component.
-                    aspectMask |= VK10.VK_IMAGE_ASPECT_STENCIL_BIT;
-                    break;
-                default:
-                    break;
-                }
+                command.addBarrier(layout.getStage().bits(), dstLayout.getStage().bits(), pBarrier);
             }
-
-            final var mask = aspectMask;
-
-            var pBarrier = VkImageMemoryBarrier.calloc(1, stack)
-                    .sType(VK10.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
-                    .newLayout(newLayout)
-                    .oldLayout(oldLayout)
+            this.layout = dstLayout;
+        }
+        
+        return command;
+    }
+    
+    protected SingleUseCommand transitionLayout2(SingleUseCommand existingCommand, Layout dstLayout) {
+        try (var stack = MemoryStack.stackPush()) {
+            var pBarrier = VkImageMemoryBarrier2.calloc(1, stack)
+                    .sType(VK13.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2)
+                    .oldLayout(layout.vkEnum())
+                    .newLayout(dstLayout.vkEnum())
                     .srcQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
                     .dstQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
                     .image(handle())
+                    .srcAccessMask(layout.getAccess().bits())
+                    .srcStageMask(layout.getStage().bits())
+                    .dstAccessMask(dstLayout.getAccess().bits())
+                    .dstStageMask(dstLayout.getStage().bits())
                     .subresourceRange(it -> it
-                            .aspectMask(mask)
+                            .aspectMask(format().getAspects().bits())
                             .baseMipLevel(0)
                             .levelCount(mipLevels)
                             .baseArrayLayer(0)
                             .layerCount(1));
+            
+            var pDependencyInfo = VkDependencyInfo.calloc(stack)
+                    .sType(VK13.VK_STRUCTURE_TYPE_DEPENDENCY_INFO)
+                    .pImageMemoryBarriers(pBarrier);
 
-            int srcStage;
-            int dstStage;
-
-            if (oldLayout == VK10.VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-                // UNDEFINED to TRANSFER_DST.
-                pBarrier.dstAccessMask(VK10.VK_ACCESS_TRANSFER_WRITE_BIT);
-                pBarrier.srcAccessMask(0x0);
-
-                srcStage = VK10.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-                dstStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-                    && newLayout == VK10.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-
-                // TRANSFER_DST to SHADER_READ_ONLY
-                pBarrier.srcAccessMask(VK10.VK_ACCESS_TRANSFER_WRITE_BIT);
-                pBarrier.dstAccessMask(VK10.VK_ACCESS_SHADER_READ_BIT);
-
-                srcStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
-                dstStage = VK10.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-
-            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_UNDEFINED
-                    && newLayout == VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-
-                // UNDEFINED to COLOR_ATTACHMENT.
-                pBarrier.dstAccessMask(
-                        VK10.VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-                pBarrier.srcAccessMask(0x0);
-
-                srcStage = VK10.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-                dstStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_UNDEFINED
-                    && newLayout == VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-
-                // UNDEFINED to DEPTH_STENCIL_ATTACHMENT
-                pBarrier.dstAccessMask(VK10.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT
-                        | VK10.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-                pBarrier.srcAccessMask(0x0);
-
-                srcStage = VK10.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-                dstStage = VK10.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-
-            } else if (oldLayout == KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-                    && newLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-
-                // PRESENT_SRC_KHR to TRANSFER_SRC
-                pBarrier.srcAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-                pBarrier.dstAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
-
-                srcStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-                dstStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
-                    && newLayout == KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-
-                // TRANSFER_SRC to PRESENT_SRC_KHR
-                pBarrier.srcAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
-                pBarrier.dstAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-
-                srcStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
-                dstStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-                    && newLayout == KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-
-                // COLOR_ATTACHMENT to PRESENT_SRC_KHR
-                pBarrier.srcAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-                pBarrier.dstAccessMask(0);
-
-                srcStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-                dstStage = VK10.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-
-            } else if (oldLayout == KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-                    && newLayout == VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-
-                // PRESENT_SRC_KHR to COLOR_ATTACHMENT
-                pBarrier.srcAccessMask(0);
-                pBarrier.dstAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-
-                srcStage = VK10.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-                dstStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_UNDEFINED
-                    && newLayout == VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-
-                // PRESENT_SRC_KHR to COLOR_ATTACHMENT
-                pBarrier.srcAccessMask(0);
-                pBarrier.dstAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-
-                srcStage = VK10.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-                dstStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-                    && newLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-
-                // COLOR_ATTACHMENT_OPTIMAL to TRANSFER_SRC
-                pBarrier.srcAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-                pBarrier.dstAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
-
-                srcStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-                dstStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-            } else if (oldLayout == VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
-                    && newLayout == VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-
-                // TRANSFER_SRC to COLOR_ATTACHMENT_OPTIMAL
-                pBarrier.srcAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
-                pBarrier.dstAccessMask(VK10.VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-
-                srcStage = VK10.VK_PIPELINE_STAGE_TRANSFER_BIT;
-                dstStage = VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-            } else {
-                throw new IllegalArgumentException(
-                        "Unsupported transition from layout " + oldLayout + " to " + newLayout);
-            }
-
-            // Create a one-time submit command buffer.
-            var command = existingCommand != null ? existingCommand : getLogicalDevice().singleUseGraphicsCommand();
-            if (existingCommand == null) {
-                command.beginRecording();
-            }
-
-            command.addBarrier(srcStage, dstStage, pBarrier);
-
-            return command;
+            existingCommand.addBarrier2(pDependencyInfo);
+            return existingCommand;
         }
     }
     
@@ -300,6 +206,15 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
     @Override
     public VulkanFormat format() {
         return format;
+    }
+    
+    public boolean isConcurrent() {
+        return concurrent;
+    }
+
+    @Override
+    public Tiling getTiling() {
+        return tiling;
     }
 
     @Override

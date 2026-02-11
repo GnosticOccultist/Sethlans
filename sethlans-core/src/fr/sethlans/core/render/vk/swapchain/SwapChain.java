@@ -27,6 +27,7 @@ import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.FormatFeature;
 import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.image.VulkanFormat;
+import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.VulkanImage.Tiling;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 
@@ -94,13 +95,12 @@ public abstract class SwapChain {
                 MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT));
 
         // Transition image to a valid transfer layout.
-        try (var command = image.transitionImageLayout(attachment.finalLayout(),
-                VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)) {
+        try (var command = image.transitionLayout(Layout.TRANSFER_SRC_OPTIMAL)) {
             // Copy the data from the presentation image to a buffer.
-            command.copyImage(image, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, destination);
+            command.copyImage(image, Layout.TRANSFER_SRC_OPTIMAL, destination);
 
             // Re-transition image layout back for future presentation.
-            image.transitionImageLayout(command, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, attachment.finalLayout());
+            image.transitionLayout(command, attachment.finalLayout());
         }
 
         // Map buffer memory and decode BGRA pixel data.

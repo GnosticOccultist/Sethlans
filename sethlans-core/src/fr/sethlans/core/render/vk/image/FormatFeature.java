@@ -68,5 +68,4 @@ public enum FormatFeature implements VkFlag<FormatFeature> {
     public int bits() {
         return bits;
     }
-
 }

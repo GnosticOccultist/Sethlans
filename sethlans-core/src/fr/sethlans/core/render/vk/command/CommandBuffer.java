@@ -14,6 +14,7 @@ import org.lwjgl.vulkan.VkClearValue;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkCommandBufferAllocateInfo;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
+import org.lwjgl.vulkan.VkDependencyInfo;
 import org.lwjgl.vulkan.VkImageBlit;
 import org.lwjgl.vulkan.VkImageMemoryBarrier;
 import org.lwjgl.vulkan.VkOffset2D;
@@ -22,12 +23,12 @@ import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkRenderPassBeginInfo;
 import org.lwjgl.vulkan.VkSubmitInfo;
 import org.lwjgl.vulkan.VkViewport;
-
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.image.VulkanImage;
+import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.memory.DeviceBuffer;
 import fr.sethlans.core.render.vk.memory.IndexBuffer;
 import fr.sethlans.core.render.vk.memory.VertexBuffer;
@@ -85,6 +86,11 @@ public class CommandBuffer {
             return this;
         }
     }
+    
+    public CommandBuffer addBarrier2(VkDependencyInfo pDependencyInfo) {
+        VK13.vkCmdPipelineBarrier2(handle, pDependencyInfo);
+        return this;
+    }
 
     public CommandBuffer addBarrier(int srcStage, int dstStage, VkImageMemoryBarrier.Buffer pBarriers) {
         VK10.vkCmdPipelineBarrier(handle, srcStage, dstStage, 0x0, null, null, pBarriers);
@@ -141,7 +147,7 @@ public class CommandBuffer {
         return this;
     }
 
-    public CommandBuffer copyImage(VulkanImage source, int imageLayout, VulkanBuffer destination) {
+    public CommandBuffer copyImage(VulkanImage source, Layout imageLayout, VulkanBuffer destination) {
         assert source.getUsage().contains(ImageUsage.TRANSFER_SRC);
         assert destination.getUsage().contains(BufferUsage.TRANSFER_DST);
         
@@ -151,14 +157,14 @@ public class CommandBuffer {
                     .bufferRowLength(0)
                     .bufferImageHeight(0)
                     .imageSubresource(it -> it
-                            .aspectMask(VK10.VK_IMAGE_ASPECT_COLOR_BIT)
+                            .aspectMask(source.format().getAspects().bits())
                             .mipLevel(0)
                             .baseArrayLayer(0)
                             .layerCount(1))
                     .imageOffset(it -> it.x(0).y(0).z(0))
                     .imageExtent(it -> it.width(source.width()).height(source.height()).depth(1));
 
-            VK10.vkCmdCopyImageToBuffer(handle, source.handle(), imageLayout, destination.handle(), pRegion);
+            VK10.vkCmdCopyImageToBuffer(handle, source.handle(), imageLayout.vkEnum(), destination.handle(), pRegion);
         }
 
         return this;

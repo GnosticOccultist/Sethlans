@@ -13,6 +13,7 @@ import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.VulkanImage.Tiling;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.util.VkFlag;
@@ -53,8 +54,7 @@ public class VulkanTexture {
                 MemoryProperty.DEVICE_LOCAL);
 
         // Transition the image layout.
-        try (var command = image.transitionImageLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED,
-                VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)) {
+        try (var command = image.transitionLayout(Layout.TRANSFER_DST_OPTIMAL)) {
             // Copy the data from the staging buffer the new image.
             command.copyBuffer(stagingBuffer, image);
             generateMipmaps(command);

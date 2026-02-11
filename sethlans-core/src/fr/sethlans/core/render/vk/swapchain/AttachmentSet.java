@@ -74,7 +74,7 @@ public class AttachmentSet {
                 depthAttachment = VkRenderingAttachmentInfo.calloc(stack)
                         .sType(KHRDynamicRendering.VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR)
                         .imageView(attachment.imageView().handle())
-                        .imageLayout(attachment.finalLayout())
+                        .imageLayout(attachment.finalLayout().vkEnum())
                         .loadOp(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR)
                         .storeOp(VK10.VK_ATTACHMENT_STORE_OP_STORE)
                         .clearValue(descriptor.clearValue());

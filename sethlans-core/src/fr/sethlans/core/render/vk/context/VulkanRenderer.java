@@ -6,9 +6,6 @@ import java.util.List;
 import java.util.Objects;
 
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.KHRSwapchain;
-import org.lwjgl.vulkan.VK10;
-
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
@@ -21,6 +18,7 @@ import fr.sethlans.core.render.vk.descriptor.AbstractDescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetWriter;
+import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.pipeline.GraphicsPipeline;
@@ -98,8 +96,8 @@ public class VulkanRenderer {
             var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
             if (needsSurface) {
-                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionImageLayout(
-                        VK10.VK_IMAGE_LAYOUT_UNDEFINED, VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)) {
+                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image()
+                        .transitionLayout(Layout.ATTACHMENT_OPTIMAL)) {
 
                 }
             }
@@ -125,8 +123,8 @@ public class VulkanRenderer {
             var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
             if (needsSurface) {
-                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionImageLayout(
-                        VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)) {
+                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image()
+                        .transitionLayout(Layout.PRESENT_SRC_KHR)) {
 
                 }
             }
@@ -153,14 +151,13 @@ public class VulkanRenderer {
             for (var layout : layouts) {
                 AbstractDescriptorSet desc = null;
                 List<DescriptorSetWriter> writers = new ArrayList<>();
-                
+
                 for (var binding : layout.getBindings()) {
                     var bindLayout = getBindingLayout(materialLayout, binding.getKey());
                     if (bindLayout != null && bindLayout.builtin()) {
-                        
+
                         desc = builtinDescriptorManager.getOrCreate(bindLayout, layout);
-                        var buff = builtinDescriptorManager.getOrCreate(context.getLogicalDevice(),
-                                bindLayout.name());
+                        var buff = builtinDescriptorManager.getOrCreate(context.getLogicalDevice(), bindLayout.name());
                         writers.add(buff.createWriter(binding.getValue()));
 
                     } else {
@@ -172,11 +169,11 @@ public class VulkanRenderer {
                         }
                     }
                 }
-                
+
                 desc.write(writers, imageIndex);
                 pDescriptorSets.put(desc.handle(imageIndex));
             }
-            
+
             pDescriptorSets.flip();
             command.bindDescriptorSets(pipeline.getLayout().handle(), pipeline.getBindPoint(), pDescriptorSets, null);
         }

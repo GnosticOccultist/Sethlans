@@ -4,7 +4,6 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.VK10;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
@@ -13,6 +12,7 @@ import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.image.VulkanFormat;
+import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.util.VkFlag;
 
@@ -114,13 +114,12 @@ public class OffscreenSwapChain extends SwapChain {
         var image = attachment.image;
 
         // Transition image to a valid transfer layout.
-        try (var command = image.transitionImageLayout(attachment.finalLayout(),
-                VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)) {
+        try (var command = image.transitionLayout(Layout.TRANSFER_SRC_OPTIMAL)) {
             // Copy the data from the presentation image to a buffer.
-            command.copyImage(image, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, screenBuffer);
+            command.copyImage(image, Layout.TRANSFER_SRC_OPTIMAL, screenBuffer);
 
             // Re-transition image layout back for future presentation.
-            image.transitionImageLayout(command, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, attachment.finalLayout());
+            image.transitionLayout(command, attachment.finalLayout());
         }
 
         var data = screenBuffer.mapBytes();
