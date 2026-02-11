@@ -14,18 +14,25 @@ import fr.sethlans.core.natives.cache.Cache;
 import fr.sethlans.core.natives.cache.CacheableNativeBuilder;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.shader.ShaderModule;
+import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class ComputePipeline extends AbstractPipeline {
-    
+
     private ComputePipeline parent;
-    
+
+    private VkFlag<Create> createFlags = VkFlag.empty();
+
     private ShaderModule stage;
 
-    public ComputePipeline(LogicalDevice logicalDevice, PipelineLayout layout) {
+    protected ComputePipeline(LogicalDevice logicalDevice, PipelineLayout layout) {
         super(logicalDevice, BindPoint.COMPUTE, layout);
     }
     
+    public VkFlag<Create> getCreateFlags() {
+        return createFlags;
+    }
+
     public static ComputePipeline build(LogicalDevice logicalDevice, PipelineLayout layout, Consumer<Builder> config) {
         var b = new ComputePipeline(logicalDevice, layout).new Builder();
         config.accept(b);
@@ -38,6 +45,7 @@ public class ComputePipeline extends AbstractPipeline {
         protected void construct(MemoryStack stack) {
             var createInfo = VkComputePipelineCreateInfo.calloc(1, stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO)
+                    .flags(createFlags.addIf(parent != null, Create.DERIVATIVE).bits())
                     .stage(createShaderStageInfo(stack))
                     .layout(getLayout().handle())
                     .basePipelineHandle(parent != null ? parent.handle() : VK10.VK_NULL_HANDLE);
@@ -68,6 +76,17 @@ public class ComputePipeline extends AbstractPipeline {
                 b.setCache(shaderCache);
                 b.setModuleInfo(moduleInfo);
             });
+        }
+        
+        public void setParent(ComputePipeline parent) {
+            if (!parent.getCreateFlags().contains(Create.ALLOW_DERIVATIVES)) {
+                throw new IllegalArgumentException("Parent pipeline must allow derivatives!");
+            }
+            ComputePipeline.this.parent = parent;
+        }
+        
+        public void setCreateFlags(VkFlag<Create> flags) {
+            ComputePipeline.this.createFlags = flags;
         }
 
         @Override

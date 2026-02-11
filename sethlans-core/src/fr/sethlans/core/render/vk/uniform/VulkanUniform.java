@@ -1,6 +1,6 @@
 package fr.sethlans.core.render.vk.uniform;
 
-import fr.sethlans.core.material.layout.BindingLayout;
+import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayoutBinding;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetWriter;
 
 public interface VulkanUniform<T> {
@@ -9,5 +9,5 @@ public interface VulkanUniform<T> {
 
     T get();
 
-    DescriptorSetWriter createWriter(BindingLayout bindingLayout);
+    DescriptorSetWriter createWriter(DescriptorSetLayoutBinding bindingLayout);
 }

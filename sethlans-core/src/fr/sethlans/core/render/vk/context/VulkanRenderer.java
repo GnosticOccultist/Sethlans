@@ -3,6 +3,8 @@ package fr.sethlans.core.render.vk.context;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
@@ -13,6 +15,7 @@ import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.material.MaterialLayout;
 import fr.sethlans.core.material.MaterialPass;
+import fr.sethlans.core.material.layout.BindingLayout;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.descriptor.AbstractDescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
@@ -148,37 +151,47 @@ public class VulkanRenderer {
 
         try (var stack = MemoryStack.stackPush()) {
             var pDescriptorSets = stack.mallocLong(layouts.size());
-            for (var entry : materialLayout.setLayouts()) {
-                for (var bindLayout : entry.getValue()) {
-                    List<DescriptorSetWriter> writers = new ArrayList<>();
-                    AbstractDescriptorSet desc = null;
-                    if (bindLayout.builtin() != null) {
-                        var descLayout = pipelineLibrary.getOrCreate(context.getLogicalDevice(), entry.getKey(),
-                                bindLayout);
-                        desc = builtinDescriptorManager.getOrCreate(bindLayout, descLayout);
+            for (var layout : layouts) {
+                AbstractDescriptorSet desc = null;
+                List<DescriptorSetWriter> writers = new ArrayList<>();
+                
+                for (var binding : layout.getBindings()) {
+                    var bindLayout = getBindingLayout(materialLayout, binding.getKey());
+                    if (bindLayout != null && bindLayout.builtin()) {
+                        
+                        desc = builtinDescriptorManager.getOrCreate(bindLayout, layout);
                         var buff = builtinDescriptorManager.getOrCreate(context.getLogicalDevice(),
-                                bindLayout.builtin());
-                        writers.add(buff.createWriter(bindLayout));
+                                bindLayout.name());
+                        writers.add(buff.createWriter(binding.getValue()));
 
                     } else {
                         if (bindLayout.name().equals("TextureSampler")) {
                             if (samplerDescriptorSet == null) {
-                                var samplerDescriptorSetLayout = pipelineLibrary.getOrCreate(context.getLogicalDevice(),
-                                        entry.getKey(), bindLayout);
-                                this.samplerDescriptorSet = descriptorPool.allocate(samplerDescriptorSetLayout);
+                                this.samplerDescriptorSet = descriptorPool.allocate(layout);
                             }
                             desc = samplerDescriptorSet;
                         }
                     }
-
-                    desc.write(writers, imageIndex);
-                    pDescriptorSets.put(desc.handle(imageIndex));
                 }
+                
+                desc.write(writers, imageIndex);
+                pDescriptorSets.put(desc.handle(imageIndex));
             }
-
+            
             pDescriptorSets.flip();
             command.bindDescriptorSets(pipeline.getLayout().handle(), pipeline.getBindPoint(), pDescriptorSets, null);
         }
+    }
+
+    private BindingLayout getBindingLayout(MaterialLayout materialLayout, String name) {
+        for (var entry : materialLayout.setLayouts()) {
+            for (var bindLayout : entry.getValue()) {
+                if (Objects.equals(bindLayout.name(), name)) {
+                    return bindLayout;
+                }
+            }
+        }
+        return null;
     }
 
     public VulkanMesh bind(Pipeline pipeline, Geometry geometry, CommandBuffer command, int imageIndex) {
@@ -264,10 +277,6 @@ public class VulkanRenderer {
 
         if (samplerDescriptorSet != null) {
             samplerDescriptorSet.destroy();
-        }
-
-        if (pipelineLibrary != null) {
-            pipelineLibrary.destroy();
         }
 
         if (descriptorPool != null) {

@@ -6,27 +6,27 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkDescriptorBufferInfo;
 import org.lwjgl.vulkan.VkWriteDescriptorSet;
 
-import fr.sethlans.core.material.layout.BindingLayout;
-import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
+import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
 import fr.sethlans.core.render.vk.descriptor.AbstractSetWriter;
+import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayoutBinding;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetWriter;
 
-public class BufferUniform implements VulkanUniform<BaseVulkanBuffer> {
+public class BufferUniform implements VulkanUniform<VulkanBuffer> {
 
-    private BaseVulkanBuffer value;
+    private VulkanBuffer value;
 
     @Override
-    public void set(BaseVulkanBuffer value) {
+    public void set(VulkanBuffer value) {
         this.value = value;
     }
 
     @Override
-    public BaseVulkanBuffer get() {
+    public VulkanBuffer get() {
         return value;
     }
 
     @Override
-    public DescriptorSetWriter createWriter(BindingLayout bindingLayout) {
+    public DescriptorSetWriter createWriter(DescriptorSetLayoutBinding bindingLayout) {
         if (value == null) {
             return null;
         }
@@ -36,10 +36,10 @@ public class BufferUniform implements VulkanUniform<BaseVulkanBuffer> {
     
     private static class Writer extends AbstractSetWriter {
 
-        private final BaseVulkanBuffer buffer;
+        private final VulkanBuffer buffer;
         private final long id, bytes;
 
-        private Writer(BindingLayout bindingLayout, BaseVulkanBuffer buffer) {
+        private Writer(DescriptorSetLayoutBinding bindingLayout, VulkanBuffer buffer) {
             super(bindingLayout, 0, 1);
             this.buffer = buffer;
             this.id = buffer.handle();

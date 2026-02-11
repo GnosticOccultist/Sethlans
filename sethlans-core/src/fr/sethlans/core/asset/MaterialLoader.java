@@ -124,7 +124,7 @@ public class MaterialLoader {
             var shadersValue = bindingObj.getOptional("shaders").orElseThrow(IOException::new);
             var shaderTypes = getShaderTypes(shadersValue);
 
-            var bindingLayout = new BindingLayout(name, builtin, binding, bindingType, shaderTypes, count);
+            var bindingLayout = new BindingLayout((builtin != null) ? builtin : name, builtin != null, binding, bindingType, shaderTypes, count);
             bindings.add(bindingLayout);
         }
 

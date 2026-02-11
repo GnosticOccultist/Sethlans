@@ -2,6 +2,7 @@ package fr.sethlans.core.render.vk.util;
 
 import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.function.Function;
 
 public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Integer> {
@@ -46,6 +47,10 @@ public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Int
 
         return this;
     }
+    
+    default VkFlag<T> addIf(boolean b, VkFlag<T> flag) {
+        return b ? add(flag) : this;
+    }
 
     default boolean contains(VkFlag<T> flag) {
         return contains(flag.bits());
@@ -89,6 +94,29 @@ public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Int
         @Override
         public int bits() {
             return bits;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(bits);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            
+            var other = (VkFlagImpl<?>) obj;
+            return bits == other.bits;
+        }
+
+        @Override
+        public String toString() {
+            return "VkFlagImpl [bits=" + bits + "]";
         }
     }
 

@@ -35,6 +35,7 @@ import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.shader.ShaderModule;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
+import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkRenderState;
 import fr.sethlans.core.render.vk.util.VkUtil;
 import fr.sethlans.core.scenegraph.mesh.Topology;
@@ -44,6 +45,8 @@ public class GraphicsPipeline extends AbstractPipeline {
     private RenderPass renderPass;
     
     private GraphicsPipeline parent;
+    
+    private VkFlag<Create> createFlags = VkFlag.empty();
     
     private VulkanFormat colorAttachmentFormat, depthAttachmentFormat;
     
@@ -67,10 +70,14 @@ public class GraphicsPipeline extends AbstractPipeline {
 
     private EnumSet<DynamicState> dynamicStates = EnumSet.noneOf(DynamicState.class);
 
-    public GraphicsPipeline(LogicalDevice logicalDevice, PipelineLayout layout) {
+    protected GraphicsPipeline(LogicalDevice logicalDevice, PipelineLayout layout) {
         super(logicalDevice, BindPoint.GRAPHICS, layout);
     }
     
+    public VkFlag<Create> getCreateFlags() {
+        return createFlags;
+    }
+
     @Override
     public int hashCode() {
         int result = Objects.hash(alphaToCoverage, alphaToOne, colorAttachmentFormat,
@@ -139,6 +146,7 @@ public class GraphicsPipeline extends AbstractPipeline {
         protected VkGraphicsPipelineCreateInfo.Buffer createPipelineInfo(MemoryStack stack) {
             var createInfo = VkGraphicsPipelineCreateInfo.calloc(1, stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO)
+                    .flags(createFlags.addIf(parent != null, Create.DERIVATIVE).bits())
                     .pStages(createShaderStageInfo(stack))
                     .pVertexInputState(createVertexInputStateInfo(stack))
                     .pInputAssemblyState(createInputAssemblyStateInfo(stack))
@@ -330,7 +338,14 @@ public class GraphicsPipeline extends AbstractPipeline {
         }
 
         public void setParent(GraphicsPipeline parent) {
+            if (!parent.getCreateFlags().contains(Create.ALLOW_DERIVATIVES)) {
+                throw new IllegalArgumentException("Parent pipeline must allow derivatives!");
+            }
             GraphicsPipeline.this.parent = parent;
+        }
+        
+        public void setCreateFlags(VkFlag<Create> flags) {
+            GraphicsPipeline.this.createFlags = flags;
         }
 
         public void setColorAttachmentFormat(VulkanFormat colorAttachmentFormat) {

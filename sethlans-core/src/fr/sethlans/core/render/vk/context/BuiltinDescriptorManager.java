@@ -60,7 +60,7 @@ public class BuiltinDescriptorManager {
     }
 
     public AbstractDescriptorSet getOrCreate(BindingLayout bindingLayout, DescriptorSetLayout descLayout) {
-        var builtinName = bindingLayout.builtin();
+        var builtinName = bindingLayout.name();
         var builtin = builtinBindings.get(builtinName);
         if (builtin == null) {
             throw new RuntimeException("Unrecognized builtin '" + builtinName + "'!");
