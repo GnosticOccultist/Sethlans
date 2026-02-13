@@ -61,7 +61,7 @@ public class AssimpTest extends SethlansApplication {
         vikingRoom.setMaterial(mat);
 
         texture = TextureLoader.load(getConfig(), "resources/models/viking_room/viking_room.png");
-        vikingRoom.setTexture(texture);
+        vikingRoom.getMaterialInstance().setTexture(texture);
 
         rotation = new Quaternionf();
     }

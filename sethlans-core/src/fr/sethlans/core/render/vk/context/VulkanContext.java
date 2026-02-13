@@ -31,7 +31,7 @@ public class VulkanContext {
 
         var comparator = surface != null ? PhysicalDevice.SURFACE_SUPPORT_COMPARATOR
                 : PhysicalDevice.OFFSCREEN_SUPPORT_COMPARATOR;
-        this.physicalDevice = vulkanInstance.choosePhysicalDevice(config, comparator);
+        this.physicalDevice = vulkanInstance.choosePhysicalDevice(this, config, comparator);
 
         this.logicalDevice = new LogicalDevice(this);
     }

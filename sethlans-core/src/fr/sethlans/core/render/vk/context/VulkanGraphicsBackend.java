@@ -385,23 +385,10 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
     public void terminate() {
 
         renderer.destroy();
-        
-        if (pipelineCache != null) {
-            pipelineCache.destroy();
-        }
-
-        for (var frame : vulkanFrames) {
-            frame.destroy();
-        }
 
         if (swapChain != null) {
             swapChain.destroy();
             swapChain = null;
-        }
-
-        if (renderPass != null) {
-            renderPass.destroy();
-            this.renderPass = null;
         }
 
         for (var d : descriptors) {

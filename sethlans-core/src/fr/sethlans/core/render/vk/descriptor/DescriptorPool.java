@@ -5,21 +5,28 @@ import java.util.List;
 
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
+import org.lwjgl.vulkan.VK12;
 import org.lwjgl.vulkan.VkDescriptorPoolCreateInfo;
 import org.lwjgl.vulkan.VkDescriptorPoolSize;
 import org.lwjgl.vulkan.VkDescriptorSetAllocateInfo;
 
+import fr.sethlans.core.natives.NativeResource;
+import fr.sethlans.core.render.vk.device.AbstractDeviceResource;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class DescriptorPool {
+public class DescriptorPool extends AbstractDeviceResource {
+    
+    private final VkFlag<Create> createFlags;
+    
+    public DescriptorPool(LogicalDevice logicalDevice, int poolSize) {
+        this(logicalDevice, VkFlag.empty(), poolSize);
+    }
 
-    private final LogicalDevice device;
-
-    private long handle = VK10.VK_NULL_HANDLE;
-
-    public DescriptorPool(LogicalDevice device, int poolSize) {
-        this.device = device;
+    public DescriptorPool(LogicalDevice logicalDevice, VkFlag<Create> createFlags, int poolSize) {
+        super(logicalDevice);
+        this.createFlags = createFlags;
 
         try (var stack = MemoryStack.stackPush()) {
             var pPoolSizes = VkDescriptorPoolSize.calloc(3, stack);
@@ -32,14 +39,17 @@ public class DescriptorPool {
 
             var createInfo = VkDescriptorPoolCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO)
-                    .flags(VK10.VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)
+                    .flags(createFlags.bits())
                     .maxSets(poolSize)
                     .pPoolSizes(pPoolSizes);
 
             var pHandle = stack.mallocLong(1);
-            var err = VK10.vkCreateDescriptorPool(device.handle(), createInfo, null, pHandle);
+            var err = VK10.vkCreateDescriptorPool(logicalDeviceHandle(), createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create descriptor-set pool");
-            this.handle = pHandle.get(0);
+            assignHandle(pHandle.get(0));
+            
+            ref = NativeResource.get().register(this);
+            logicalDevice.getNativeReference().addDependent(ref);
         }
     }
     
@@ -48,14 +58,14 @@ public class DescriptorPool {
             var pSetLayouts = stack.longs(layout.handle());
             var allocate = VkDescriptorSetAllocateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO)
-                    .descriptorPool(handle)
+                    .descriptorPool(handle())
                     .pSetLayouts(pSetLayouts);
 
             var pHandle = stack.mallocLong(1);
-            var err = VK10.vkAllocateDescriptorSets(device.handle(), allocate, pHandle);
+            var err = VK10.vkAllocateDescriptorSets(logicalDeviceHandle(), allocate, pHandle);
             VkUtil.throwOnFailure(err, "allocate descriptor-set");
             
-            var set = new DescriptorSet(device, this, layout, pHandle.get());
+            var set = new DescriptorSet(getLogicalDevice(), this, layout, pHandle.get());
             return set;
         }
     }
@@ -69,11 +79,11 @@ public class DescriptorPool {
             pSetLayouts.flip();
             var allocate = VkDescriptorSetAllocateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO)
-                    .descriptorPool(handle)
+                    .descriptorPool(handle())
                     .pSetLayouts(pSetLayouts);
 
             var pHandles = stack.mallocLong(frameCount);
-            var err = VK10.vkAllocateDescriptorSets(device.handle(), allocate, pHandles);
+            var err = VK10.vkAllocateDescriptorSets(logicalDeviceHandle(), allocate, pHandles);
             VkUtil.throwOnFailure(err, "allocate " + frameCount + " descriptor-sets");
 
             var array = new long[frameCount];
@@ -81,7 +91,7 @@ public class DescriptorPool {
                 array[i] = pHandles.get();
             }
             
-            var set = new PerFrameDescriptorSet(device, this, layout, array);
+            var set = new PerFrameDescriptorSet(getLogicalDevice(), this, layout, array);
             return set;
         }
     }
@@ -100,44 +110,53 @@ public class DescriptorPool {
             pSetLayouts.flip();
             var allocate = VkDescriptorSetAllocateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO)
-                    .descriptorPool(handle)
+                    .descriptorPool(handle())
                     .pSetLayouts(pSetLayouts);
 
             var pHandles = stack.mallocLong(layouts.size());
-            var err = VK10.vkAllocateDescriptorSets(device.handle(), allocate, pHandles);
+            var err = VK10.vkAllocateDescriptorSets(logicalDeviceHandle(), allocate, pHandles);
             VkUtil.throwOnFailure(err, "allocate " + layouts.size() + " descriptor-sets");
 
             for (var i = 0; i < layouts.size(); ++i) {
-                sets[i] = new DescriptorSet(device, this, layouts.get(i), pHandles.get());
+                sets[i] = new DescriptorSet(getLogicalDevice(), this, layouts.get(i), pHandles.get());
             }
         }
 
         return sets;
     }
-
-    public void freeDescriptorSet(long descriptorSetHandle) {
-        try (var stack = MemoryStack.stackPush()) {
-            var pDescriptorSet = stack.mallocLong(1);
-            pDescriptorSet.put(0, descriptorSetHandle);
-
-            var err = VK10.vkFreeDescriptorSets(device.handle(), handle, pDescriptorSet);
-            VkUtil.throwOnFailure(err, "free descriptor-set");
-        }
-    }
     
+    public VkFlag<Create> getCreateFlags() {
+        return createFlags;
+    }
+
     public void reset() {
-        var err = VK10.vkResetDescriptorPool(device.handle(), handle, 0);
+        var err = VK10.vkResetDescriptorPool(logicalDeviceHandle(), handle(), 0);
         VkUtil.throwOnFailure(err, "reset descriptor-set pool");
     }
 
-    long handle() {
-        return handle;
+    @Override
+    public Runnable createDestroyAction() {
+        return () -> {
+            VK10.vkDestroyDescriptorPool(logicalDeviceHandle(), handle(), null);
+            unassignHandle();
+        };
     }
+    
+    public enum Create implements VkFlag<Create> {
 
-    public void destroy() {
-        if (handle != VK10.VK_NULL_HANDLE) {
-            VK10.vkDestroyDescriptorPool(device.handle(), handle, null);
-            this.handle = VK10.VK_NULL_HANDLE;
+        FREE_DESCRIPTOR_SET(VK10.VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT),
+        
+        UPDATE_AFTER_BIND(VK12.VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT);
+
+        private final int vkEnum;
+
+        Create(int vkEnum) {
+            this.vkEnum = vkEnum;
+        }
+
+        @Override
+        public int bits() {
+            return vkEnum;
         }
     }
 }

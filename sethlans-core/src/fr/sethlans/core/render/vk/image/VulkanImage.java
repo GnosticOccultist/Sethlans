@@ -8,12 +8,13 @@ import org.lwjgl.vulkan.VK12;
 import org.lwjgl.vulkan.VK13;
 import org.lwjgl.vulkan.VK14;
 
+import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.vk.command.SingleUseCommand;
 import fr.sethlans.core.render.vk.pipeline.Access;
 import fr.sethlans.core.render.vk.pipeline.PipelineStage;
 import fr.sethlans.core.render.vk.util.VkFlag;
 
-public interface VulkanImage {
+public interface VulkanImage extends NativeResource<Long> {
 
     int width();
 

@@ -63,7 +63,7 @@ public class VulkanTexture {
         // Destroy the staging buffer.
         stagingBuffer.getNativeReference().destroy();
 
-        this.imageView = new ImageView(device, image, VK10.VK_IMAGE_ASPECT_COLOR_BIT);
+        this.imageView = new ImageView(device, image);
         this.sampler = new TextureSampler(device, image.mipLevels(), true);
     }
 

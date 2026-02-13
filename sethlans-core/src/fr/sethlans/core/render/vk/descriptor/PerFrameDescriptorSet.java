@@ -2,8 +2,11 @@ package fr.sethlans.core.render.vk.descriptor;
 
 import java.util.Arrays;
 
+import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 
+import fr.sethlans.core.natives.NativeResource;
+import fr.sethlans.core.render.vk.descriptor.DescriptorPool.Create;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 
 public class PerFrameDescriptorSet extends AbstractDescriptorSet {
@@ -14,6 +17,11 @@ public class PerFrameDescriptorSet extends AbstractDescriptorSet {
             long[] handles) {
         super(device, descriptorPool, layout);
         this.handles = handles;
+        
+        if (descriptorPool.getCreateFlags().contains(Create.FREE_DESCRIPTOR_SET)) {
+            ref = NativeResource.get().register(this);
+            descriptorPool.getNativeReference().addDependent(ref);
+        }
     }
 
     @Override
@@ -22,13 +30,14 @@ public class PerFrameDescriptorSet extends AbstractDescriptorSet {
     }
 
     @Override
-    public void destroy() {
-        for (var handle : handles) {
-            if (handle != VK10.VK_NULL_HANDLE) {
-                VK10.vkFreeDescriptorSets(logicaldevice.handle(), descriptorPool.handle(), handle);
+    public Runnable createDestroyAction() {
+        return () -> {
+            try (var stack = MemoryStack.stackPush()) {
+                var pDescriptorSets = stack.longs(handles);
+                VK10.vkFreeDescriptorSets(logicalDeviceHandle(), descriptorPool.handle(), pDescriptorSets);
             }
-        }
 
-        Arrays.fill(handles, VK10.VK_NULL_HANDLE);
+            Arrays.fill(handles, VK10.VK_NULL_HANDLE);
+        };
     }
 }

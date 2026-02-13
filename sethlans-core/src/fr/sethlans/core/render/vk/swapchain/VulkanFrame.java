@@ -72,6 +72,10 @@ public class VulkanFrame {
     public void fenceReset() {
         sync.fence.reset();
     }
+    
+    public Fence fence() {
+        return sync.fence;
+    }
 
     public long fenceHandle() {
         return sync.fence.handle();
@@ -150,14 +154,14 @@ public class VulkanFrame {
         }
 
         public void destroy() {
-            fence.destroy();
+            fence.getNativeReference().destroy();
 
             if (imageAvailableSemaphore != null) {
-                imageAvailableSemaphore.destroy();
+                imageAvailableSemaphore.getNativeReference().destroy();
             }
 
             if (renderCompleteSemaphore != null) {
-                renderCompleteSemaphore.destroy();
+                renderCompleteSemaphore.getNativeReference().destroy();
             }
         }
     }

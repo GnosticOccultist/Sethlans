@@ -1,17 +1,12 @@
 package fr.sethlans.core.render.vk.command;
 
 import org.lwjgl.vulkan.VK10;
-import org.lwjgl.vulkan.VkQueue;
-
 import fr.sethlans.core.render.vk.sync.Fence;
 
 public class SingleUseCommand extends CommandBuffer implements AutoCloseable {
-
-    private final VkQueue queue;
     
-    SingleUseCommand(CommandPool commandPool, VkQueue queue) {
+    SingleUseCommand(CommandPool commandPool) {
         super(commandPool);
-        this.queue = queue;
     }
 
     @Override
@@ -35,10 +30,10 @@ public class SingleUseCommand extends CommandBuffer implements AutoCloseable {
 
         var device = logicalDevice();
         var fence = new Fence(device, false);
-        submit(queue, fence);
+        submit(fence);
         fence.fenceWait();
 
-        fence.destroy();
+        fence.getNativeReference().destroy();
         destroy();
     }
 }

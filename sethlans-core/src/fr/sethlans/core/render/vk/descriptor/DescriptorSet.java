@@ -6,17 +6,22 @@ import org.lwjgl.vulkan.VkDescriptorBufferInfo;
 import org.lwjgl.vulkan.VkDescriptorImageInfo;
 import org.lwjgl.vulkan.VkWriteDescriptorSet;
 
+import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
+import fr.sethlans.core.render.vk.descriptor.DescriptorPool.Create;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
 
 public class DescriptorSet extends AbstractDescriptorSet {
-
-    private long handle = VK10.VK_NULL_HANDLE;
     
     DescriptorSet(LogicalDevice device, DescriptorPool descriptorPool, DescriptorSetLayout layout, long handle) {
         super(device, descriptorPool, layout);
-        this.handle = handle;
+        assignHandle(handle);
+        
+        if (descriptorPool.getCreateFlags().contains(Create.FREE_DESCRIPTOR_SET)) {
+            ref = NativeResource.get().register(this);
+            descriptorPool.getNativeReference().addDependent(ref);
+        }
     }
     
     public DescriptorSet updateBufferDescriptorSet(BaseVulkanBuffer buffer, int binding, long size) {
@@ -32,13 +37,13 @@ public class DescriptorSet extends AbstractDescriptorSet {
 
             var writeDescriptor = VkWriteDescriptorSet.calloc(1, stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
-                    .dstSet(handle)
+                    .dstSet(handle())
                     .dstBinding(binding)
                     .descriptorType(VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
                     .descriptorCount(1)
                     .pBufferInfo(bufferInfo);
 
-            VK10.vkUpdateDescriptorSets(getLogicaldevice().handle(), writeDescriptor, null);
+            VK10.vkUpdateDescriptorSets(logicalDeviceHandle(), writeDescriptor, null);
         }
         
         return this;
@@ -57,13 +62,13 @@ public class DescriptorSet extends AbstractDescriptorSet {
 
             var writeDescriptor = VkWriteDescriptorSet.calloc(1, stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
-                    .dstSet(handle)
+                    .dstSet(handle())
                     .dstBinding(binding)
                     .descriptorType(VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
                     .descriptorCount(1)
                     .pBufferInfo(bufferInfo);
 
-            VK10.vkUpdateDescriptorSets(getLogicaldevice().handle(), writeDescriptor, null);
+            VK10.vkUpdateDescriptorSets(logicalDeviceHandle(), writeDescriptor, null);
         }
         
         return this;
@@ -78,28 +83,28 @@ public class DescriptorSet extends AbstractDescriptorSet {
 
             var writeDescriptor = VkWriteDescriptorSet.calloc(1, stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
-                    .dstSet(handle)
+                    .dstSet(handle())
                     .dstBinding(binding)
                     .descriptorType(VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                     .descriptorCount(1)
                     .pImageInfo(imageInfo);
 
-            VK10.vkUpdateDescriptorSets(getLogicaldevice().handle(), writeDescriptor, null);
+            VK10.vkUpdateDescriptorSets(logicalDeviceHandle(), writeDescriptor, null);
         }
         
         return this;
     }
-    
+
     @Override
     public long handle(int frameIndex) {
-        return handle;
+        return handle();
     }
 
     @Override
-    public void destroy() {
-        if (handle != VK10.VK_NULL_HANDLE) {
-            VK10.vkFreeDescriptorSets(logicaldevice.handle(), descriptorPool.handle(), handle);
-            this.handle = VK10.VK_NULL_HANDLE;
-        }
+    public Runnable createDestroyAction() {
+        return () -> {
+            VK10.vkFreeDescriptorSets(logicalDeviceHandle(), descriptorPool.handle(), handle());
+            unassignHandle();
+        };
     }
 }

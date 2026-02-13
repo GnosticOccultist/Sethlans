@@ -93,7 +93,7 @@ public class PresentationSwapChain extends SwapChain {
             
             if (renderPass != null) {
                 for (var frameBuffer : frameBuffers) {
-                    frameBuffer.destroy();
+                    frameBuffer.getNativeReference().destroy();
                 }
                 
                 this.frameBuffers = new FrameBuffer[presentationImages.length];
@@ -121,8 +121,7 @@ public class PresentationSwapChain extends SwapChain {
         var preferredMode = vSync ? KHRSurface.VK_PRESENT_MODE_FIFO_KHR : KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
         var presentationMode = surfaceProperties.getPresentationMode(preferredMode);
 
-        var queueFamilyProperties = physicalDevice.gatherQueueFamilyProperties(stack, surfaceHandle);
-        var queueFamilies = queueFamilyProperties.listGraphicsAndPresentationFamilies(stack);
+        var queueFamilies = logicalDevice.getQueueFamilies().listGraphicsAndPresentationFamilies(stack);
         var familyCount = queueFamilies.capacity();
 
         var createInfo = VkSwapchainCreateInfoKHR.calloc(stack)
@@ -146,11 +145,11 @@ public class PresentationSwapChain extends SwapChain {
         }
 
         var pHandle = stack.mallocLong(1);
-        var err = KHRSwapchain.vkCreateSwapchainKHR(logicalDevice.handle(), createInfo, null, pHandle);
+        var err = KHRSwapchain.vkCreateSwapchainKHR(logicalDevice.getNativeObject(), createInfo, null, pHandle);
         VkUtil.throwOnFailure(err, "create a swapchain");
 
         if (handle != VK10.VK_NULL_HANDLE) {
-            KHRSwapchain.vkDestroySwapchainKHR(logicalDevice.handle(), handle, null);
+            KHRSwapchain.vkDestroySwapchainKHR(logicalDevice.getNativeObject(), handle, null);
         }
 
         this.handle = pHandle.get(0);
@@ -162,7 +161,7 @@ public class PresentationSwapChain extends SwapChain {
             var pImageIndex = stack.mallocInt(1);
             var logicalDevice = context.getLogicalDevice();
             
-            var err = KHRSwapchain.vkAcquireNextImageKHR(logicalDevice.handle(), handle, NO_TIMEOUT,
+            var err = KHRSwapchain.vkAcquireNextImageKHR(logicalDevice.getNativeObject(), handle, NO_TIMEOUT,
                     frame.imageAvailableSemaphore().handle(), VK10.VK_NULL_HANDLE, pImageIndex);
             if (err == KHRSwapchain.VK_ERROR_OUT_OF_DATE_KHR) {
                 logger.warning("Swapchain is outdated while acquiring next image!");
@@ -195,7 +194,7 @@ public class PresentationSwapChain extends SwapChain {
                     .pWaitSemaphores(stack.longs(frame.renderCompleteSemaphore().handle()));
 
             var logicalDevice = context.getLogicalDevice();
-            var err = KHRSwapchain.vkQueuePresentKHR(logicalDevice.presentationQueue(), presentInfo);
+            var err = KHRSwapchain.vkQueuePresentKHR(logicalDevice.presentationQueue().getNativeObject(), presentInfo);
             if (err == KHRSwapchain.VK_ERROR_OUT_OF_DATE_KHR) {
                 logger.warning("Swapchain is outdated while presenting image!");
                 return false;
@@ -216,7 +215,7 @@ public class PresentationSwapChain extends SwapChain {
     private PresentationImage[] getImages(MemoryStack stack) {
         // Count the number of created images (might be different than what was
         // requested).
-        var vkDevice =  context.getLogicalDevice().handle();
+        var vkDevice =  context.getLogicalDevice().getNativeObject();
         var pCount = stack.mallocInt(1);
         VkUtil.throwOnFailure(KHRSwapchain.vkGetSwapchainImagesKHR(vkDevice, handle, pCount, null),
                 "count swap-chain images");
@@ -283,7 +282,7 @@ public class PresentationSwapChain extends SwapChain {
 
         if (frameBuffers != null) {
             for (var frameBuffer : frameBuffers) {
-                frameBuffer.destroy();
+                frameBuffer.getNativeReference().destroy();
             }
         }
 
@@ -291,7 +290,7 @@ public class PresentationSwapChain extends SwapChain {
 
         if (handle != VK10.VK_NULL_HANDLE) {
             var logicalDevice = context.getLogicalDevice();
-            KHRSwapchain.vkDestroySwapchainKHR(logicalDevice.handle(), handle, null);
+            KHRSwapchain.vkDestroySwapchainKHR(logicalDevice.getNativeObject(), handle, null);
             this.handle = VK10.VK_NULL_HANDLE;
         }
     }

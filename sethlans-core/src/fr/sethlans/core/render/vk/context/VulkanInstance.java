@@ -124,7 +124,7 @@ public class VulkanInstance extends AbstractNativeResource<VkInstance> {
         }
     }
 
-    public PhysicalDevice choosePhysicalDevice(ConfigFile config, PhysicalDeviceComparator comparator) {
+    public PhysicalDevice choosePhysicalDevice(VulkanContext vulkanContext, ConfigFile config, PhysicalDeviceComparator comparator) {
         try (var stack = MemoryStack.stackPush()) {
             var pDevices = getPhysicalDevices(stack);
             var numDevices = pDevices.capacity();
@@ -137,7 +137,7 @@ public class VulkanInstance extends AbstractNativeResource<VkInstance> {
             var bestScore = Float.NEGATIVE_INFINITY;
             for (var i = 0; i < numDevices; ++i) {
                 var handle = pDevices.get(i);
-                var pd = new PhysicalDevice(handle, this);
+                var pd = new PhysicalDevice(vulkanContext, handle);
 
                 var score = comparator.evaluate(pd);
 

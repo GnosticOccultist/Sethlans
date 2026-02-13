@@ -1,9 +1,11 @@
 package fr.sethlans.core.render.vk.util;
 
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Integer> {
 
@@ -76,6 +78,10 @@ public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Int
         return bits() == 0;
     }
 
+    default String toString(Class<T> type) {
+        return toString();
+    }
+
     @Override
     default Iterator<Integer> iterator() {
         return new IteratorImpl(bits());
@@ -120,6 +126,19 @@ public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Int
 
             var other = (VkFlagImpl<?>) obj;
             return bits == other.bits;
+        }
+
+        @Override
+        public String toString(Class<T> type) {
+            var sb = new StringBuilder("VkFlagImpl(" + bits + ") [");
+            if (type.isEnum()) {
+                var str = Arrays.stream(type.getEnumConstants()).filter(this::contains).map(Object::toString)
+                        .collect(Collectors.joining(", "));
+                sb.append(str);
+                sb.append("]");
+            }
+
+            return sb.toString();
         }
 
         @Override

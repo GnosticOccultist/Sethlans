@@ -6,21 +6,19 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkPipelineCacheCreateInfo;
 
+import fr.sethlans.core.natives.NativeResource;
+import fr.sethlans.core.render.vk.device.AbstractDeviceResource;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class PipelineCache {
+public class PipelineCache extends AbstractDeviceResource {
 
-    private final LogicalDevice device;
-
-    private long handle = VK10.VK_NULL_HANDLE;
-
-    public PipelineCache(LogicalDevice device) {
-        this(device, null);
+    public PipelineCache(LogicalDevice logicalDevice) {
+        this(logicalDevice, null);
     }
 
-    public PipelineCache(LogicalDevice device, ByteBuffer cacheData) {
-        this.device = device;
+    public PipelineCache(LogicalDevice logicalDevice, ByteBuffer cacheData) {
+        super(logicalDevice);
 
         try (var stack = MemoryStack.stackPush()) {
             var cacheCreateInfo = VkPipelineCacheCreateInfo.calloc(stack)
@@ -28,31 +26,31 @@ public class PipelineCache {
                     .pInitialData(cacheData);
 
             var pHandle = stack.mallocLong(1);
-            var err = VK10.vkCreatePipelineCache(device.handle(), cacheCreateInfo, null, pHandle);
+            var err = VK10.vkCreatePipelineCache(logicalDeviceHandle(), cacheCreateInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create pipeline cache");
-            this.handle = pHandle.get(0);
+            assignHandle(pHandle.get(0));
+            
+            ref = NativeResource.get().register(this);
+            logicalDevice.getNativeReference().addDependent(ref);
         }
     }
 
     public ByteBuffer getData(MemoryStack stack) {
         var pCacheSize = stack.mallocPointer(1);
-        VK10.vkGetPipelineCacheData(device.handle(), handle, pCacheSize, null);
+        VK10.vkGetPipelineCacheData(logicalDeviceHandle(), handle(), pCacheSize, null);
 
         var size = (int) pCacheSize.get(0);
         var cacheData = stack.malloc(size);
-        VK10.vkGetPipelineCacheData(device.handle(), handle, pCacheSize, cacheData);
+        VK10.vkGetPipelineCacheData(logicalDeviceHandle(), handle(), pCacheSize, cacheData);
 
         return cacheData;
     }
 
-    long handle() {
-        return handle;
-    }
-
-    public void destroy() {
-        if (handle != VK10.VK_NULL_HANDLE) {
-            VK10.vkDestroyPipelineCache(device.handle(), handle, null);
-            this.handle = VK10.VK_NULL_HANDLE;
-        }
+    @Override
+    public Runnable createDestroyAction() {
+        return () -> {
+            VK10.vkDestroyPipelineCache(logicalDeviceHandle(), handle(), null);
+            unassignHandle();
+        };
     }
 }

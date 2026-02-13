@@ -74,7 +74,7 @@ public class OffscreenSwapChain extends SwapChain {
 
             if (renderPass != null) {
                 for (var frameBuffer : frameBuffers) {
-                    frameBuffer.destroy();
+                    frameBuffer.getNativeReference().destroy();
                 }
 
                 this.frameBuffers = new FrameBuffer[imageCount()];
@@ -140,7 +140,7 @@ public class OffscreenSwapChain extends SwapChain {
 
         if (frameBuffers != null) {
             for (var frameBuffer : frameBuffers) {
-                frameBuffer.destroy();
+                frameBuffer.getNativeReference().destroy();
             }
         }
 

@@ -1,25 +1,17 @@
 package fr.sethlans.core.render.vk.context;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-
-import org.lwjgl.system.MemoryStack;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
-import fr.sethlans.core.material.MaterialLayout;
 import fr.sethlans.core.material.MaterialPass;
-import fr.sethlans.core.material.layout.BindingLayout;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
-import fr.sethlans.core.render.vk.descriptor.AbstractDescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
-import fr.sethlans.core.render.vk.descriptor.DescriptorSet;
-import fr.sethlans.core.render.vk.descriptor.DescriptorSetWriter;
+import fr.sethlans.core.render.vk.descriptor.DescriptorPool.Create;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
+import fr.sethlans.core.render.vk.material.VulkanMaterial;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.pipeline.GraphicsPipeline;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
@@ -45,11 +37,11 @@ public class VulkanRenderer {
 
     private final VulkanMesh[] meshes = new VulkanMesh[50];
 
+    private final VulkanMaterial[] materials = new VulkanMaterial[50];
+
     private final VulkanTexture[] textures = new VulkanTexture[50];
 
     private DescriptorPool descriptorPool;
-
-    private DescriptorSet samplerDescriptorSet;
 
     private boolean useDynamicRendering = true;
 
@@ -77,7 +69,7 @@ public class VulkanRenderer {
         this.drawCommands = new DrawCommand[swapChain.imageCount()];
         Arrays.fill(drawCommands, new DrawCommand(this, logicalDevice.createGraphicsCommand()));
 
-        this.descriptorPool = new DescriptorPool(logicalDevice, 16);
+        this.descriptorPool = new DescriptorPool(logicalDevice, Create.FREE_DESCRIPTOR_SET, 16);
         this.builtinDescriptorManager = new BuiltinDescriptorManager(descriptorPool, swapChain.width(),
                 swapChain.height());
     }
@@ -143,60 +135,34 @@ public class VulkanRenderer {
         command.end();
     }
 
-    public void bind(Pipeline pipeline, MaterialLayout materialLayout, CommandBuffer command, int imageIndex) {
-        var layouts = pipeline.getLayout().getSetLayouts();
-
-        try (var stack = MemoryStack.stackPush()) {
-            var pDescriptorSets = stack.mallocLong(layouts.size());
-            for (var layout : layouts) {
-                AbstractDescriptorSet desc = null;
-                List<DescriptorSetWriter> writers = new ArrayList<>();
-
-                for (var binding : layout.getBindings()) {
-                    var bindLayout = getBindingLayout(materialLayout, binding.getKey());
-                    if (bindLayout != null && bindLayout.builtin()) {
-
-                        desc = builtinDescriptorManager.getOrCreate(bindLayout, layout);
-                        var buff = builtinDescriptorManager.getOrCreate(context.getLogicalDevice(), bindLayout.name());
-                        writers.add(buff.createWriter(binding.getValue()));
-
-                    } else {
-                        if (bindLayout.name().equals("TextureSampler")) {
-                            if (samplerDescriptorSet == null) {
-                                this.samplerDescriptorSet = descriptorPool.allocate(layout);
-                            }
-                            desc = samplerDescriptorSet;
-                        }
-                    }
-                }
-
-                desc.write(writers, imageIndex);
-                pDescriptorSets.put(desc.handle(imageIndex));
-            }
-
-            pDescriptorSets.flip();
-            command.bindDescriptorSets(pipeline.getLayout().handle(), pipeline.getBindPoint(), pDescriptorSets, null);
-        }
-    }
-
-    private BindingLayout getBindingLayout(MaterialLayout materialLayout, String name) {
-        for (var entry : materialLayout.setLayouts()) {
-            for (var bindLayout : entry.getValue()) {
-                if (Objects.equals(bindLayout.name(), name)) {
-                    return bindLayout;
-                }
-            }
-        }
-        return null;
-    }
-
     public VulkanMesh bind(Pipeline pipeline, Geometry geometry, CommandBuffer command, int imageIndex) {
         var logicalDevice = context.getLogicalDevice();
         var mesh = geometry.getMesh();
         var layout = pipeline.getLayout();
         var material = geometry.getMaterialInstance();
 
-        bind(pipeline, material.getMaterial().getDefaultMaterialPass().getLayout(), command, imageIndex);
+        VulkanMaterial vkMaterial = null;
+        if (material.hasBackendObject()) {
+            vkMaterial = materials[material.backendId()];
+
+        } else {
+            for (var i = 0; i < materials.length; ++i) {
+                if (materials[i] == null) {
+                    materials[i] = new VulkanMaterial(logicalDevice, material);
+                    vkMaterial = materials[i];
+                    material.assignId(i);
+                    break;
+                }
+            }
+        }
+
+        if (material.isDirty()) {
+            logger.info("Update material for " + geometry);
+            vkMaterial.uploadData(material);
+            material.clean();
+        }
+
+        vkMaterial.bind(pipeline, builtinDescriptorManager, command, descriptorPool, imageIndex);
 
         VulkanMesh vkMesh = null;
         if (mesh.hasBackendObject()) {
@@ -219,31 +185,31 @@ public class VulkanRenderer {
             mesh.clean();
         }
 
-        var texture = geometry.getTexture();
-        if (texture != null) {
-            VulkanTexture vkTexture = null;
-            if (texture.hasBackendObject()) {
-                vkTexture = textures[texture.backendId()];
-
-            } else {
-                for (var i = 0; i < textures.length; ++i) {
-                    if (textures[i] == null) {
-                        textures[i] = new VulkanTexture(logicalDevice, texture);
-                        vkTexture = textures[i];
-                        texture.assignId(i);
-                        break;
-                    }
-                }
-            }
-
-            if (texture.isDirty()) {
-                logger.info("Update texture for " + geometry);
-                vkTexture.uploadData(texture);
-                texture.clean();
-
-                samplerDescriptorSet.updateTextureDescriptorSet(vkTexture, 0);
-            }
-        }
+//        var texture = geometry.getTexture();
+//        if (texture != null) {
+//            VulkanTexture vkTexture = null;
+//            if (texture.hasBackendObject()) {
+//                vkTexture = textures[texture.backendId()];
+//
+//            } else {
+//                for (var i = 0; i < textures.length; ++i) {
+//                    if (textures[i] == null) {
+//                        textures[i] = new VulkanTexture(logicalDevice, texture);
+//                        vkTexture = textures[i];
+//                        texture.assignId(i);
+//                        break;
+//                    }
+//                }
+//            }
+//
+//            if (texture.isDirty()) {
+//                logger.info("Update texture for " + geometry);
+//                vkTexture.uploadData(texture);
+//                texture.clean();
+//
+//                samplerDescriptorSet.updateTextureDescriptorSet(vkTexture, 0);
+//            }
+//        }
 
         var pushConstants = layout.getPushConstants();
         for (var pushConstant : pushConstants) {
@@ -270,14 +236,6 @@ public class VulkanRenderer {
     }
 
     public void destroy() {
-
-        if (samplerDescriptorSet != null) {
-            samplerDescriptorSet.destroy();
-        }
-
-        if (descriptorPool != null) {
-            descriptorPool.destroy();
-        }
 
         for (var drawCommand : drawCommands) {
             drawCommand.destroy();

@@ -15,7 +15,7 @@ public interface VulkanResource extends NativeResource<Long> {
     LogicalDevice getLogicalDevice();
 
     default VkDevice logicalDeviceHandle() {
-        var handle = getLogicalDevice().handle();
+        var handle = getLogicalDevice().getNativeObject();
 
         assert handle != null;
         return handle;

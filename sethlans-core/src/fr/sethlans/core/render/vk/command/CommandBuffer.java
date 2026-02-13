@@ -18,13 +18,13 @@ import org.lwjgl.vulkan.VkDependencyInfo;
 import org.lwjgl.vulkan.VkImageBlit;
 import org.lwjgl.vulkan.VkImageMemoryBarrier;
 import org.lwjgl.vulkan.VkOffset2D;
-import org.lwjgl.vulkan.VkQueue;
 import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkRenderPassBeginInfo;
 import org.lwjgl.vulkan.VkSubmitInfo;
 import org.lwjgl.vulkan.VkViewport;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
+import fr.sethlans.core.render.vk.command.CommandPool.Create;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.image.VulkanImage;
@@ -60,7 +60,7 @@ public class CommandBuffer {
                     .level(VK10.VK_COMMAND_BUFFER_LEVEL_PRIMARY)
                     .commandBufferCount(1);
 
-            var vkDevice = commandPool.getLogicalDevice().handle();
+            var vkDevice = commandPool.getLogicalDevice().getNativeObject();
 
             var result = stack.mallocPointer(1);
             var err = VK10.vkAllocateCommandBuffers(vkDevice, allocateInfo, result);
@@ -322,16 +322,15 @@ public class CommandBuffer {
         }
     }
 
-    public CommandBuffer submit(VkQueue queue, Fence fence) {
+    public CommandBuffer submit(Fence fence) {
         try (var stack = MemoryStack.stackPush()) {
             // Create submit info.
-            var submitInfo = VkSubmitInfo.calloc(stack)
+            var submitInfo = VkSubmitInfo.calloc(1, stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_SUBMIT_INFO)
                     .pCommandBuffers(stack.pointers(handle));
 
-            var fenceHandle = fence == null ? VK10.VK_NULL_HANDLE : fence.handle();
-            var err = VK10.vkQueueSubmit(queue, submitInfo, fenceHandle);
-            VkUtil.throwOnFailure(err, "submit a command-buffer");
+            var queue = commandPool.getQueue();
+            queue.submit(submitInfo, fence);
         }
 
         return this;
@@ -345,7 +344,7 @@ public class CommandBuffer {
 
         try (var stack = MemoryStack.stackPush()) {
             // Create submit info.
-            var submitInfo = VkSubmitInfo.calloc(stack)
+            var submitInfo = VkSubmitInfo.calloc(1, stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_SUBMIT_INFO)
                     .pCommandBuffers(stack.pointers(handle))
                     .waitSemaphoreCount(frame.imageAvailableSemaphore() != null ? 1 : 0)
@@ -358,10 +357,8 @@ public class CommandBuffer {
 
             frame.fenceReset();
 
-            var graphicsQueue = commandPool.getLogicalDevice().graphicsQueue();
-            var fenceHandle = frame.fenceHandle();
-            var err = VK10.vkQueueSubmit(graphicsQueue, submitInfo, fenceHandle);
-            VkUtil.throwOnFailure(err, "submit a command-buffer");
+            var queue = commandPool.getQueue();
+            queue.submit(submitInfo, frame.fence());
         }
 
         return this;
@@ -385,6 +382,10 @@ public class CommandBuffer {
     }
 
     public CommandBuffer reset() {
+        if (!commandPool.getCreateFlags().contains(Create.RESET_COMMAND_BUFFER)) {
+            throw new IllegalStateException("Command-pool doesn't allow command-buffer reset!");
+        }
+        
         var err = VK10.vkResetCommandBuffer(handle, VK10.VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
         VkUtil.throwOnFailure(err, "reset a command-buffer");
 
@@ -398,7 +399,7 @@ public class CommandBuffer {
     public void destroy() {
         var commandPoolHandle = commandPool.handle();
         if (handle != null && commandPoolHandle != VK10.VK_NULL_HANDLE) {
-            var vkDevice = logicalDevice().handle();
+            var vkDevice = logicalDevice().getNativeObject();
             VK10.vkFreeCommandBuffers(vkDevice, commandPool.handle(), handle);
             this.handle = null;
         }

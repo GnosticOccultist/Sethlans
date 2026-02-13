@@ -4,7 +4,6 @@ import org.joml.Matrix4f;
 
 import fr.sethlans.core.material.Material;
 import fr.sethlans.core.material.MaterialInstance;
-import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.scenegraph.mesh.Mesh;
 
 public class Geometry {
@@ -12,8 +11,6 @@ public class Geometry {
     private String name;
 
     private Mesh mesh;
-
-    private Texture texture;
 
     private MaterialInstance material;
 
@@ -50,14 +47,6 @@ public class Geometry {
 
     public void setMaterial(Material material) {
         this.material = new MaterialInstance(material);
-    }
-
-    public Texture getTexture() {
-        return texture;
-    }
-
-    public void setTexture(Texture texture) {
-        this.texture = texture;
     }
 
     public Matrix4f getModelMatrix() {

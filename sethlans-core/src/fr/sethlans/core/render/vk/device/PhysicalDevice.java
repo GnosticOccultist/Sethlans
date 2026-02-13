@@ -1,5 +1,6 @@
 package fr.sethlans.core.render.vk.device;
 
+import java.nio.IntBuffer;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -49,7 +50,6 @@ import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.context.VulkanGraphicsBackend;
-import fr.sethlans.core.render.vk.context.VulkanInstance;
 import fr.sethlans.core.render.vk.image.FormatFeature;
 import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.image.VulkanImage.Tiling;
@@ -64,7 +64,7 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
     public static final PhysicalDeviceComparator SURFACE_SUPPORT_COMPARATOR = pd -> {
 
         var score = 0f;
-        var surfaceHandle = pd.getInstance().getSurface().handle();
+        var surfaceHandle = pd.getContext().getSurface().handle();
 
         // Check that the device support the swap-chain extension.
         if (!pd.hasExtension(KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
@@ -78,11 +78,11 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
             return 0f;
         }
 
-        try (var stack = MemoryStack.stackPush()) {
-            var properties = pd.gatherQueueFamilyProperties(stack, surfaceHandle);
-            if (!properties.hasGraphics() || !properties.hasPresentation()) {
-                return 0f;
-            }
+        var families = pd.queueFamilies();
+        var hasGraphics = families.stream().filter(f -> f.supportsGraphics()).findAny().isPresent();
+        var hasPresentation = families.stream().filter(f -> f.supportPresentation()).findAny().isPresent();
+        if (!hasGraphics || !hasPresentation) {
+            return 0f;
         }
 
         // This is a plus if the device supports extension for uint8 index value.
@@ -113,12 +113,11 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
     public static final PhysicalDeviceComparator OFFSCREEN_SUPPORT_COMPARATOR = pd -> {
 
         var score = 0f;
-
-        try (var stack = MemoryStack.stackPush()) {
-            var properties = pd.gatherQueueFamilyProperties(stack, VK10.VK_NULL_HANDLE);
-            if (!properties.hasGraphics()) {
-                return 0f;
-            }
+        
+        var families = pd.queueFamilies();
+        var hasGraphics = families.stream().filter(f -> f.supportsGraphics()).findAny().isPresent();
+        if (!hasGraphics) {
+            return 0f;
         }
 
         // This is a plus if the device supports extension for uint8 index value.
@@ -141,7 +140,7 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
         return score;
     };
 
-    private final VulkanInstance instance;
+    private final VulkanContext context;
 
     private String name;
 
@@ -162,6 +161,8 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
     private boolean triangleFansSupported;
 
     private float maxAnisotropy;
+    
+    private Set<QueueFamily> queueFamilies;
 
     private Set<String> availableExtensions;
 
@@ -173,9 +174,11 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
 
     private boolean graphicsPipelineLibrarySupported;
 
-    public PhysicalDevice(long handle, VulkanInstance instance) {
-        this.instance = instance;
+    public PhysicalDevice(VulkanContext context, long handle) {
+        this.context = context;
+        var instance = context.getVulkanInstance();
         this.object = new VkPhysicalDevice(handle, instance.handle());
+        
         this.ref = NativeResource.get().register(this);
         instance.getNativeReference().addDependent(ref);
     }
@@ -193,10 +196,10 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
         return surfaceProperties;
     }
 
-    VkDevice createLogicalDevice(VulkanContext context) {
+    VkDevice createLogicalDevice() {
         var application = context.getBackend().getApplication();
         var config = application.getConfig();
-        var surfaceHandle = context.surfaceHandle();
+        var instance = context.getVulkanInstance();
         
         try (var stack = MemoryStack.stackPush()) {
             // Create the logical device creation info.
@@ -320,8 +323,7 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
             }
 
             // Enable all available queue families.
-            var properties = gatherQueueFamilyProperties(stack, surfaceHandle);
-            var familiesBuff = properties.listFamilies(stack);
+            var familiesBuff = listQueueFamilies(stack);
             var familyCount = familiesBuff.capacity();
             var priorities = stack.floats(0.5f);
 
@@ -606,10 +608,7 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
         }
     }
 
-    public QueueFamilyProperties gatherQueueFamilyProperties(MemoryStack stack, long surfaceHandle) {
-
-        var properties = new QueueFamilyProperties();
-
+    public void gatherQueueFamilyProperties(MemoryStack stack, long surfaceHandle) {
         // Count the number of queue families.
         var pCount = stack.mallocInt(1);
         VK10.vkGetPhysicalDeviceQueueFamilyProperties(object, pCount, null);
@@ -621,34 +620,29 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
         var pProperties = VkQueueFamilyProperties.malloc(numFamilies, stack);
         VK10.vkGetPhysicalDeviceQueueFamilyProperties(object, pCount, pProperties);
         
+        this.queueFamilies = new TreeSet<>();
+
         for (var i = 0; i < numFamilies; ++i) {
-            var family = pProperties.get(i);
-
-            // Check for a graphics command queue.
-            var flags = family.queueFlags();
-            if ((flags & VK10.VK_QUEUE_GRAPHICS_BIT) != 0x0) {
-                properties.setGraphics(i);
-            }
-
-            if ((flags & VK10.VK_QUEUE_TRANSFER_BIT) != 0x0) {
-                // Check for a transfer specific command queue.
-                if (!properties.hasTransfer() && i != properties.graphics()) {
-                    properties.setTransfer(i);
-                }
-            }
-
+            var pProperty = pProperties.get(i);
+            
+            var supportPresentation = false;
             // Check that presentation is supported for the surface, if it was requested.
-            if (surfaceHandle != VK10.VK_NULL_HANDLE && !properties.hasPresentation()) {
+            if (surfaceHandle != VK10.VK_NULL_HANDLE) {
                 var err = KHRSurface.vkGetPhysicalDeviceSurfaceSupportKHR(object, i, surfaceHandle, pCount);
                 VkUtil.throwOnFailure(err, "test for presentation support");
                 var supported = pCount.get(0);
                 if (supported == VK10.VK_TRUE) {
-                    properties.setPresentation(i);
+                    supportPresentation = true;
                 }
             }
+            
+            var family = new QueueFamily(i, pProperty.queueCount(), supportPresentation, pProperty.queueFlags());
+            queueFamilies.add(family);
         }
-
-        return properties;
+        
+        for (var family : queueFamilies) {
+            logger.info("  *  " + family);
+        }
     }
 
     public int maxSamplesCount() {
@@ -722,6 +716,26 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
     public boolean supportsGraphicsPipelineLibrary() {
         return graphicsPipelineLibrarySupported;
     }
+    
+    private IntBuffer listQueueFamilies(MemoryStack stack) {
+        var families = queueFamilies();
+        var pFamilies = stack.mallocInt(families.size());
+        families.stream().forEach(f -> pFamilies.put(f.index()));
+        
+        pFamilies.flip();
+        return pFamilies;
+    }
+
+    public Set<QueueFamily> queueFamilies() {
+        if (queueFamilies == null) {
+            try (var stack = MemoryStack.stackPush()) {
+                var surfaceHandle = context.surfaceHandle();
+                gatherQueueFamilyProperties(stack, surfaceHandle);
+            }
+        }
+        
+        return queueFamilies;
+    }
 
     public int type() {
         if (type == -1) {
@@ -742,9 +756,9 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
 
         return name;
     }
-    
-    public VulkanInstance getInstance() {
-        return instance;
+
+    public VulkanContext getContext() {
+        return context;
     }
 
     public VkPhysicalDevice handle() {

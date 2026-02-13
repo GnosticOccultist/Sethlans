@@ -10,18 +10,16 @@ import org.lwjgl.vulkan.VkRenderPassCreateInfo;
 import org.lwjgl.vulkan.VkSubpassDependency;
 import org.lwjgl.vulkan.VkSubpassDescription;
 
+import fr.sethlans.core.natives.NativeResource;
+import fr.sethlans.core.render.vk.device.AbstractDeviceResource;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class RenderPass {
-
-    private final LogicalDevice logicalDevice;
-
-    private long handle = VK10.VK_NULL_HANDLE;
+public class RenderPass extends AbstractDeviceResource {
 
     public RenderPass(LogicalDevice logicalDevice, List<SubpassDependency> dependencies,
             AttachmentDescriptor... attachmentDescriptors) {
-        this.logicalDevice = logicalDevice;
+        super(logicalDevice);
 
         try (var stack = MemoryStack.stackPush()) {
 
@@ -29,7 +27,7 @@ public class RenderPass {
             var pDescription = VkAttachmentDescription.calloc(attachmentCount, stack);
             var pReferences = VkAttachmentReference.calloc(attachmentCount, stack);
 
-            VkAttachmentReference ref = null;
+            VkAttachmentReference attachmentRef = null;
             VkAttachmentReference depthAttachmentRef = null;
             VkAttachmentReference resolveAttachmentRef = null;
 
@@ -39,15 +37,15 @@ public class RenderPass {
                 var descriptor = attachmentDescriptors[i];
                 pDescription.put(i, descriptor.description());
 
-                ref = pReferences.get(i);
-                ref.attachment(i).layout(descriptor.subpassLayout());
+                attachmentRef = pReferences.get(i);
+                attachmentRef.attachment(i).layout(descriptor.subpassLayout());
 
                 if (descriptor.isDepthAttachment()) {
-                    depthAttachmentRef = ref;
+                    depthAttachmentRef = attachmentRef;
                 } else if (descriptor.isResolveAttachment()) {
-                    resolveAttachmentRef = ref;
+                    resolveAttachmentRef = attachmentRef;
                 } else {
-                    pColorRefs.put(i, ref);
+                    pColorRefs.put(i, attachmentRef);
                 }
             }
 
@@ -79,20 +77,20 @@ public class RenderPass {
                     .pSubpasses(subpass);
 
             var pHandle = stack.mallocLong(1);
-            var err = VK10.vkCreateRenderPass(logicalDevice.handle(), createInfo, null, pHandle);
+            var err = VK10.vkCreateRenderPass(logicalDeviceHandle(), createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create render pass");
-            this.handle = pHandle.get(0);
+            assignHandle(pHandle.get(0));
+            
+            ref = NativeResource.get().register(this);
+            logicalDevice.getNativeReference().addDependent(ref);
         }
     }
 
-    public long handle() {
-        return handle;
-    }
-
-    public void destroy() {
-        if (handle != VK10.VK_NULL_HANDLE) {
-            VK10.vkDestroyRenderPass(logicalDevice.handle(), handle, null);
-            this.handle = VK10.VK_NULL_HANDLE;
-        }
+    @Override
+    public Runnable createDestroyAction() {
+        return () -> {
+            VK10.vkDestroyRenderPass(logicalDeviceHandle(), handle(), null);
+            unassignHandle();
+        };
     }
 }

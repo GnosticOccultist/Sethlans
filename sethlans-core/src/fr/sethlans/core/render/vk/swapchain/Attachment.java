@@ -28,7 +28,7 @@ public class Attachment {
     public Attachment(LogicalDevice device, AttachmentDescriptor descriptor, PresentationImage image) {
         this.descriptor = descriptor;
         this.image = image;
-        this.imageView = new ImageView(device, image, VK10.VK_IMAGE_ASPECT_COLOR_BIT);
+        this.imageView = new ImageView(device, image);
         this.finalLayout = Layout.PRESENT_SRC_KHR;
         this.storeOp = VK10.VK_ATTACHMENT_STORE_OP_STORE;
     }
@@ -58,7 +58,7 @@ public class Attachment {
 
         this.image = new BaseVulkanImage(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
                 MemoryProperty.DEVICE_LOCAL);
-        this.imageView = new ImageView(device, image, aspectMask);
+        this.imageView = new ImageView(device, image);
 
         // Transition the image to an optimal layout.
         try (var _ = image.transitionLayout(finalLayout)) {
@@ -87,7 +87,7 @@ public class Attachment {
 
         this.image = new BaseVulkanImage(device, extent.width(), extent.height(), format, 1, sampleCount, usage,
                 MemoryProperty.DEVICE_LOCAL);
-        this.imageView = new ImageView(device, image, aspectMask);
+        this.imageView = new ImageView(device, image);
 
         // Transition the image to an optimal layout.
         try (var _ = image.transitionLayout(finalLayout)) {

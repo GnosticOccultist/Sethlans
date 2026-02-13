@@ -7,17 +7,15 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkExtent2D;
 import org.lwjgl.vulkan.VkFramebufferCreateInfo;
 
+import fr.sethlans.core.natives.NativeResource;
+import fr.sethlans.core.render.vk.device.AbstractDeviceResource;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class FrameBuffer {
-
-    private final LogicalDevice logicalDevice;
-
-    private long handle = VK10.VK_NULL_HANDLE;
+public class FrameBuffer extends AbstractDeviceResource {
 
     FrameBuffer(LogicalDevice logicalDevice, RenderPass renderPass, VkExtent2D framebufferExtent, LongBuffer pAttachments) {
-        this.logicalDevice = logicalDevice;
+        super(logicalDevice);
 
         try (var stack = MemoryStack.stackPush()) {
 
@@ -35,20 +33,21 @@ public class FrameBuffer {
                     .pAttachments(pAttachments);
 
             var pHandle = stack.mallocLong(1);
-            var err = VK10.vkCreateFramebuffer(logicalDevice.handle(), createInfo, null, pHandle);
+            var err = VK10.vkCreateFramebuffer(logicalDeviceHandle(), createInfo, null, pHandle);
             VkUtil.throwOnFailure(err, "create a framebuffer");
-            this.handle = pHandle.get(0);
+            assignHandle(pHandle.get(0));
+            
+            ref = NativeResource.get().register(this);
+            logicalDevice.getNativeReference().addDependent(ref);
+            renderPass.getNativeReference().addDependent(ref);
         }
     }
 
-    public long handle() {
-        return handle;
-    }
-
-    public void destroy() {
-        if (handle != VK10.VK_NULL_HANDLE) {
-            VK10.vkDestroyFramebuffer(logicalDevice.handle(), handle, null);
-            this.handle = VK10.VK_NULL_HANDLE;
-        }
+    @Override
+    public Runnable createDestroyAction() {
+        return () -> {
+            VK10.vkDestroyFramebuffer(logicalDeviceHandle(), handle(), null);
+            unassignHandle();
+        };
     }
 }

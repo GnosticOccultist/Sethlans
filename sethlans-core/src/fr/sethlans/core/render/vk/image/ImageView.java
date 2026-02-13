@@ -11,7 +11,7 @@ import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class ImageView extends AbstractDeviceResource {
 
-    public ImageView(LogicalDevice logicalDevice, BaseVulkanImage image, int aspectMask) {
+    public ImageView(LogicalDevice logicalDevice, VulkanImage image) {
         super(logicalDevice);
         
         try (var stack = MemoryStack.stackPush()) {
@@ -30,7 +30,7 @@ public class ImageView extends AbstractDeviceResource {
 
             // Specify the image view purpose.
             var range = createInfo.subresourceRange();
-            range.aspectMask(aspectMask);
+            range.aspectMask(image.format().getAspects().bits());
             range.baseArrayLayer(0);
             range.baseMipLevel(0);
             range.layerCount(1);

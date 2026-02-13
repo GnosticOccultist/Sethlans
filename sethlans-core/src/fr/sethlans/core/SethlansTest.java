@@ -47,8 +47,8 @@ public class SethlansTest extends SethlansApplication {
         var mat = MaterialLoader.load(getConfig(), "resources/materials/unlit.smat");
 
         box = new Box("Box");
-        box.setTexture(texture);
         box.setMaterial(mat);
+        box.getMaterialInstance().setTexture(texture);
 
         rotation = new Quaternionf();
     }
