@@ -1,10 +1,5 @@
 package fr.sethlans.core.render.vk.image;
 
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.VK10;
-import org.lwjgl.vulkan.VkImageBlit;
-import org.lwjgl.vulkan.VkImageMemoryBarrier;
-
 import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.math.Mathf;
 import fr.sethlans.core.render.buffer.MemorySize;
@@ -16,6 +11,8 @@ import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.VulkanImage.Tiling;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
+import fr.sethlans.core.render.vk.pipeline.Access;
+import fr.sethlans.core.render.vk.pipeline.PipelineStage;
 import fr.sethlans.core.render.vk.util.VkFlag;
 
 public class VulkanTexture {
@@ -27,7 +24,7 @@ public class VulkanTexture {
     private ImageView imageView;
 
     private TextureSampler sampler;
-    
+
     public VulkanTexture(LogicalDevice device, Texture texture) {
         this(device, texture.image().width(), texture.image().height(),
                 BaseVulkanImage.getVkFormat(texture.image().format(), texture.image().colorSpace()),
@@ -42,7 +39,8 @@ public class VulkanTexture {
 
         // Create a temporary staging buffer.
         var size = MemorySize.copy(data.size());
-        var stagingBuffer = new BaseVulkanBuffer(device, size, BufferUsage.TRANSFER_SRC, MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT));
+        var stagingBuffer = new BaseVulkanBuffer(device, size, BufferUsage.TRANSFER_SRC,
+                MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT));
 
         // Map the staging buffer memory to a buffer.
         var buffer = stagingBuffer.mapBytes();
@@ -56,7 +54,7 @@ public class VulkanTexture {
         // Transition the image layout.
         try (var command = image.transitionLayout(Layout.TRANSFER_DST_OPTIMAL)) {
             // Copy the data from the staging buffer the new image.
-            command.copyBuffer(stagingBuffer, image);
+            command.copyBuffer(stagingBuffer, image, Layout.TRANSFER_DST_OPTIMAL);
             generateMipmaps(command);
         }
 
@@ -74,94 +72,52 @@ public class VulkanTexture {
             throw new IllegalStateException("Texture image " + image.format() + " doesn't support linear blitting!");
         }
 
-        try (var stack = MemoryStack.stackPush()) {
-            var pBarrier = VkImageMemoryBarrier.calloc(1, stack)
-                    .sType(VK10.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
-                    .image(imageHandle())
-                    .srcQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
-                    .dstQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED);
-
-            var barrierRange = pBarrier
-                    .subresourceRange()
-                    .aspectMask(VK10.VK_IMAGE_ASPECT_COLOR_BIT)
-                    .baseArrayLayer(0)
-                    .layerCount(1)
-                    .levelCount(1);
-
-            var srcWidth = image.width();
-            var srcHeight = image.height();
-            for (var level = 1; level < image.mipLevels(); ++level) {
-                var dstWidth = (srcWidth > 1) ? srcWidth / 2 : 1;
-                var dstHeight = (srcHeight > 1) ? srcHeight / 2 : 1;
-
-                barrierRange.baseMipLevel(level - 1);
-
-                /*
-                 * Command to wait until the source level is filled with data and then optimize
-                 * its layout for being a blit source.
-                 */
-                pBarrier.oldLayout(VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-                        .newLayout(VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
-                        .srcAccessMask(VK10.VK_ACCESS_TRANSFER_WRITE_BIT)
-                        .dstAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
-
-                command.addBarrier(VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, pBarrier);
-
-                var srcLevel = level - 1;
-
-                // Command to blit from the source mip level (n - 1) to the next mip level (n).
-                var pBlit = VkImageBlit.calloc(1, stack);
-                pBlit.dstOffsets(0).set(0, 0, 0);
-                pBlit.dstOffsets(1).set(dstWidth, dstHeight, 1);
-                pBlit.srcOffsets(0).set(0, 0, 0);
-                pBlit.srcOffsets(1).set(srcWidth, srcHeight, 1);
-
-                pBlit.srcSubresource(it -> it
-                        .aspectMask(VK10.VK_IMAGE_ASPECT_COLOR_BIT)
-                        .baseArrayLayer(0)
-                        .layerCount(1)
-                        .mipLevel(srcLevel));
-                pBlit.dstSubresource(it -> it
-                        .aspectMask(VK10.VK_IMAGE_ASPECT_COLOR_BIT)
-                        .baseArrayLayer(0)
-                        .layerCount(1)
-                        .mipLevel(srcLevel + 1));
-
-                command.addBlit(image, pBlit);
-                /*
-                 * Command to wait until the blit is finished and then optimize the source level
-                 * for being read by fragment shaders.
-                 */
-                pBarrier.oldLayout(VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
-                        .newLayout(VK10.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-                        .srcAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT).dstAccessMask(VK10.VK_ACCESS_SHADER_READ_BIT);
-
-                command.addBarrier(VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, VK10.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                        pBarrier);
-
-                // The destination dimensions becomes the next source dimensions.
-                srcWidth = dstWidth;
-                srcHeight = dstHeight;
-            }
+        var srcWidth = image.width();
+        var srcHeight = image.height();
+        for (var level = 1; level < image.mipLevels(); ++level) {
+            var dstWidth = (srcWidth > 1) ? srcWidth / 2 : 1;
+            var dstHeight = (srcHeight > 1) ? srcHeight / 2 : 1;
 
             /*
-             * Command to optimize last MIP level for being read by fragment shaders.
+             * Command to wait until the source level is filled with data and then optimize
+             * its layout for being a blit source.
              */
-            barrierRange.baseMipLevel(image.mipLevels() - 1);
-            pBarrier.oldLayout(VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-                    .newLayout(VK10.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-                    .srcAccessMask(VK10.VK_ACCESS_TRANSFER_WRITE_BIT)
-                    .dstAccessMask(VK10.VK_ACCESS_SHADER_READ_BIT);
+            command.addBarrier(image, Layout.TRANSFER_DST_OPTIMAL, Layout.TRANSFER_SRC_OPTIMAL, Access.TRANSFER_WRITE,
+                    Access.TRANSFER_READ, PipelineStage.TRANSFER, PipelineStage.TRANSFER, level - 1, 1);
 
-            command.addBarrier(VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, VK10.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                    pBarrier);
+            var srcLevel = level - 1;
+
+            // Command to blit from the source mip level (n - 1) to the next mip level (n).
+            command.addBlit(image, srcWidth, srcHeight,
+                    it -> it.aspectMask(image.format().getAspects().bits()).baseArrayLayer(0).layerCount(1)
+                            .mipLevel(srcLevel),
+                    dstWidth, dstHeight, it -> it.aspectMask(image.format().getAspects().bits()).baseArrayLayer(0)
+                            .layerCount(1).mipLevel(srcLevel + 1));
+            /*
+             * Command to wait until the blit is finished and then optimize the source level
+             * for being read by fragment shaders.
+             */
+            command.addBarrier(image, Layout.TRANSFER_SRC_OPTIMAL, Layout.SHADER_READ_ONLY_OPTIMAL,
+                    Access.TRANSFER_READ, Access.SHADER_READ, PipelineStage.TRANSFER, PipelineStage.FRAGMENT_SHADER,
+                    level - 1, 1);
+
+            // The destination dimensions becomes the next source dimensions.
+            srcWidth = dstWidth;
+            srcHeight = dstHeight;
         }
+
+        /*
+         * Command to optimize last MIP level for being read by fragment shaders.
+         */
+        command.addBarrier(image, Layout.TRANSFER_DST_OPTIMAL, Layout.SHADER_READ_ONLY_OPTIMAL, Access.TRANSFER_WRITE,
+                Access.SHADER_READ, PipelineStage.TRANSFER, PipelineStage.FRAGMENT_SHADER, image.mipLevels() - 1, 1);
+
     }
 
     public void uploadData(Texture texture) {
-        
+
     }
-    
+
     public long imageHandle() {
         return image.handle();
     }

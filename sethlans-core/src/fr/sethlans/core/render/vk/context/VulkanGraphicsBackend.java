@@ -378,6 +378,8 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
     @Override
     public void terminate() {
+        
+        waitIdle();
 
         renderer.destroy();
 

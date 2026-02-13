@@ -1,5 +1,6 @@
 package fr.sethlans.core.render.vk.image;
 
+import org.lwjgl.vulkan.EXTFilterCubic;
 import org.lwjgl.vulkan.EXTImageDrmFormatModifier;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
@@ -178,6 +179,25 @@ public interface VulkanImage extends NativeResource<Long> {
         private final int vkEnum;
 
         private Tiling(int vkEnum) {
+            this.vkEnum = vkEnum;
+        }
+
+        public int vkEnum() {
+            return vkEnum;
+        }
+    }
+    
+    public enum Filter {
+
+        NEAREST(VK10.VK_FILTER_NEAREST),
+
+        LINEAR(VK10.VK_FILTER_LINEAR),
+
+        CUBIC(EXTFilterCubic.VK_FILTER_CUBIC_EXT);
+
+        private final int vkEnum;
+
+        private Filter(int vkEnum) {
             this.vkEnum = vkEnum;
         }
 

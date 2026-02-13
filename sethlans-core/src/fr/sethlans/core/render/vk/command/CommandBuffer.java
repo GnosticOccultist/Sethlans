@@ -3,34 +3,29 @@ package fr.sethlans.core.render.vk.command;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
+import java.util.function.Consumer;
 
 import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VK13;
-import org.lwjgl.vulkan.VkBufferCopy;
-import org.lwjgl.vulkan.VkBufferImageCopy;
 import org.lwjgl.vulkan.VkClearValue;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkCommandBufferAllocateInfo;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
-import org.lwjgl.vulkan.VkCommandBufferSubmitInfo;
-import org.lwjgl.vulkan.VkDependencyInfo;
-import org.lwjgl.vulkan.VkImageBlit;
-import org.lwjgl.vulkan.VkImageMemoryBarrier;
+import org.lwjgl.vulkan.VkImageSubresourceLayers;
 import org.lwjgl.vulkan.VkOffset2D;
 import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkRenderPassBeginInfo;
-import org.lwjgl.vulkan.VkSemaphoreSubmitInfo;
-import org.lwjgl.vulkan.VkSubmitInfo;
-import org.lwjgl.vulkan.VkSubmitInfo2;
 import org.lwjgl.vulkan.VkViewport;
-import fr.sethlans.core.render.vk.buffer.BufferUsage;
+
+import fr.sethlans.core.natives.AbstractNativeResource;
+import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
 import fr.sethlans.core.render.vk.command.CommandPool.Create;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.image.VulkanImage;
+import fr.sethlans.core.render.vk.image.VulkanImage.Filter;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.memory.DeviceBuffer;
 import fr.sethlans.core.render.vk.memory.IndexBuffer;
@@ -38,7 +33,9 @@ import fr.sethlans.core.render.vk.memory.VertexBuffer;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
 import fr.sethlans.core.render.vk.pipeline.AbstractPipeline.BindPoint;
 import fr.sethlans.core.render.vk.shader.ShaderStage;
+import fr.sethlans.core.render.vk.pipeline.Access;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
+import fr.sethlans.core.render.vk.pipeline.PipelineStage;
 import fr.sethlans.core.render.vk.swapchain.FrameBuffer;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
@@ -47,13 +44,16 @@ import fr.sethlans.core.render.vk.sync.Fence;
 import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
-public class CommandBuffer {
+public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
 
     private final CommandPool commandPool;
-    private VkCommandBuffer handle;
+    
+    private final SyncCommandDelegate syncDelegate;
 
     CommandBuffer(CommandPool commandPool) {
         this.commandPool = commandPool;
+        this.syncDelegate = logicalDevice().physicalDevice().supportsSynchronization2() ? SyncCommandDelegate.SYNC_2
+                : SyncCommandDelegate.SYNC;
 
         try (var stack = MemoryStack.stackPush()) {
 
@@ -68,7 +68,10 @@ public class CommandBuffer {
             var result = stack.mallocPointer(1);
             var err = VK10.vkAllocateCommandBuffers(vkDevice, allocateInfo, result);
             VkUtil.throwOnFailure(err, "allocate command-buffer");
-            this.handle = new VkCommandBuffer(result.get(0), vkDevice);
+            
+            this.object = new VkCommandBuffer(result.get(0), vkDevice);
+            this.ref = NativeResource.get().register(this);
+            commandPool.getNativeReference().addDependent(ref);
         }
     }
 
@@ -84,93 +87,49 @@ public class CommandBuffer {
                     .pNext(0)
                     .flags(flags);
 
-            var err = VK10.vkBeginCommandBuffer(handle, beginInfo);
+            var err = VK10.vkBeginCommandBuffer(object, beginInfo);
             VkUtil.throwOnFailure(err, "begin recording a command-buffer");
             return this;
         }
     }
     
-    public CommandBuffer addBarrier2(VkDependencyInfo pDependencyInfo) {
-        VK13.vkCmdPipelineBarrier2(handle, pDependencyInfo);
-        return this;
+    public CommandBuffer addBarrier(VulkanImage image, Layout srcLayout, Layout dstLayout, VkFlag<Access> srcAccess,
+            VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage) {
+        return syncDelegate.addBarrier(this, image, srcLayout, dstLayout, srcAccess, dstAccess, srcStage, dstStage, 0,
+                VK10.VK_REMAINING_MIP_LEVELS);
     }
 
-    public CommandBuffer addBarrier(int srcStage, int dstStage, VkImageMemoryBarrier.Buffer pBarriers) {
-        VK10.vkCmdPipelineBarrier(handle, srcStage, dstStage, 0x0, null, null, pBarriers);
-        return this;
+    public CommandBuffer addBarrier(VulkanImage image, Layout srcLayout, Layout dstLayout, VkFlag<Access> srcAccess,
+            VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage, int baseMipLevel,
+            int levelCount) {
+        return syncDelegate.addBarrier(this, image, srcLayout, dstLayout, srcAccess, dstAccess, srcStage, dstStage, baseMipLevel,
+                levelCount);
     }
 
-    public CommandBuffer addBlit(VulkanImage image, VkImageBlit.Buffer pBlits) {
-        assert image.getUsage().contains(ImageUsage.TRANSFER_SRC);
-        
-        var imageHandle = image.handle();
-        VK10.vkCmdBlitImage(handle, imageHandle, VK10.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, imageHandle,
-                VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pBlits, VK10.VK_FILTER_LINEAR);
-        return this;
+    public CommandBuffer addBlit(VulkanImage image, int srcWidth, int srcHeight,
+            Consumer<VkImageSubresourceLayers> srcSubresource, int dstWidth, int dstHeight,
+            Consumer<VkImageSubresourceLayers> dstSubresource) {
+        return addBlit(image, Layout.TRANSFER_SRC_OPTIMAL, srcWidth, srcHeight, srcSubresource, image,
+                Layout.TRANSFER_DST_OPTIMAL, dstWidth, dstHeight, dstSubresource, Filter.LINEAR);
+    }
+
+    public CommandBuffer addBlit(VulkanImage srcImage, Layout srcLayout, int srcWidth, int srcHeight,
+            Consumer<VkImageSubresourceLayers> srcSubresource, VulkanImage dstImage, Layout dstLayout, int dstWidth,
+            int dstHeight, Consumer<VkImageSubresourceLayers> dstSubresource, Filter filter) {
+        return syncDelegate.addBlit(this, srcImage, srcLayout, srcWidth, srcHeight, srcSubresource, dstImage, dstLayout,
+                dstWidth, dstHeight, dstSubresource, filter);
     }
 
     public CommandBuffer copyBuffer(VulkanBuffer source, VulkanBuffer destination) {
-        assert source.size().getBytes() == source.size().getBytes();
-        assert source.getUsage().contains(BufferUsage.TRANSFER_SRC);
-        assert destination.getUsage().contains(BufferUsage.TRANSFER_DST);
-
-        try (var stack = MemoryStack.stackPush()) {
-            var pRegion = VkBufferCopy.calloc(1, stack)
-                    .srcOffset(0)
-                    .dstOffset(0)
-                    .size(source.size().getBytes());
-
-            VK10.vkCmdCopyBuffer(handle, source.handle(), destination.handle(), pRegion);
-        }
-
-        return this;
+        return syncDelegate.copyBuffer(this, source, 0, destination, 0);
     }
 
-    public CommandBuffer copyBuffer(VulkanBuffer source, VulkanImage destination) {
-        assert source.getUsage().contains(BufferUsage.TRANSFER_SRC);
-        assert destination.getUsage().contains(ImageUsage.TRANSFER_DST);
-        
-        try (var stack = MemoryStack.stackPush()) {
-            var pRegion = VkBufferImageCopy.calloc(1, stack)
-                    .bufferOffset(0)
-                    .bufferRowLength(0)
-                    .bufferImageHeight(0)
-                    .imageSubresource(it -> it
-                            .aspectMask(VK10.VK_IMAGE_ASPECT_COLOR_BIT)
-                            .mipLevel(0)
-                            .baseArrayLayer(0)
-                            .layerCount(1))
-                    .imageOffset(it -> it.x(0).y(0).z(0))
-                    .imageExtent(it -> it.width(destination.width()).height(destination.height()).depth(1));
-
-            VK10.vkCmdCopyBufferToImage(handle, source.handle(), destination.handle(),
-                    VK10.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRegion);
-        }
-
-        return this;
+    public CommandBuffer copyBuffer(VulkanBuffer source, VulkanImage destination, Layout destLayout) {
+        return syncDelegate.copyBuffer(this, source, destination, destLayout);
     }
 
-    public CommandBuffer copyImage(VulkanImage source, Layout imageLayout, VulkanBuffer destination) {
-        assert source.getUsage().contains(ImageUsage.TRANSFER_SRC);
-        assert destination.getUsage().contains(BufferUsage.TRANSFER_DST);
-        
-        try (var stack = MemoryStack.stackPush()) {
-            var pRegion = VkBufferImageCopy.calloc(1, stack)
-                    .bufferOffset(0)
-                    .bufferRowLength(0)
-                    .bufferImageHeight(0)
-                    .imageSubresource(it -> it
-                            .aspectMask(source.format().getAspects().bits())
-                            .mipLevel(0)
-                            .baseArrayLayer(0)
-                            .layerCount(1))
-                    .imageOffset(it -> it.x(0).y(0).z(0))
-                    .imageExtent(it -> it.width(source.width()).height(source.height()).depth(1));
-
-            VK10.vkCmdCopyImageToBuffer(handle, source.handle(), imageLayout.vkEnum(), destination.handle(), pRegion);
-        }
-
-        return this;
+    public CommandBuffer copyImage(VulkanImage source, Layout srcLayout, VulkanBuffer destination) {
+        return syncDelegate.copyImage(this, source, srcLayout, destination);
     }
 
     public CommandBuffer bindVertexBuffer(VertexBuffer buffer) {
@@ -183,7 +142,7 @@ public class CommandBuffer {
             pBufferHandles.put(0, buffer.handle());
 
             var pOffsets = stack.callocLong(1);
-            VK10.vkCmdBindVertexBuffers(handle, 0, pBufferHandles, pOffsets);
+            VK10.vkCmdBindVertexBuffers(object, 0, pBufferHandles, pOffsets);
         }
 
         return this;
@@ -194,24 +153,24 @@ public class CommandBuffer {
     }
 
     public CommandBuffer bindIndexBuffer(DeviceBuffer buffer, int indexType) {
-        VK10.vkCmdBindIndexBuffer(handle, buffer.handle(), 0, indexType);
+        VK10.vkCmdBindIndexBuffer(object, buffer.handle(), 0, indexType);
         return this;
     }
 
     public CommandBuffer bindPipeline(Pipeline pipeline) {
-        VK10.vkCmdBindPipeline(handle, pipeline.getBindPoint().getVkEnum(), pipeline.handle());
+        VK10.vkCmdBindPipeline(object, pipeline.getBindPoint().getVkEnum(), pipeline.handle());
         return this;
     }
 
     public CommandBuffer bindDescriptorSets(long pipelineLayoutHandle, BindPoint bindPoint, LongBuffer pDescriptorSets) {
-        VK10.vkCmdBindDescriptorSets(handle, bindPoint.getVkEnum(), pipelineLayoutHandle, 0,
+        VK10.vkCmdBindDescriptorSets(object, bindPoint.getVkEnum(), pipelineLayoutHandle, 0,
                 pDescriptorSets, null);
         return this;
     }
 
     public CommandBuffer bindDescriptorSets(long pipelineLayoutHandle, BindPoint bindPoint, LongBuffer pDescriptorSets,
             IntBuffer pDynamicOffsets) {
-        VK10.vkCmdBindDescriptorSets(handle, bindPoint.getVkEnum(), pipelineLayoutHandle, 0,
+        VK10.vkCmdBindDescriptorSets(object, bindPoint.getVkEnum(), pipelineLayoutHandle, 0,
                 pDescriptorSets, pDynamicOffsets);
         return this;
     }
@@ -220,7 +179,7 @@ public class CommandBuffer {
         try (var stack = MemoryStack.stackPush()) {
             var buffer = stack.malloc(16 * Float.BYTES);
             matrix.get(buffer);
-            VK10.vkCmdPushConstants(handle, pipelineLayoutHandle, stageFlags.bits(), offset, buffer);
+            VK10.vkCmdPushConstants(object, pipelineLayoutHandle, stageFlags.bits(), offset, buffer);
         }
 
         return this;
@@ -228,12 +187,12 @@ public class CommandBuffer {
 
     public CommandBuffer pushConstants(long pipelineLayoutHandle, VkFlag<ShaderStage> stageFlags, int offset,
             ByteBuffer constantBuffer) {
-        VK10.vkCmdPushConstants(handle, pipelineLayoutHandle, stageFlags.bits(), offset, constantBuffer);
+        VK10.vkCmdPushConstants(object, pipelineLayoutHandle, stageFlags.bits(), offset, constantBuffer);
         return this;
     }
     
     public CommandBuffer dispatch(int groupCountX, int groupCountY, int groupCountZ) {
-        VK10.vkCmdDispatch(handle, groupCountX, groupCountY, groupCountZ);
+        VK10.vkCmdDispatch(object, groupCountX, groupCountY, groupCountZ);
         return this;
     }
     
@@ -249,17 +208,17 @@ public class CommandBuffer {
     }
     
     public CommandBuffer draw(int vertexCount) {
-        VK10.vkCmdDraw(handle, vertexCount, 1, 0, 0);
+        VK10.vkCmdDraw(object, vertexCount, 1, 0, 0);
         return this;
     }
 
     public CommandBuffer drawIndexed(IndexBuffer indexBuffer) {
-        VK10.vkCmdDrawIndexed(handle, indexBuffer.elementCount(), 1, 0, 0, 0);
+        VK10.vkCmdDrawIndexed(object, indexBuffer.elementCount(), 1, 0, 0, 0);
         return this;
     }
 
     public CommandBuffer drawIndexed(int indicesCount) {
-        VK10.vkCmdDrawIndexed(handle, indicesCount, 1, 0, 0, 0);
+        VK10.vkCmdDrawIndexed(object, indicesCount, 1, 0, 0, 0);
         return this;
     }
 
@@ -280,7 +239,7 @@ public class CommandBuffer {
                     .renderArea(renderArea)
                     .renderPass(renderPass.handle());
 
-            VK10.vkCmdBeginRenderPass(handle, renderPassInfo, VK10.VK_SUBPASS_CONTENTS_INLINE);
+            VK10.vkCmdBeginRenderPass(object, renderPassInfo, VK10.VK_SUBPASS_CONTENTS_INLINE);
             return this;
         }
     }
@@ -288,7 +247,7 @@ public class CommandBuffer {
     public CommandBuffer beginRendering(SwapChain swapChain, int imageIndex) {
         try (var stack = MemoryStack.stackPush()) {
             var renderingInfo = swapChain.getAttachments().createRenderingInfo(stack, swapChain, imageIndex);
-            VK13.vkCmdBeginRendering(handle, renderingInfo);
+            VK13.vkCmdBeginRendering(object, renderingInfo);
             return this;
         }
     }
@@ -306,7 +265,7 @@ public class CommandBuffer {
             viewport.maxDepth(1f);
             viewport.minDepth(0f);
 
-            VK10.vkCmdSetViewport(handle, 0, viewport);
+            VK10.vkCmdSetViewport(object, 0, viewport);
             return this;
         }
     }
@@ -320,109 +279,33 @@ public class CommandBuffer {
             scissor.offset(VkOffset2D.calloc(stack).set(0, 0));
             scissor.extent(framebufferExtent);
 
-            VK10.vkCmdSetScissor(handle, 0, scissor);
+            VK10.vkCmdSetScissor(object, 0, scissor);
             return this;
         }
     }
 
     public CommandBuffer submit(Fence fence) {
-        try (var stack = MemoryStack.stackPush()) {
-            // Create submit info.
-            var submitInfo = VkSubmitInfo.calloc(1, stack)
-                    .sType(VK10.VK_STRUCTURE_TYPE_SUBMIT_INFO)
-                    .pCommandBuffers(stack.pointers(handle));
-
-            var queue = commandPool.getQueue();
-            queue.submit(submitInfo, fence);
-        }
-
-        return this;
+        return syncDelegate.submit(this, fence);
     }
 
     public CommandBuffer submitFrame(VulkanFrame frame) {
-        if (commandPool.getLogicalDevice().physicalDevice().supportsSynchronization2()) {
-            return submitFrame2(frame);
-        }
-        
-        var signalHandle = frame.renderCompleteSemaphore() != null ? frame.renderCompleteSemaphore().handle()
-                : VK10.VK_NULL_HANDLE;
-        var waitHandle = frame.imageAvailableSemaphore() != null ? frame.imageAvailableSemaphore().handle()
-                : VK10.VK_NULL_HANDLE;
-
-        try (var stack = MemoryStack.stackPush()) {
-            // Create submit info.
-            var submitInfo = VkSubmitInfo.calloc(1, stack)
-                    .sType(VK10.VK_STRUCTURE_TYPE_SUBMIT_INFO)
-                    .pCommandBuffers(stack.pointers(handle))
-                    .waitSemaphoreCount(frame.imageAvailableSemaphore() != null ? 1 : 0)
-                    .pWaitSemaphores(stack.longs(waitHandle))
-                    .pWaitDstStageMask(stack.ints(VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT));
-
-            if (frame.renderCompleteSemaphore() != null) {
-                submitInfo.pSignalSemaphores(stack.longs(signalHandle));
-            }
-
-            frame.fenceReset();
-
-            var queue = commandPool.getQueue();
-            queue.submit(submitInfo, frame.fence());
-        }
-
-        return this;
-    }
-    
-    protected CommandBuffer submitFrame2(VulkanFrame frame) {
-        var signalHandle = frame.renderCompleteSemaphore() != null ? frame.renderCompleteSemaphore().handle()
-                : VK10.VK_NULL_HANDLE;
-        var waitHandle = frame.imageAvailableSemaphore() != null ? frame.imageAvailableSemaphore().handle()
-                : VK10.VK_NULL_HANDLE;
-
-        try (var stack = MemoryStack.stackPush()) {
-            var pCommandBufferInfos = VkCommandBufferSubmitInfo.calloc(1, stack)
-                    .sType(VK13.VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO)
-                    .deviceMask(0)
-                    .commandBuffer(handle);
-            
-            var pWaitSemaphoreInfos = VkSemaphoreSubmitInfo.calloc(1, stack)
-                    .sType(VK13.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO)
-                    .stageMask(VK13.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
-                    .semaphore(waitHandle);
-            
-            var pSignalSemaphoreInfos = VkSemaphoreSubmitInfo.calloc(1, stack)
-                    .sType(VK13.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO)
-                    .stageMask(VK13.VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT)
-                    .semaphore(signalHandle);
-            
-            // Create submit info 2.
-            var submitInfo = VkSubmitInfo2.calloc(1, stack)
-                    .sType(VK13.VK_STRUCTURE_TYPE_SUBMIT_INFO_2)
-                    .pCommandBufferInfos(pCommandBufferInfos)
-                    .pWaitSemaphoreInfos(pWaitSemaphoreInfos)
-                    .pSignalSemaphoreInfos(pSignalSemaphoreInfos);
-
-            frame.fenceReset();
-
-            var queue = commandPool.getQueue();
-            queue.submit(submitInfo, frame.fence());
-        }
-
-        return this;
+        return syncDelegate.submitFrame(this, frame);
     }
 
     public CommandBuffer end() {
-        var err = VK10.vkEndCommandBuffer(handle);
+        var err = VK10.vkEndCommandBuffer(object);
         VkUtil.throwOnFailure(err, "end recording a command-buffer");
 
         return this;
     }
 
     public CommandBuffer endRenderPass() {
-        VK10.vkCmdEndRenderPass(handle);
+        VK10.vkCmdEndRenderPass(object);
         return this;
     }
 
     public CommandBuffer endRendering() {
-        VK13.vkCmdEndRendering(handle);
+        VK13.vkCmdEndRendering(object);
         return this;
     }
 
@@ -431,7 +314,7 @@ public class CommandBuffer {
             throw new IllegalStateException("Command-pool doesn't allow command-buffer reset!");
         }
         
-        var err = VK10.vkResetCommandBuffer(handle, VK10.VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+        var err = VK10.vkResetCommandBuffer(object, VK10.VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
         VkUtil.throwOnFailure(err, "reset a command-buffer");
 
         return this;
@@ -440,13 +323,21 @@ public class CommandBuffer {
     public LogicalDevice logicalDevice() {
         return commandPool.getLogicalDevice();
     }
+    
+    public CommandPool getPool() {
+        return commandPool;
+    }
 
     public void destroy() {
-        var commandPoolHandle = commandPool.handle();
-        if (handle != null && commandPoolHandle != VK10.VK_NULL_HANDLE) {
+        getNativeReference().destroy();
+    }
+
+    @Override
+    public Runnable createDestroyAction() {
+        return () -> {
             var vkDevice = logicalDevice().getNativeObject();
-            VK10.vkFreeCommandBuffers(vkDevice, commandPool.handle(), handle);
-            this.handle = null;
-        }
+            VK10.vkFreeCommandBuffers(vkDevice, commandPool.handle(), object);
+            this.object = null;
+        };
     }
 }

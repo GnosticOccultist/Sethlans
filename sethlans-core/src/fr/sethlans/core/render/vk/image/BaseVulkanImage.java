@@ -2,11 +2,7 @@ package fr.sethlans.core.render.vk.image;
 
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
-import org.lwjgl.vulkan.VK13;
-import org.lwjgl.vulkan.VkDependencyInfo;
 import org.lwjgl.vulkan.VkImageCreateInfo;
-import org.lwjgl.vulkan.VkImageMemoryBarrier;
-import org.lwjgl.vulkan.VkImageMemoryBarrier2;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
 import fr.sethlans.core.material.Image.ColorSpace;
@@ -130,65 +126,9 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
             command.beginRecording();
         }
         
-        var supportsSync2 = getLogicalDevice().physicalDevice().supportsSynchronization2();
-        try (var stack = MemoryStack.stackPush()) {
-            if (supportsSync2) {
-                transitionLayout2(command, dstLayout, srcAccess, dstAccess, srcStage, dstStage);
-                
-            } else {
-                var pBarrier = VkImageMemoryBarrier.calloc(1, stack)
-                        .sType(VK10.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
-                        .oldLayout(layout.vkEnum())
-                        .newLayout(dstLayout.vkEnum())
-                        .srcQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
-                        .dstQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
-                        .image(handle())
-                        .srcAccessMask(srcAccess.bits())
-                        .dstAccessMask(dstAccess.bits())
-                        .subresourceRange(it -> it
-                                .aspectMask(format().getAspects().bits())
-                                .baseMipLevel(0)
-                                .levelCount(mipLevels)
-                                .baseArrayLayer(0)
-                                .layerCount(1));
-
-                command.addBarrier(srcStage.bits(), dstStage.bits(), pBarrier);
-            }
-            this.layout = dstLayout;
-        }
-        
+        command.addBarrier(this, layout, dstLayout, srcAccess, dstAccess, srcStage, dstStage);
+        this.layout = dstLayout;
         return command;
-    }
-    
-    protected SingleUseCommand transitionLayout2(SingleUseCommand existingCommand, Layout dstLayout,
-            VkFlag<Access> srcAccess, VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage,
-            VkFlag<PipelineStage> dstStage) {
-        try (var stack = MemoryStack.stackPush()) {
-            var pBarrier = VkImageMemoryBarrier2.calloc(1, stack)
-                    .sType(VK13.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2)
-                    .oldLayout(layout.vkEnum())
-                    .newLayout(dstLayout.vkEnum())
-                    .srcQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
-                    .dstQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
-                    .image(handle())
-                    .srcAccessMask(srcAccess.bits())
-                    .srcStageMask(srcStage.bits())
-                    .dstAccessMask(dstAccess.bits())
-                    .dstStageMask(dstStage.bits())
-                    .subresourceRange(it -> it
-                            .aspectMask(format().getAspects().bits())
-                            .baseMipLevel(0)
-                            .levelCount(mipLevels)
-                            .baseArrayLayer(0)
-                            .layerCount(VK10.VK_REMAINING_ARRAY_LAYERS));
-            
-            var pDependencyInfo = VkDependencyInfo.calloc(stack)
-                    .sType(VK13.VK_STRUCTURE_TYPE_DEPENDENCY_INFO)
-                    .pImageMemoryBarriers(pBarrier);
-
-            existingCommand.addBarrier2(pDependencyInfo);
-            return existingCommand;
-        }
     }
     
     @Override
