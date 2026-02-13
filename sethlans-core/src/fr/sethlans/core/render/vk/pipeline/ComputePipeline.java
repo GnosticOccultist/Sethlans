@@ -56,7 +56,7 @@ public class ComputePipeline extends AbstractPipeline {
     
     @Override
     public String toString() {
-        return "ComputePipeline [parent=" + parent + ", createFlags=" + createFlags + ", stage=" + stage + "]";
+        return "ComputePipeline [parent=" + parent + ", createFlags=" + createFlags.toString(Create.class) + ", stage=" + stage + "]";
     }
 
     public static ComputePipeline build(LogicalDevice logicalDevice, PipelineLayout layout, Consumer<Builder> config) {

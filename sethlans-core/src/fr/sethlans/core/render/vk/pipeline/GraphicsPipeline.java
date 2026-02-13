@@ -115,7 +115,7 @@ public class GraphicsPipeline extends AbstractPipeline {
 
     @Override
     public String toString() {
-        return "GraphicsPipeline [renderPass=" + renderPass + ", parent=" + parent + ", createFlags=" + createFlags
+        return "GraphicsPipeline [renderPass=" + renderPass + ", parent=" + parent + ", createFlags=" + createFlags.toString(Create.class)
                 + ", colorAttachmentFormat=" + colorAttachmentFormat + ", depthAttachmentFormat="
                 + depthAttachmentFormat + ", pipelineCache=" + pipelineCache + ", shaders=" + shaders + ", topology="
                 + topology + ", primitiveRestart=" + primitiveRestart + ", rasterizationState=" + rasterizationState

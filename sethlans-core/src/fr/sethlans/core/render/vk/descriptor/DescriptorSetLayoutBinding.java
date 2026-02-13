@@ -14,4 +14,10 @@ public record DescriptorSetLayoutBinding(DescriptorType type, int binding, int d
                 .stageFlags(stageFlags().bits())
                 .pImmutableSamplers(null);
     }
+
+    @Override
+    public String toString() {
+        return "DescriptorSetLayoutBinding [type=" + type + ", binding=" + binding + ", descriptorCount="
+                + descriptorCount + ", stageFlags=" + stageFlags.toString(ShaderStage.class) + "]";
+    }
 }

@@ -62,6 +62,11 @@ public class PipelineLayout extends AbstractDeviceResource {
     }
 
     @Override
+    public String toString() {
+        return "PipelineLayout [layouts=" + layouts + ", pushConstants=" + pushConstants + "]";
+    }
+
+    @Override
     public Runnable createDestroyAction() {
         return () -> {
             VK10.vkDestroyPipelineLayout(logicalDeviceHandle(), handle(), null);
