@@ -48,12 +48,13 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
 
     private final CommandPool commandPool;
     
-    private final SyncCommandDelegate syncDelegate;
+    private final CommandDelegate syncDelegate;
 
     CommandBuffer(CommandPool commandPool) {
         this.commandPool = commandPool;
-        this.syncDelegate = logicalDevice().physicalDevice().supportsSynchronization2() ? SyncCommandDelegate.SYNC_2
-                : SyncCommandDelegate.SYNC;
+        var vkInstance = logicalDevice().physicalDevice().getContext().getVulkanInstance();
+        this.syncDelegate = vkInstance.getApiVersion() >= VK13.VK_API_VERSION_1_3 ? CommandDelegate.COMMAND_2
+                : CommandDelegate.COMMAND;
 
         try (var stack = MemoryStack.stackPush()) {
 
@@ -119,6 +120,12 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
         return syncDelegate.addBlit(this, srcImage, srcLayout, srcWidth, srcHeight, srcSubresource, dstImage, dstLayout,
                 dstWidth, dstHeight, dstSubresource, filter);
     }
+    
+    public CommandBuffer addBlit(VulkanImage srcImage, Layout srcLayout,
+            Consumer<VkImageSubresourceLayers> srcSubresource, VulkanImage dstImage, Layout dstLayout,
+            Consumer<VkImageSubresourceLayers> dstSubresource) {
+        return syncDelegate.addResolve(this, srcImage, srcLayout, srcSubresource, dstImage, dstLayout, dstSubresource);
+    }
 
     public CommandBuffer copyBuffer(VulkanBuffer source, VulkanBuffer destination) {
         return syncDelegate.copyBuffer(this, source, 0, destination, 0);
@@ -130,6 +137,10 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
 
     public CommandBuffer copyImage(VulkanImage source, Layout srcLayout, VulkanBuffer destination) {
         return syncDelegate.copyImage(this, source, srcLayout, destination);
+    }
+    
+    public CommandBuffer copyImage(VulkanImage source, Layout srcLayout, VulkanImage destination, Layout destLayout) {
+        return syncDelegate.copyImage(this, source, srcLayout, destination, destLayout);
     }
 
     public CommandBuffer bindVertexBuffer(VertexBuffer buffer) {

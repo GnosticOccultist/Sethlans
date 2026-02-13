@@ -13,13 +13,19 @@ import org.lwjgl.vulkan.VkBufferImageCopy2;
 import org.lwjgl.vulkan.VkCommandBufferSubmitInfo;
 import org.lwjgl.vulkan.VkCopyBufferInfo2;
 import org.lwjgl.vulkan.VkCopyBufferToImageInfo2;
+import org.lwjgl.vulkan.VkCopyImageInfo2;
 import org.lwjgl.vulkan.VkCopyImageToBufferInfo2;
 import org.lwjgl.vulkan.VkDependencyInfo;
 import org.lwjgl.vulkan.VkImageBlit;
 import org.lwjgl.vulkan.VkImageBlit2;
+import org.lwjgl.vulkan.VkImageCopy;
+import org.lwjgl.vulkan.VkImageCopy2;
 import org.lwjgl.vulkan.VkImageMemoryBarrier;
 import org.lwjgl.vulkan.VkImageMemoryBarrier2;
+import org.lwjgl.vulkan.VkImageResolve;
+import org.lwjgl.vulkan.VkImageResolve2;
 import org.lwjgl.vulkan.VkImageSubresourceLayers;
+import org.lwjgl.vulkan.VkResolveImageInfo2;
 import org.lwjgl.vulkan.VkSemaphoreSubmitInfo;
 import org.lwjgl.vulkan.VkSubmitInfo;
 import org.lwjgl.vulkan.VkSubmitInfo2;
@@ -36,9 +42,9 @@ import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.render.vk.sync.Fence;
 import fr.sethlans.core.render.vk.util.VkFlag;
 
-public interface SyncCommandDelegate {
+public interface CommandDelegate {
     
-    SyncCommandDelegate SYNC = new SyncCommandDelegate() {
+    CommandDelegate COMMAND = new CommandDelegate() {
 
         @Override
         public CommandBuffer addBarrier(CommandBuffer command, VulkanImage image, Layout srcLayout, Layout dstLayout,
@@ -86,6 +92,26 @@ public interface SyncCommandDelegate {
 
                 VK10.vkCmdBlitImage(command.getNativeObject(), srcImage.handle(), srcLayout.vkEnum(), dstImage.handle(),
                         dstLayout.vkEnum(), pBlit, filter.vkEnum());
+            }
+
+            return command;
+        }
+        
+        @Override
+        public CommandBuffer addResolve(CommandBuffer command, VulkanImage srcImage, Layout srcLayout,
+                Consumer<VkImageSubresourceLayers> srcSubresource, VulkanImage dstImage, Layout dstLayout,
+                Consumer<VkImageSubresourceLayers> dstSubresource) {
+            try (var stack = MemoryStack.stackPush()) {
+                var pResolve = VkImageResolve.calloc(1, stack);
+                pResolve.dstOffset(it -> it.set(0, 0, 0));
+                pResolve.srcOffset(it -> it.set(0, 0, 0));
+                pResolve.extent(it -> it.width(srcImage.width()).height(srcImage.height()).depth(1));
+
+                pResolve.srcSubresource(srcSubresource);
+                pResolve.dstSubresource(dstSubresource);
+
+                VK10.vkCmdResolveImage(command.getNativeObject(), srcImage.handle(), srcLayout.vkEnum(),
+                        dstImage.handle(), dstLayout.vkEnum(), pResolve);
             }
 
             return command;
@@ -159,6 +185,35 @@ public interface SyncCommandDelegate {
 
             return command;
         }
+        
+        @Override
+        public CommandBuffer copyImage(CommandBuffer command, VulkanImage source, Layout srcLayout,
+                VulkanImage destination, Layout destLayout) {
+            assert source.getUsage().contains(ImageUsage.TRANSFER_SRC);
+            assert destination.getUsage().contains(ImageUsage.TRANSFER_DST);
+
+            try (var stack = MemoryStack.stackPush()) {
+                var pRegion = VkImageCopy.calloc(1, stack)
+                        .srcSubresource(it -> it
+                                .aspectMask(source.format().getAspects().bits())
+                                .mipLevel(0)
+                                .baseArrayLayer(0)
+                                .layerCount(1))
+                        .dstSubresource(it -> it
+                                .aspectMask(destination.format().getAspects().bits())
+                                .mipLevel(0)
+                                .baseArrayLayer(0)
+                                .layerCount(1))
+                        .srcOffset(it -> it.x(0).y(0).z(0))
+                        .dstOffset(it -> it.x(0).y(0).z(0))
+                        .extent(it -> it.width(source.width()).height(source.height()).depth(1));
+
+                VK10.vkCmdCopyImage(command.getNativeObject(), source.handle(), srcLayout.vkEnum(),
+                        destination.handle(), destLayout.vkEnum(), pRegion);
+            }
+
+            return command;
+        }
 
         @Override
         public CommandBuffer submitFrame(CommandBuffer command, VulkanFrame frame) {
@@ -205,7 +260,7 @@ public interface SyncCommandDelegate {
         }
     };
     
-    SyncCommandDelegate SYNC_2 = new SyncCommandDelegate() {
+    CommandDelegate COMMAND_2 = new CommandDelegate() {
 
         @Override
         public CommandBuffer addBarrier(CommandBuffer command, VulkanImage image, Layout srcLayout, Layout dstLayout,
@@ -268,6 +323,34 @@ public interface SyncCommandDelegate {
                 pBlitImageInfo.pRegions(pBlit);
                 
                 VK13.vkCmdBlitImage2(command.getNativeObject(), pBlitImageInfo);
+            }
+
+            return command;
+        }
+        
+        @Override
+        public CommandBuffer addResolve(CommandBuffer command, VulkanImage srcImage, Layout srcLayout,
+                Consumer<VkImageSubresourceLayers> srcSubresource, VulkanImage dstImage, Layout dstLayout,
+                Consumer<VkImageSubresourceLayers> dstSubresource) {
+            try (var stack = MemoryStack.stackPush()) {
+                var pResolve = VkImageResolve2.calloc(1, stack)
+                        .sType(VK13.VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2);
+                pResolve.dstOffset(it -> it.set(0, 0, 0));
+                pResolve.srcOffset(it -> it.set(0, 0, 0));
+                pResolve.extent(it -> it.width(srcImage.width()).height(srcImage.height()).depth(1));
+
+                pResolve.srcSubresource(srcSubresource);
+                pResolve.dstSubresource(dstSubresource);
+
+                var pResolveImageInfo = VkResolveImageInfo2.calloc(stack)
+                        .sType(VK13.VK_STRUCTURE_TYPE_RESOLVE_IMAGE_INFO_2)
+                        .srcImage(srcImage.handle())
+                        .srcImageLayout(srcLayout.vkEnum())
+                        .dstImage(dstImage.handle())
+                        .dstImageLayout(dstLayout.vkEnum())
+                        .pRegions(pResolve);
+
+                VK13.vkCmdResolveImage2(command.getNativeObject(), pResolveImageInfo);
             }
 
             return command;
@@ -362,6 +445,42 @@ public interface SyncCommandDelegate {
 
             return command;
         }
+        
+        @Override
+        public CommandBuffer copyImage(CommandBuffer command, VulkanImage source, Layout srcLayout,
+                VulkanImage destination, Layout destLayout) {
+            assert source.getUsage().contains(ImageUsage.TRANSFER_SRC);
+            assert destination.getUsage().contains(ImageUsage.TRANSFER_DST);
+            
+            try (var stack = MemoryStack.stackPush()) {
+                var pRegion = VkImageCopy2.calloc(1, stack)
+                        .srcSubresource(it -> it
+                                .aspectMask(source.format().getAspects().bits())
+                                .mipLevel(0)
+                                .baseArrayLayer(0)
+                                .layerCount(1))
+                        .dstSubresource(it -> it
+                                .aspectMask(destination.format().getAspects().bits())
+                                .mipLevel(0)
+                                .baseArrayLayer(0)
+                                .layerCount(1))
+                        .srcOffset(it -> it.x(0).y(0).z(0))
+                        .dstOffset(it -> it.x(0).y(0).z(0))
+                        .extent(it -> it.width(source.width()).height(source.height()).depth(1));
+                
+                var pCopyImageInfo = VkCopyImageInfo2.calloc(stack)
+                        .sType(VK13.VK_STRUCTURE_TYPE_COPY_IMAGE_INFO_2)
+                        .srcImage(source.handle())
+                        .srcImageLayout(srcLayout.vkEnum())
+                        .dstImage(destination.handle())
+                        .dstImageLayout(destLayout.vkEnum())
+                        .pRegions(pRegion);
+
+                VK13.vkCmdCopyImage2(command.getNativeObject(), pCopyImageInfo);
+            }
+
+            return command;
+        }
 
         @Override
         public CommandBuffer submitFrame(CommandBuffer command, VulkanFrame frame) {
@@ -432,11 +551,17 @@ public interface SyncCommandDelegate {
             Layout dstLayout, int dstWidth, int dstHeight, Consumer<VkImageSubresourceLayers> dstSubresource,
             Filter filter);
     
+    CommandBuffer addResolve(CommandBuffer command, VulkanImage srcImage, Layout srcLayout,
+            Consumer<VkImageSubresourceLayers> srcSubresource, VulkanImage dstImage, Layout dstLayout,
+            Consumer<VkImageSubresourceLayers> dstSubresource);
+    
     CommandBuffer copyBuffer(CommandBuffer command, VulkanBuffer source, int srcOffset, VulkanBuffer destination, int dstOffset);
     
     CommandBuffer copyBuffer(CommandBuffer command, VulkanBuffer source, VulkanImage destination, Layout destLayout);
     
     CommandBuffer copyImage(CommandBuffer command, VulkanImage source, Layout srcLayout, VulkanBuffer destination);
+    
+    CommandBuffer copyImage(CommandBuffer command, VulkanImage source, Layout srcLayout, VulkanImage destination, Layout destLayout);
 
     CommandBuffer submitFrame(CommandBuffer command, VulkanFrame frame);
     

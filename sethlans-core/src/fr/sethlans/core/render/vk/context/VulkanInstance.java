@@ -56,6 +56,8 @@ public class VulkanInstance extends AbstractNativeResource<VkInstance> {
 
     private Surface surface;
 
+    private int apiVersion;
+
     public VulkanInstance(SethlansApplication application, ConfigFile config) {
         try (var stack = MemoryStack.stackPush()) {
 
@@ -66,7 +68,7 @@ public class VulkanInstance extends AbstractNativeResource<VkInstance> {
             var appMinor = config.getInteger(SethlansApplication.APP_MINOR_PROP, SethlansApplication.DEFAULT_APP_MINOR);
             var appPatch = config.getInteger(SethlansApplication.APP_PATCH_PROP, SethlansApplication.DEFAULT_APP_PATCH);
 
-            var apiVersion = getVulkanVersion(config);
+            this.apiVersion = getVulkanVersion(config);
 
             // Create the application info.
             var appInfo = VkApplicationInfo.calloc(stack)
@@ -304,6 +306,10 @@ public class VulkanInstance extends AbstractNativeResource<VkInstance> {
         VkUtil.throwOnFailure(err, "enumerate physical devices");
 
         return pPointers;
+    }
+
+    public int getApiVersion() {
+        return apiVersion;
     }
 
     public Surface getSurface() {
