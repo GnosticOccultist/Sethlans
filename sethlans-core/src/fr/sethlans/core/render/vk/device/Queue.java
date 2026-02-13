@@ -2,8 +2,10 @@ package fr.sethlans.core.render.vk.device;
 
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
+import org.lwjgl.vulkan.VK13;
 import org.lwjgl.vulkan.VkQueue;
 import org.lwjgl.vulkan.VkSubmitInfo;
+import org.lwjgl.vulkan.VkSubmitInfo2;
 
 import fr.sethlans.core.natives.AbstractNativeResource;
 import fr.sethlans.core.natives.NativeResource;
@@ -44,6 +46,17 @@ public class Queue extends AbstractNativeResource<VkQueue> {
         var fenceHandle = fence == null ? VK10.VK_NULL_HANDLE : fence.handle();
         var vkQueue = getNativeObject();
         var err = VK10.vkQueueSubmit(vkQueue, pSubmits, fenceHandle);
+        VkUtil.throwOnFailure(err, "submit a command-buffer");
+    }
+
+    public void submit(VkSubmitInfo2.Buffer pSubmits) {
+        submit(pSubmits, null);
+    }
+
+    public void submit(VkSubmitInfo2.Buffer pSubmits, Fence fence) {
+        var fenceHandle = fence == null ? VK10.VK_NULL_HANDLE : fence.handle();
+        var vkQueue = getNativeObject();
+        var err = VK13.vkQueueSubmit2(vkQueue, pSubmits, fenceHandle);
         VkUtil.throwOnFailure(err, "submit a command-buffer");
     }
 

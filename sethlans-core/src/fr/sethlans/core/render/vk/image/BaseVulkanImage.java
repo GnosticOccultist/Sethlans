@@ -17,6 +17,8 @@ import fr.sethlans.core.render.vk.device.AbstractDeviceResource;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.memory.MemoryResource;
+import fr.sethlans.core.render.vk.pipeline.Access;
+import fr.sethlans.core.render.vk.pipeline.PipelineStage;
 import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
@@ -119,7 +121,9 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
     }
     
     @Override
-    public SingleUseCommand transitionLayout(SingleUseCommand existingCommand, Layout dstLayout) {
+    public SingleUseCommand transitionLayout(SingleUseCommand existingCommand, Layout dstLayout,
+            VkFlag<Access> srcAccess, VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage,
+            VkFlag<PipelineStage> dstStage) {
         // Create a one-time submit command buffer.
         var command = existingCommand != null ? existingCommand : getLogicalDevice().singleUseGraphicsCommand();
         if (existingCommand == null) {
@@ -129,7 +133,7 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
         var supportsSync2 = getLogicalDevice().physicalDevice().supportsSynchronization2();
         try (var stack = MemoryStack.stackPush()) {
             if (supportsSync2) {
-                transitionLayout2(command, dstLayout);
+                transitionLayout2(command, dstLayout, srcAccess, dstAccess, srcStage, dstStage);
                 
             } else {
                 var pBarrier = VkImageMemoryBarrier.calloc(1, stack)
@@ -139,8 +143,8 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
                         .srcQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
                         .dstQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
                         .image(handle())
-                        .srcAccessMask(layout.getAccess().bits())
-                        .dstAccessMask(dstLayout.getAccess().bits())
+                        .srcAccessMask(srcAccess.bits())
+                        .dstAccessMask(dstAccess.bits())
                         .subresourceRange(it -> it
                                 .aspectMask(format().getAspects().bits())
                                 .baseMipLevel(0)
@@ -148,7 +152,7 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
                                 .baseArrayLayer(0)
                                 .layerCount(1));
 
-                command.addBarrier(layout.getStage().bits(), dstLayout.getStage().bits(), pBarrier);
+                command.addBarrier(srcStage.bits(), dstStage.bits(), pBarrier);
             }
             this.layout = dstLayout;
         }
@@ -156,7 +160,9 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
         return command;
     }
     
-    protected SingleUseCommand transitionLayout2(SingleUseCommand existingCommand, Layout dstLayout) {
+    protected SingleUseCommand transitionLayout2(SingleUseCommand existingCommand, Layout dstLayout,
+            VkFlag<Access> srcAccess, VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage,
+            VkFlag<PipelineStage> dstStage) {
         try (var stack = MemoryStack.stackPush()) {
             var pBarrier = VkImageMemoryBarrier2.calloc(1, stack)
                     .sType(VK13.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2)
@@ -165,16 +171,16 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
                     .srcQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
                     .dstQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
                     .image(handle())
-                    .srcAccessMask(layout.getAccess().bits())
-                    .srcStageMask(layout.getStage().bits())
-                    .dstAccessMask(dstLayout.getAccess().bits())
-                    .dstStageMask(dstLayout.getStage().bits())
+                    .srcAccessMask(srcAccess.bits())
+                    .srcStageMask(srcStage.bits())
+                    .dstAccessMask(dstAccess.bits())
+                    .dstStageMask(dstStage.bits())
                     .subresourceRange(it -> it
                             .aspectMask(format().getAspects().bits())
                             .baseMipLevel(0)
                             .levelCount(mipLevels)
                             .baseArrayLayer(0)
-                            .layerCount(1));
+                            .layerCount(VK10.VK_REMAINING_ARRAY_LAYERS));
             
             var pDependencyInfo = VkDependencyInfo.calloc(stack)
                     .sType(VK13.VK_STRUCTURE_TYPE_DEPENDENCY_INFO)
@@ -210,6 +216,11 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
     
     public boolean isConcurrent() {
         return concurrent;
+    }
+
+    @Override
+    public Layout getLayout() {
+        return layout;
     }
 
     @Override

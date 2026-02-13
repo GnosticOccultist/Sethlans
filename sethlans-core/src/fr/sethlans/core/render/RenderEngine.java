@@ -30,6 +30,10 @@ public class RenderEngine {
 
     public void render(ConfigFile config) {
         var frame = backend.beginRender();
+        if (frame.isInvalid()) {
+            return;
+        }
+        
         application.render(frame);
         
         backend.endRender();

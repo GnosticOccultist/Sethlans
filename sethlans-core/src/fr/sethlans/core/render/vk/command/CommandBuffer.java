@@ -14,13 +14,16 @@ import org.lwjgl.vulkan.VkClearValue;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkCommandBufferAllocateInfo;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
+import org.lwjgl.vulkan.VkCommandBufferSubmitInfo;
 import org.lwjgl.vulkan.VkDependencyInfo;
 import org.lwjgl.vulkan.VkImageBlit;
 import org.lwjgl.vulkan.VkImageMemoryBarrier;
 import org.lwjgl.vulkan.VkOffset2D;
 import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkRenderPassBeginInfo;
+import org.lwjgl.vulkan.VkSemaphoreSubmitInfo;
 import org.lwjgl.vulkan.VkSubmitInfo;
+import org.lwjgl.vulkan.VkSubmitInfo2;
 import org.lwjgl.vulkan.VkViewport;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
@@ -337,6 +340,10 @@ public class CommandBuffer {
     }
 
     public CommandBuffer submitFrame(VulkanFrame frame) {
+        if (commandPool.getLogicalDevice().physicalDevice().supportsSynchronization2()) {
+            return submitFrame2(frame);
+        }
+        
         var signalHandle = frame.renderCompleteSemaphore() != null ? frame.renderCompleteSemaphore().handle()
                 : VK10.VK_NULL_HANDLE;
         var waitHandle = frame.imageAvailableSemaphore() != null ? frame.imageAvailableSemaphore().handle()
@@ -354,6 +361,44 @@ public class CommandBuffer {
             if (frame.renderCompleteSemaphore() != null) {
                 submitInfo.pSignalSemaphores(stack.longs(signalHandle));
             }
+
+            frame.fenceReset();
+
+            var queue = commandPool.getQueue();
+            queue.submit(submitInfo, frame.fence());
+        }
+
+        return this;
+    }
+    
+    protected CommandBuffer submitFrame2(VulkanFrame frame) {
+        var signalHandle = frame.renderCompleteSemaphore() != null ? frame.renderCompleteSemaphore().handle()
+                : VK10.VK_NULL_HANDLE;
+        var waitHandle = frame.imageAvailableSemaphore() != null ? frame.imageAvailableSemaphore().handle()
+                : VK10.VK_NULL_HANDLE;
+
+        try (var stack = MemoryStack.stackPush()) {
+            var pCommandBufferInfos = VkCommandBufferSubmitInfo.calloc(1, stack)
+                    .sType(VK13.VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO)
+                    .deviceMask(0)
+                    .commandBuffer(handle);
+            
+            var pWaitSemaphoreInfos = VkSemaphoreSubmitInfo.calloc(1, stack)
+                    .sType(VK13.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO)
+                    .stageMask(VK13.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
+                    .semaphore(waitHandle);
+            
+            var pSignalSemaphoreInfos = VkSemaphoreSubmitInfo.calloc(1, stack)
+                    .sType(VK13.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO)
+                    .stageMask(VK13.VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT)
+                    .semaphore(signalHandle);
+            
+            // Create submit info 2.
+            var submitInfo = VkSubmitInfo2.calloc(1, stack)
+                    .sType(VK13.VK_STRUCTURE_TYPE_SUBMIT_INFO_2)
+                    .pCommandBufferInfos(pCommandBufferInfos)
+                    .pWaitSemaphoreInfos(pWaitSemaphoreInfos)
+                    .pSignalSemaphoreInfos(pSignalSemaphoreInfos);
 
             frame.fenceReset();
 

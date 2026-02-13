@@ -161,6 +161,10 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
     @Override
     public VulkanFrame beginRender() {
+        if (window != null && window.isResized()) {
+            recreateSwapchain();
+        }
+        
         // Wait for completion of the previous frame.
         var frame = vulkanFrames[currentFrameIndex];
         frame.fenceWait();
@@ -168,15 +172,10 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
         // Acquire the next presentation image from the swap-chain.
         frame = swapChain.acquireNextImage(frame);
-        if (frame.isInvalid() || (window != null && window.isResized())) {
+        if (frame.isInvalid()) {
             // Recreate swap-chain.
             recreateSwapchain();
-
-            // Acquire the new sync frame instance.
-            frame = vulkanFrames[currentFrameIndex];
-
-            // Try acquiring the image from the new swap-chain.
-            frame = swapChain.acquireNextImage(frame);
+            return frame;
         }
 
         this.currentFrame = frame;
@@ -201,7 +200,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
         currentFrame.submit();
 
-        if (!swapChain.presentImage(currentFrame)) {
+        if (!swapChain.presentImage(currentFrame) || (window != null && window.isResized())) {
             recreateSwapchain();
         }
 
@@ -244,19 +243,15 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
         }
 
         waitIdle();
-
-        framesInFlight.clear();
-
-        var logicalDevice = context.getLogicalDevice();
-        for (var i = 0; i < vulkanFrames.length; ++i) {
-            vulkanFrames[i].destroy();
-            vulkanFrames[i] = new VulkanFrame(logicalDevice, needsSurface);
-        }
+        
+        renderer.recreate();
 
         // Recreate swap-chain.
         if (swapChain != null) {
             swapChain.recreate(window, renderPass, descriptors);
         }
+        
+        framesInFlight = new HashMap<>(swapChain.imageCount());
 
         application.resize();
     }

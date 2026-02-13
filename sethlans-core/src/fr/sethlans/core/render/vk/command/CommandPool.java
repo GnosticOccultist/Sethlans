@@ -48,6 +48,10 @@ public class CommandPool extends AbstractDeviceResource {
         return new SingleUseCommand(this);
     }
 
+    public void reset() {
+        VK10.vkResetCommandPool(logicalDeviceHandle(), handle(), 0);
+    }
+
     public Queue getQueue() {
         return queue;
     }

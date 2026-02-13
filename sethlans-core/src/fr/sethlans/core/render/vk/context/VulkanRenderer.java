@@ -13,9 +13,11 @@ import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.material.VulkanMaterial;
 import fr.sethlans.core.render.vk.memory.VulkanMesh;
+import fr.sethlans.core.render.vk.pipeline.Access;
 import fr.sethlans.core.render.vk.pipeline.GraphicsPipeline;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineLibrary;
+import fr.sethlans.core.render.vk.pipeline.PipelineStage;
 import fr.sethlans.core.render.vk.swapchain.DrawCommand;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
@@ -74,6 +76,13 @@ public class VulkanRenderer {
                 swapChain.height());
     }
 
+    public void recreate() {
+        Arrays.stream(drawCommands).forEach(DrawCommand::destroy);
+
+        this.drawCommands = new DrawCommand[swapChain.imageCount()];
+        Arrays.fill(drawCommands, new DrawCommand(this, context.getLogicalDevice().createGraphicsCommand()));
+    }
+
     public void resize() {
         builtinDescriptorManager.resize(context.getLogicalDevice(), swapChain.width(), swapChain.height());
     }
@@ -88,8 +97,9 @@ public class VulkanRenderer {
             var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
             if (needsSurface) {
-                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image()
-                        .transitionLayout(Layout.ATTACHMENT_OPTIMAL)) {
+                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionLayout(
+                        Layout.ATTACHMENT_OPTIMAL, Access.NONE, Access.COLOR_ATTACHMENT_WRITE,
+                        PipelineStage.COLOR_ATTACHMENT_OUTPUT, PipelineStage.COLOR_ATTACHMENT_OUTPUT)) {
 
                 }
             }
@@ -115,8 +125,9 @@ public class VulkanRenderer {
             var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
             if (needsSurface) {
-                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image()
-                        .transitionLayout(Layout.PRESENT_SRC_KHR)) {
+                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionLayout(
+                        Layout.PRESENT_SRC_KHR, Access.COLOR_ATTACHMENT_WRITE.add(Access.COLOR_ATTACHMENT_READ),
+                        Access.NONE, PipelineStage.COLOR_ATTACHMENT_OUTPUT, PipelineStage.BOTTOM_OF_PIPE)) {
 
                 }
             }

@@ -23,6 +23,8 @@ public interface VulkanImage extends NativeResource<Long> {
     VulkanFormat format();
 
     long handle();
+    
+    Layout getLayout();
 
     Tiling getTiling();
 
@@ -31,8 +33,16 @@ public interface VulkanImage extends NativeResource<Long> {
     default SingleUseCommand transitionLayout(Layout dstLayout) {
         return transitionLayout(null, dstLayout);
     }
+    
+    default SingleUseCommand transitionLayout(SingleUseCommand existingCommand, Layout dstLayout) {
+        return transitionLayout(dstLayout, getLayout().getAccess(), dstLayout.getAccess(), getLayout().getStage(), dstLayout.getStage());
+    }
+    
+    default SingleUseCommand transitionLayout(Layout dstLayout, VkFlag<Access> srcAccess, VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage) {
+        return transitionLayout(null, dstLayout, srcAccess, dstAccess, srcStage, dstStage);
+    }
 
-    SingleUseCommand transitionLayout(SingleUseCommand existingCommand, Layout dstLayout);
+    SingleUseCommand transitionLayout(SingleUseCommand existingCommand, Layout dstLayout, VkFlag<Access> srcAccess, VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage);
 
     public enum Layout {
 
