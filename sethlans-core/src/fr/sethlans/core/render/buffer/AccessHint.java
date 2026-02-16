@@ -1,4 +1,4 @@
-package fr.sethlans.core.render.vk.buffer;
+package fr.sethlans.core.render.buffer;
 
 public enum AccessHint {
 

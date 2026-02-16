@@ -43,9 +43,11 @@ public class VulkanTexture {
                 MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT));
 
         // Map the staging buffer memory to a buffer.
-        var buffer = stagingBuffer.mapBytes();
-        buffer.put(data.mapBytes());
-        stagingBuffer.unmap();
+        try (var srcBuffer = stagingBuffer.map()) {
+            try (var dstBuffer = data.map()) {
+                srcBuffer.getBytes().put(dstBuffer.getBytes());
+            }
+        }
 
         this.image = new BaseVulkanImage(device, width, height, imageFormat, mipLevels,
                 VkFlag.of(ImageUsage.TRANSFER_SRC, ImageUsage.TRANSFER_DST, ImageUsage.SAMPLED),

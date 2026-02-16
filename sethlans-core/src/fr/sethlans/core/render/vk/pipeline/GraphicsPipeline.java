@@ -31,7 +31,7 @@ import fr.sethlans.core.render.state.RenderState;
 import fr.sethlans.core.render.state.raster.RasterizationState;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanFormat;
-import fr.sethlans.core.render.vk.memory.VulkanMesh;
+import fr.sethlans.core.render.vk.mesh.VulkanMesh;
 import fr.sethlans.core.render.vk.shader.ShaderModule;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.util.VkFlag;

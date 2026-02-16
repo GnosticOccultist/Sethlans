@@ -45,20 +45,20 @@ public class TextureLoader {
             var size = new MemorySize(w * h, 4);
 
             var pixels = new ArenaBuffer(size);
-
-            var buff = pixels.mapBytes();
-            for (var y = 0; y < h; ++y) {
-                for (var x = 0; x < w; ++x) {
-                    var argb = image.getRGB(x, y);
-                    var r = (byte) ((argb >> 16) & 0xFF);
-                    var g = (byte) ((argb >> 8) & 0xFF);
-                    var b = (byte) (argb & 0xFF);
-                    var a = (byte) ((argb >> 24) & 0xFF);
-                    buff.put(r).put(g).put(b).put(a);
+            try (var m = pixels.map()) {
+                var buff = m.getBytes();
+                for (var y = 0; y < h; ++y) {
+                    for (var x = 0; x < w; ++x) {
+                        var argb = image.getRGB(x, y);
+                        var r = (byte) ((argb >> 16) & 0xFF);
+                        var g = (byte) ((argb >> 8) & 0xFF);
+                        var b = (byte) (argb & 0xFF);
+                        var a = (byte) ((argb >> 24) & 0xFF);
+                        buff.put(r).put(g).put(b).put(a);
+                    }
                 }
+                buff.flip();
             }
-            buff.flip();
-            pixels.unmap();
 
             var img = new Image(w, h, Format.RGBA8, pixels);
 

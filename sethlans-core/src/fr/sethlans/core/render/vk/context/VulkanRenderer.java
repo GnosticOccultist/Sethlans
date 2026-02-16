@@ -6,13 +6,14 @@ import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.material.MaterialPass;
+import fr.sethlans.core.render.vk.buffer.PersistentStagingRing;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool.Create;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.material.VulkanMaterial;
-import fr.sethlans.core.render.vk.memory.VulkanMesh;
+import fr.sethlans.core.render.vk.mesh.VulkanMesh;
 import fr.sethlans.core.render.vk.pipeline.Access;
 import fr.sethlans.core.render.vk.pipeline.GraphicsPipeline;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
@@ -52,6 +53,8 @@ public class VulkanRenderer {
     private PipelineLibrary pipelineLibrary;
 
     private BuiltinDescriptorManager builtinDescriptorManager;
+    
+    private PersistentStagingRing stagingRing;
 
     public VulkanRenderer(VulkanContext context, ConfigFile config, SwapChain swapChain) {
         this.context = context;
@@ -72,6 +75,8 @@ public class VulkanRenderer {
         Arrays.fill(drawCommands, new DrawCommand(this, logicalDevice.createGraphicsCommand()));
 
         this.descriptorPool = new DescriptorPool(logicalDevice, Create.FREE_DESCRIPTOR_SET, 16);
+        this.stagingRing = new PersistentStagingRing(logicalDevice, 1000);
+        
         this.builtinDescriptorManager = new BuiltinDescriptorManager(descriptorPool, swapChain.width(),
                 swapChain.height());
     }
@@ -192,7 +197,7 @@ public class VulkanRenderer {
 
         if (mesh.isDirty()) {
             logger.info("Update mesh for " + geometry);
-            vkMesh.uploadData(mesh);
+            vkMesh.uploadData(mesh, stagingRing);
             mesh.clean();
         }
 
@@ -221,14 +226,14 @@ public class VulkanRenderer {
 //                samplerDescriptorSet.updateTextureDescriptorSet(vkTexture, 0);
 //            }
 //        }
+        
+        stagingRing.upload();
 
         var pushConstants = layout.getPushConstants();
         for (var pushConstant : pushConstants) {
             command.pushConstants(layout.handle(), VkShader.getShaderStages(pushConstant.shaderTypes()), 0,
                     geometry.getModelMatrix());
         }
-
-        command.bindVertexBuffer(vkMesh.getVertexBuffer()).bindIndexBuffer(vkMesh.getIndexBuffer());
 
         return vkMesh;
     }

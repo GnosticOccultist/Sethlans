@@ -8,8 +8,9 @@ public class DirtyRegions implements Iterable<DirtyRegions.Region> {
 
     private Region head = null;
     private int regionCount;
+    private int dirtySize;
 
-    public void add(int offset, int size) {
+    public void add(long offset, long size) {
         if (offset < 0 || size < 0) {
             throw new IllegalArgumentException("Dirty region parameters must be non-negative!");
         }
@@ -50,10 +51,19 @@ public class DirtyRegions implements Iterable<DirtyRegions.Region> {
             prev.next = merged;
         }
         this.regionCount++;
+
+        dirtySize = 0;
+        for (var r : this) {
+            dirtySize += r.size;
+        }
     }
-    
+
     public int regionCount() {
         return regionCount;
+    }
+
+    public int dirtySize() {
+        return dirtySize;
     }
 
     public void clear() {
@@ -72,10 +82,10 @@ public class DirtyRegions implements Iterable<DirtyRegions.Region> {
 
     public final class Region {
 
-        private int start, size, end;
+        private long start, size, end;
         private Region next;
 
-        Region(int start, int end) {
+        Region(long start, long end) {
             this.start = start;
             this.size = end - start;
             this.end = end;
@@ -83,6 +93,18 @@ public class DirtyRegions implements Iterable<DirtyRegions.Region> {
 
         boolean isEmpty() {
             return size <= 0;
+        }
+        
+        public long end() {
+            return end;
+        }
+
+        public long start() {
+            return start;
+        }
+
+        public long size() {
+            return size;
         }
 
         boolean isTail() {
@@ -99,11 +121,11 @@ public class DirtyRegions implements Iterable<DirtyRegions.Region> {
             if (this == obj) {
                 return true;
             }
-                
+
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-                
+
             var other = (Region) obj;
             return start == other.start && end == other.end && Objects.equals(next, other.next);
         }
@@ -113,7 +135,7 @@ public class DirtyRegions implements Iterable<DirtyRegions.Region> {
             return "Region [start=" + start + ", end=" + end + ", next=" + next + "]";
         }
     }
-    
+
     private static class RegionIterator implements Iterator<Region> {
 
         private Region current, prev;
@@ -132,7 +154,7 @@ public class DirtyRegions implements Iterable<DirtyRegions.Region> {
             if (current == null) {
                 throw new NoSuchElementException();
             }
-            
+
             prev = current;
             current = current.next;
             return prev;

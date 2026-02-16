@@ -51,7 +51,7 @@ public class DrawCommand {
         var command = getCommandBuffer();
         
         var vkMesh = getRenderer().bind(pipeline, geometry, command, renderer.getCurrentFrameIndex());
-        command.draw(vkMesh);
+        vkMesh.render(command);
     }
     
     public void end() {

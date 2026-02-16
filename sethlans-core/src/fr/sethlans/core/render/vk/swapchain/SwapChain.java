@@ -102,26 +102,28 @@ public abstract class SwapChain {
             // Re-transition image layout back for future presentation.
             image.transitionLayout(command, attachment.finalLayout());
         }
+        
+        var img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 
         // Map buffer memory and decode BGRA pixel data.
-        var data = destination.mapBytes();
-        var img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        for (var y = 0; y < height; ++y) {
-            for (var x = 0; x < width; ++x) {
+        try (var m = destination.map()) {
+            var data = m.getBytes();
+            for (var y = 0; y < height; ++y) {
+                for (var x = 0; x < width; ++x) {
 
-                var idx = (y * width + x) * channels;
-                var b = data.get(idx) & 0xff;
-                var g = data.get(idx + 1) & 0xff;
-                var r = data.get(idx + 2) & 0xff;
-                var a = data.get(idx + 3) & 0xff;
+                    var idx = (y * width + x) * channels;
+                    var b = data.get(idx) & 0xff;
+                    var g = data.get(idx + 1) & 0xff;
+                    var r = data.get(idx + 2) & 0xff;
+                    var a = data.get(idx + 3) & 0xff;
 
-                var argb = (a << 24) | (r << 16) | (g << 8) | b;
-                img.setRGB(x, y, argb);
+                    var argb = (a << 24) | (r << 16) | (g << 8) | b;
+                    img.setRGB(x, y, argb);
+                }
             }
         }
 
         // Free memory and buffer.
-        destination.unmap();
         destination.getNativeReference().destroy();
 
         var date = new SimpleDateFormat("dd.MM.yy_HH.mm.ss").format(new Date());

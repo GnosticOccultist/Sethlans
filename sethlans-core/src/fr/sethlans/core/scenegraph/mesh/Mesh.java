@@ -6,6 +6,7 @@ import java.util.List;
 import fr.alchemy.utilities.Validator;
 import fr.sethlans.core.render.backend.BackendObject;
 import fr.sethlans.core.render.buffer.NativeBuffer;
+import fr.sethlans.core.render.buffer.StageableBuffer;
 import fr.sethlans.core.util.BufferUtils;
 
 public class Mesh extends BackendObject {
@@ -14,9 +15,9 @@ public class Mesh extends BackendObject {
 
     private int vertexCount;
 
-    private NativeBuffer vertexData;
+    private StageableBuffer<NativeBuffer> vertexData;
 
-    private NativeBuffer indices;
+    private StageableBuffer<NativeBuffer> indices;
 
     private int fpv;
 
@@ -25,11 +26,11 @@ public class Mesh extends BackendObject {
         this.topology = topology;
         this.vertexCount = vertices.size();
 
-        this.indices = BufferUtils.create(indices);
+        this.indices = new StageableBuffer<>(BufferUtils.create(indices));
 
         var vertex = vertices.get(0);
         this.fpv = vertex.numFloats();
-        this.vertexData = BufferUtils.createVertex(vertices, vertex);
+        this.vertexData = new StageableBuffer<>(BufferUtils.createVertex(vertices, vertex));
     }
 
     public Mesh(Topology topology, int[] indices, float[] vertices, int fpv) {
@@ -37,9 +38,9 @@ public class Mesh extends BackendObject {
         this.topology = topology;
         this.vertexCount = vertices.length / fpv;
 
-        this.indices = BufferUtils.create(indices);
+        this.indices = new StageableBuffer<>(BufferUtils.create(indices));
         this.fpv = fpv;
-        this.vertexData = BufferUtils.create(vertices);
+        this.vertexData = new StageableBuffer<>(BufferUtils.create(vertices));
     }
 
     public int vertexCount() {
@@ -54,11 +55,11 @@ public class Mesh extends BackendObject {
         return topology;
     }
 
-    public NativeBuffer getVertexData() {
+    public StageableBuffer<NativeBuffer> getVertexData() {
         return vertexData;
     }
 
-    public NativeBuffer getIndices() {
+    public StageableBuffer<NativeBuffer> getIndices() {
         return indices;
     }
 }

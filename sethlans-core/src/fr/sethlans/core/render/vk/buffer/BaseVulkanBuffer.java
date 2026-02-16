@@ -1,13 +1,14 @@
 package fr.sethlans.core.render.vk.buffer;
 
-import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkBufferCreateInfo;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
 import fr.sethlans.core.natives.NativeResource;
+import fr.sethlans.core.render.buffer.BufferMapping;
 import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.buffer.SourceBufferMapping;
 import fr.sethlans.core.render.vk.device.AbstractDeviceResource;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
@@ -24,21 +25,32 @@ public class BaseVulkanBuffer extends AbstractDeviceResource implements VulkanBu
     private VkFlag<BufferUsage> usage;
 
     private boolean concurrent = false;
-
+    
     public BaseVulkanBuffer(LogicalDevice logicalDevice, MemorySize size, VkFlag<BufferUsage> usage, VkFlag<MemoryProperty> memProperty) {
+        this(logicalDevice, size, usage, memProperty, false);
+    }
+
+    public BaseVulkanBuffer(LogicalDevice logicalDevice, MemorySize size, VkFlag<BufferUsage> usage, VkFlag<MemoryProperty> memProperty, boolean concurrent) {
         super(logicalDevice);
         this.size = size;
         this.usage = usage;
+        this.concurrent = concurrent;
         this.memory = new MemoryResource(logicalDevice, size.getBytes(), memProperty);
         
         try (var stack = MemoryStack.stackPush()) {
-
+            
             // Create buffer info struct.
             var createInfo = VkBufferCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO)
                     .sharingMode(isConcurrent() ? VK10.VK_SHARING_MODE_CONCURRENT : VK10.VK_SHARING_MODE_EXCLUSIVE)
                     .size(size().getBytes())
                     .usage(getUsage().bits());
+            
+            if (isConcurrent()) {
+                var pQueueFamilyIndices = stack.ints(logicalDevice.getQueueFamilies().graphics().index(),
+                        logicalDevice.getQueueFamilies().transfer().index());
+                createInfo.pQueueFamilyIndices(pQueueFamilyIndices);
+            }
 
             var vkDevice = logicalDeviceHandle();
             var pBuffer = stack.mallocLong(1);
@@ -61,8 +73,13 @@ public class BaseVulkanBuffer extends AbstractDeviceResource implements VulkanBu
     }
 
     @Override
-    public PointerBuffer map(int offset, int size) {
-        return memory.map(offset, size);
+    public BufferMapping map(long offset, long size) {
+        return new SourceBufferMapping(this, memory.map(size().getOffset() + offset, size), size);
+    }
+    
+    @Override
+    public void push(long offset, long size) {
+        
     }
 
     @Override

@@ -2,13 +2,20 @@ package fr.sethlans.core.render.buffer;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.nio.ByteBuffer;
+import java.nio.DoubleBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.LongBuffer;
+import java.nio.ShortBuffer;
+
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryUtil;
 
 import fr.sethlans.core.natives.AbstractNativeResource;
 import fr.sethlans.core.natives.NativeResource;
 
-public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeBuffer {
+public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeBuffer, BufferMapping {
 
     private MemorySize size;
 
@@ -20,7 +27,9 @@ public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeB
 
     private long baseAddress = MemoryUtil.NULL;
 
-    private int lastMappedOffset = -1;
+    private long lastMappedOffset = -1;
+
+    private MemorySegment mappedSlice;
 
     public ArenaBuffer(MemorySize size) {
         this.size = size;
@@ -33,7 +42,7 @@ public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeB
     }
 
     @Override
-    public PointerBuffer map(int offset, int size) {
+    public BufferMapping map(long offset, long size) {
         if (offset < 0) {
             throw new IllegalArgumentException("The offset can't be negative!");
         }
@@ -46,21 +55,70 @@ public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeB
         if (offset != lastMappedOffset) {
             if (offset == 0) {
                 pAddress.put(0, baseAddress);
-
             } else {
-                var slice = segment.asSlice(offset, size);
-                var address = slice.address();
-                pAddress.put(0, MemoryUtil.memPointerBuffer(address, size));
+                mappedSlice = segment.asSlice(offset, size);
+                var address = mappedSlice.address();
+                pAddress.put(0, MemoryUtil.memPointerBuffer(address, (int) size));
             }
             lastMappedOffset = offset;
         }
 
-        return pAddress;
+        return this;
+    }
+
+    @Override
+    public void push(long offset, long size) {
+
     }
 
     @Override
     public void unmap() {
 
+    }
+
+    @Override
+    public ByteBuffer getBytes() {
+        return lastMappedOffset == 0 ? segment.asByteBuffer() : mappedSlice.asByteBuffer();
+    }
+
+    @Override
+    public ShortBuffer getShorts() {
+        return getBytes().asShortBuffer();
+    }
+
+    @Override
+    public IntBuffer getInts() {
+        return getBytes().asIntBuffer();
+    }
+
+    @Override
+    public FloatBuffer getFloats() {
+        return getBytes().asFloatBuffer();
+    }
+
+    @Override
+    public DoubleBuffer getDoubles() {
+        return getBytes().asDoubleBuffer();
+    }
+
+    @Override
+    public LongBuffer getLongs() {
+        return getBytes().asLongBuffer();
+    }
+
+    @Override
+    public PointerBuffer getPointers() {
+        return pAddress;
+    }
+
+    @Override
+    public long getAddress() {
+        return lastMappedOffset == 0 ? segment.address() : mappedSlice.address();
+    }
+
+    @Override
+    public long getSize() {
+        return lastMappedOffset == 0 ? segment.byteSize() : mappedSlice.byteSize();
     }
 
     @Override
@@ -74,5 +132,10 @@ public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeB
             arena.close();
             MemoryUtil.memFree(pAddress);
         };
+    }
+
+    @Override
+    public void close() {
+
     }
 }

@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 
 import fr.sethlans.core.render.buffer.ArenaBuffer;
+import fr.sethlans.core.render.buffer.MallocBuffer;
 import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.buffer.NativeBuffer;
 import fr.sethlans.core.scenegraph.mesh.Vertex;
@@ -34,11 +35,13 @@ public final class BufferUtils {
         }
 
         var size = MemorySize.floats(values.length);
-        var result = new ArenaBuffer(size);
+        var result = new MallocBuffer(size);
 
-        var buff = result.mapFloats();
-        buff.put(values);
-        buff.flip();
+        try (var m = result.map()) {
+            var buff = m.getFloats();
+            buff.put(values);
+            buff.flip();
+        }
 
         return result;
     }
@@ -54,24 +57,30 @@ public final class BufferUtils {
         NativeBuffer result = null;
 
         if (max <= UINT8_LIMIT) {
-            result = new ArenaBuffer(MemorySize.bytes(capacity));
-            var buff = result.mapBytes();
-            for (int v : values) {
-                buff.put((byte) v);
+            result = new MallocBuffer(MemorySize.bytes(capacity));
+            try (var m = result.map()) {
+                var buff = m.getBytes();
+                for (int v : values) {
+                    buff.put((byte) v);
+                }
             }
 
         } else if (max <= UINT16_LIMIT) {
-            result = new ArenaBuffer(MemorySize.shorts(capacity));
-            var buff = result.mapShorts();
-            for (int v : values) {
-                buff.put((short) v);
+            result = new MallocBuffer(MemorySize.shorts(capacity));
+            try (var m = result.map()) {
+                var buff = m.getShorts();
+                for (int v : values) {
+                    buff.put((short) v);
+                }
             }
 
         } else {
-            result = new ArenaBuffer(MemorySize.ints(capacity));
-            var buff = result.mapInts();
-            for (int v : values) {
-                buff.put(v);
+            result = new MallocBuffer(MemorySize.ints(capacity));
+            try (var m = result.map()) {
+                var buff = m.getInts();
+                for (int v : values) {
+                    buff.put(v);
+                }
             }
         }
 
@@ -89,24 +98,30 @@ public final class BufferUtils {
         NativeBuffer result = null;
 
         if (max <= UINT8_LIMIT) {
-            result = new ArenaBuffer(MemorySize.bytes(capacity));
-            var buff = result.mapBytes();
-            for (int v : values) {
-                buff.put((byte) v);
+            result = new MallocBuffer(MemorySize.bytes(capacity));
+            try (var m = result.map()) {
+                var buff = m.getBytes();
+                for (int v : values) {
+                    buff.put((byte) v);
+                }
             }
 
         } else if (max <= UINT16_LIMIT) {
-            result = new ArenaBuffer(MemorySize.shorts(capacity));
-            var buff = result.mapShorts();
-            for (int v : values) {
-                buff.put((short) v);
+            result = new MallocBuffer(MemorySize.shorts(capacity));
+            try (var m = result.map()) {
+                var buff = m.getShorts();
+                for (int v : values) {
+                    buff.put((short) v);
+                }
             }
 
         } else {
-            result = new ArenaBuffer(MemorySize.ints(capacity));
-            var buff = result.mapInts();
-            for (int v : values) {
-                buff.put(v);
+            result = new MallocBuffer(MemorySize.ints(capacity));
+            try (var m = result.map()) {
+                var buff = m.getInts();
+                for (int v : values) {
+                    buff.put(v);
+                }
             }
         }
 
@@ -124,11 +139,13 @@ public final class BufferUtils {
         }
 
         var size = MemorySize.floats(vertices.size() * reference.numFloats());
-        var result = new ArenaBuffer(size);
+        var result = new MallocBuffer(size);
 
-        var buff = result.mapFloats();
-        for (var v : vertices) {
-            v.populate(buff);
+        try (var m = result.map()) {
+            var buff = m.getFloats();
+            for (var v : vertices) {
+                v.populate(buff);
+            }
         }
 
         return result;

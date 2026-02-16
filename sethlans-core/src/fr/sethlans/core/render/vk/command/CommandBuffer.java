@@ -27,10 +27,7 @@ import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanImage;
 import fr.sethlans.core.render.vk.image.VulkanImage.Filter;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
-import fr.sethlans.core.render.vk.memory.DeviceBuffer;
-import fr.sethlans.core.render.vk.memory.IndexBuffer;
-import fr.sethlans.core.render.vk.memory.VertexBuffer;
-import fr.sethlans.core.render.vk.memory.VulkanMesh;
+import fr.sethlans.core.render.vk.mesh.IndexType;
 import fr.sethlans.core.render.vk.pipeline.AbstractPipeline.BindPoint;
 import fr.sethlans.core.render.vk.shader.ShaderStage;
 import fr.sethlans.core.render.vk.pipeline.Access;
@@ -126,9 +123,13 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
             Consumer<VkImageSubresourceLayers> dstSubresource) {
         return syncDelegate.addResolve(this, srcImage, srcLayout, srcSubresource, dstImage, dstLayout, dstSubresource);
     }
-
+    
     public CommandBuffer copyBuffer(VulkanBuffer source, VulkanBuffer destination) {
-        return syncDelegate.copyBuffer(this, source, 0, destination, 0);
+        return syncDelegate.copyBuffer(this, source, 0, destination, 0, (int) source.size().getBytes());
+    }
+
+    public CommandBuffer copyBuffer( VulkanBuffer source, int srcOffset, VulkanBuffer destination, int dstOffset, int size) {
+        return syncDelegate.copyBuffer(this, source, srcOffset, destination, dstOffset, size);
     }
 
     public CommandBuffer copyBuffer(VulkanBuffer source, VulkanImage destination, Layout destLayout) {
@@ -143,14 +144,10 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
         return syncDelegate.copyImage(this, source, srcLayout, destination, destLayout);
     }
 
-    public CommandBuffer bindVertexBuffer(VertexBuffer buffer) {
-        return bindVertexBuffer(buffer.deviceBuffer());
-    }
-
-    public CommandBuffer bindVertexBuffer(DeviceBuffer buffer) {
+    public CommandBuffer bindVertexBuffer(VulkanBuffer vertexBuffer) {
         try (var stack = MemoryStack.stackPush()) {
             var pBufferHandles = stack.mallocLong(1);
-            pBufferHandles.put(0, buffer.handle());
+            pBufferHandles.put(0, vertexBuffer.handle());
 
             var pOffsets = stack.callocLong(1);
             VK10.vkCmdBindVertexBuffers(object, 0, pBufferHandles, pOffsets);
@@ -159,12 +156,8 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
         return this;
     }
 
-    public CommandBuffer bindIndexBuffer(IndexBuffer indexBuffer) {
-        return bindIndexBuffer(indexBuffer.deviceBuffer(), indexBuffer.elementType());
-    }
-
-    public CommandBuffer bindIndexBuffer(DeviceBuffer buffer, int indexType) {
-        VK10.vkCmdBindIndexBuffer(object, buffer.handle(), 0, indexType);
+    public CommandBuffer bindIndexBuffer(VulkanBuffer indexBuffer) {
+        VK10.vkCmdBindIndexBuffer(object, indexBuffer.handle(), 0, IndexType.of(indexBuffer).vkEnum());
         return this;
     }
 
@@ -207,24 +200,13 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
         return this;
     }
     
-    public CommandBuffer draw(VulkanMesh vkMesh) {
-        if (vkMesh.hasIndices()) {
-            drawIndexed(vkMesh.getIndexBuffer());
-        
-        } else {
-            draw(vkMesh.vertexCount());
-        }
-        
-        return this;
-    }
-    
     public CommandBuffer draw(int vertexCount) {
         VK10.vkCmdDraw(object, vertexCount, 1, 0, 0);
         return this;
     }
 
-    public CommandBuffer drawIndexed(IndexBuffer indexBuffer) {
-        VK10.vkCmdDrawIndexed(object, indexBuffer.elementCount(), 1, 0, 0, 0);
+    public CommandBuffer drawIndexed(VulkanBuffer indexBuffer) {
+        VK10.vkCmdDrawIndexed(object, (int) indexBuffer.size().getElements(), 1, 0, 0, 0);
         return this;
     }
 

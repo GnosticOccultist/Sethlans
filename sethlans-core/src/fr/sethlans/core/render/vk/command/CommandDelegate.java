@@ -118,7 +118,7 @@ public interface CommandDelegate {
         }
         
         @Override
-        public CommandBuffer copyBuffer(CommandBuffer command, VulkanBuffer source, int srcOffset, VulkanBuffer destination, int dstOffset) {
+        public CommandBuffer copyBuffer(CommandBuffer command, VulkanBuffer source, int srcOffset, VulkanBuffer destination, int dstOffset, int size) {
             assert destination.size().getBytes() >= source.size().getBytes();
             assert source.getUsage().contains(BufferUsage.TRANSFER_SRC);
             assert destination.getUsage().contains(BufferUsage.TRANSFER_DST);
@@ -127,7 +127,7 @@ public interface CommandDelegate {
                 var pRegion = VkBufferCopy.calloc(1, stack)
                         .srcOffset(srcOffset)
                         .dstOffset(dstOffset)
-                        .size(source.size().getBytes());
+                        .size(size);
 
                 VK10.vkCmdCopyBuffer(command.getNativeObject(), source.handle(), destination.handle(), pRegion);
             }
@@ -358,8 +358,7 @@ public interface CommandDelegate {
         
         @Override
         public CommandBuffer copyBuffer(CommandBuffer command, VulkanBuffer source, int srcOffset,
-                VulkanBuffer destination, int dstOffset) {
-            assert destination.size().getBytes() >= source.size().getBytes();
+                VulkanBuffer destination, int dstOffset, int size) {
             assert source.getUsage().contains(BufferUsage.TRANSFER_SRC);
             assert destination.getUsage().contains(BufferUsage.TRANSFER_DST);
 
@@ -368,7 +367,7 @@ public interface CommandDelegate {
                         .sType(VK13.VK_STRUCTURE_TYPE_BUFFER_COPY_2)
                         .srcOffset(srcOffset)
                         .dstOffset(dstOffset)
-                        .size(source.size().getBytes());
+                        .size(size);
                 
                 var pCopyBufferInfo = VkCopyBufferInfo2.calloc(stack)
                         .sType(VK13.VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2)
@@ -555,7 +554,7 @@ public interface CommandDelegate {
             Consumer<VkImageSubresourceLayers> srcSubresource, VulkanImage dstImage, Layout dstLayout,
             Consumer<VkImageSubresourceLayers> dstSubresource);
     
-    CommandBuffer copyBuffer(CommandBuffer command, VulkanBuffer source, int srcOffset, VulkanBuffer destination, int dstOffset);
+    CommandBuffer copyBuffer(CommandBuffer command, VulkanBuffer source, int srcOffset, VulkanBuffer destination, int dstOffset, int size);
     
     CommandBuffer copyBuffer(CommandBuffer command, VulkanBuffer source, VulkanImage destination, Layout destLayout);
     

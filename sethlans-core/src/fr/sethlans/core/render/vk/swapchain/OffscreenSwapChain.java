@@ -122,9 +122,9 @@ public class OffscreenSwapChain extends SwapChain {
             image.transitionLayout(command, attachment.finalLayout());
         }
 
-        var data = screenBuffer.mapBytes();
-        store.put(data);
-        screenBuffer.unmap();
+        try (var data = screenBuffer.map()) {
+            store.put(data.getBytes());
+        }
 
         return store;
     }
