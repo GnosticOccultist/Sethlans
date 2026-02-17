@@ -11,9 +11,11 @@ import org.lwjgl.vulkan.EXTImageDrmFormatModifier;
 import org.lwjgl.vulkan.EXTIndexTypeUint8;
 import org.lwjgl.vulkan.EXTSwapchainColorspace;
 import org.lwjgl.vulkan.KHRDynamicRendering;
+import org.lwjgl.vulkan.KHRGetSurfaceCapabilities2;
 import org.lwjgl.vulkan.KHRIndexTypeUint8;
 import org.lwjgl.vulkan.KHRPipelineLibrary;
 import org.lwjgl.vulkan.KHRPortabilitySubset;
+import org.lwjgl.vulkan.KHRSharedPresentableImage;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.KHRSynchronization2;
@@ -348,6 +350,15 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
                     requiredExtensions = VkUtil.appendStringPointer(requiredExtensions,
                             EXTSwapchainColorspace.VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, stack);
                 }
+
+                if (hasExtension(KHRGetSurfaceCapabilities2.VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME)) {
+                    requiredExtensions = VkUtil.appendStringPointer(requiredExtensions,
+                            KHRGetSurfaceCapabilities2.VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME, stack);
+                    if (hasExtension(KHRSharedPresentableImage.VK_KHR_SHARED_PRESENTABLE_IMAGE_EXTENSION_NAME)) {
+                        requiredExtensions = VkUtil.appendStringPointer(requiredExtensions,
+                                KHRSharedPresentableImage.VK_KHR_SHARED_PRESENTABLE_IMAGE_EXTENSION_NAME, stack);
+                    }
+                }
             }
 
             if (supportsByteIndex()) {
@@ -367,7 +378,7 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
                 requiredExtensions = VkUtil.appendStringPointer(requiredExtensions,
                         EXTGraphicsPipelineLibrary.VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME, stack);
             }
-            
+
             createInfo.ppEnabledExtensionNames(requiredExtensions);
 
             var debug = config.getBoolean(SethlansApplication.GRAPHICS_DEBUG_PROP,

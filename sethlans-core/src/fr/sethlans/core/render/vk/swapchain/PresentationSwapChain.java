@@ -2,6 +2,8 @@ package fr.sethlans.core.render.vk.swapchain;
 
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.EXTSwapchainColorspace;
+import org.lwjgl.vulkan.KHRPresentModeFifoLatestReady;
+import org.lwjgl.vulkan.KHRSharedPresentableImage;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.VK10;
@@ -28,10 +30,16 @@ public class PresentationSwapChain extends SwapChain {
     private long handle = VK10.VK_NULL_HANDLE;
 
     private VkFlag<ImageUsage> imageUsage;
+    
+    private VkFlag<CompositeAlpha> compositeAlpha;
 
     private SurfaceFormat surfaceFormat;
-
+    
     public PresentationSwapChain(VulkanContext context, ConfigFile config, Window window, RenderPass renderPass, AttachmentDescriptor[] descriptors) {
+        this(context, config, window, renderPass, CompositeAlpha.OPAQUE, descriptors);
+    }
+
+    public PresentationSwapChain(VulkanContext context, ConfigFile config, Window window, RenderPass renderPass, VkFlag<CompositeAlpha> compositeAlpha, AttachmentDescriptor[] descriptors) {
         super(context, config);
 
         try (var stack = MemoryStack.stackPush()) {
@@ -60,6 +68,7 @@ public class PresentationSwapChain extends SwapChain {
                     .orElseGet(() -> surfaceProperties.getFirstSurfaceFormat());
             this.imageFormat = surfaceFormat.format();
             this.imageUsage = getImageUsage(surfaceProperties);
+            this.compositeAlpha = compositeAlpha;
 
             create(stack, config, window.getWidth(), window.getHeight());
 
@@ -114,11 +123,18 @@ public class PresentationSwapChain extends SwapChain {
         var physicalDevice = logicalDevice.physicalDevice();
         var surfaceProperties = physicalDevice.gatherSurfaceProperties(surfaceHandle, stack);
         var imageCount = computeNumImages(surfaceProperties);
+        
+        var supportedCompositeAlpha = surfaceProperties.supportedCompositeAlpha();
+        if (!compositeAlpha.containedIn(supportedCompositeAlpha)) {
+            var defaultCompositeAlpha = surfaceProperties.getDefaultCompositeAlpha();
+            logger.info(compositeAlpha + " isn't supported by " + physicalDevice + ", defaulting to " + defaultCompositeAlpha + ".");
+            compositeAlpha = defaultCompositeAlpha;
+        }
 
         surfaceProperties.getFramebufferExtent(desiredWidth, desiredHeight, framebufferExtent);
 
         var vSync = config.getBoolean(SethlansApplication.VSYNC_PROP, SethlansApplication.DEFAULT_VSYNC);
-        var preferredMode = vSync ? KHRSurface.VK_PRESENT_MODE_FIFO_KHR : KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR;
+        var preferredMode = vSync ? PresentMode.FIFO : PresentMode.MAILBOX;
         var presentationMode = surfaceProperties.getPresentationMode(preferredMode);
 
         var queueFamilies = logicalDevice.getQueueFamilies().listGraphicsAndPresentationFamilies(stack);
@@ -127,7 +143,7 @@ public class PresentationSwapChain extends SwapChain {
         var createInfo = VkSwapchainCreateInfoKHR.calloc(stack)
                 .sType(KHRSwapchain.VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR)
                 .clipped(true) // Discard operations on pixels outside the surface resolution.
-                .compositeAlpha(KHRSurface.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) // Ignore the alpha component when compositing with other windows.
+                .compositeAlpha(compositeAlpha.bits())
                 .imageArrayLayers(1)
                 .imageExtent(framebufferExtent)
                 .imageFormat(imageFormat().vkEnum())
@@ -138,7 +154,7 @@ public class PresentationSwapChain extends SwapChain {
                 .surface(surfaceHandle)
                 .imageColorSpace(surfaceFormat.colorSpace())
                 .imageSharingMode(familyCount == 2 ? VK10.VK_SHARING_MODE_CONCURRENT : VK10.VK_SHARING_MODE_EXCLUSIVE) // Does the presentation and graphics family are different?
-                .presentMode(presentationMode);
+                .presentMode(presentationMode.vkEnum());
 
         if (familyCount == 2) {
             createInfo.pQueueFamilyIndices(queueFamilies);
@@ -292,6 +308,55 @@ public class PresentationSwapChain extends SwapChain {
             var logicalDevice = context.getLogicalDevice();
             KHRSwapchain.vkDestroySwapchainKHR(logicalDevice.getNativeObject(), handle, null);
             this.handle = VK10.VK_NULL_HANDLE;
+        }
+    }
+    
+    public enum CompositeAlpha implements VkFlag<CompositeAlpha> {
+
+        OPAQUE(KHRSurface.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR),
+
+        PRE_MULTIPLIED(KHRSurface.VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR),
+
+        POST_MULTIPLIED(KHRSurface.VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR),
+
+        INHERIT(KHRSurface.VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR);
+
+        private final int vkBit;
+
+        private CompositeAlpha(int vkBit) {
+            this.vkBit = vkBit;
+        }
+
+        @Override
+        public int bits() {
+            return vkBit;
+        }
+    }
+    
+    public enum PresentMode {
+
+        IMMEDIATE(KHRSurface.VK_PRESENT_MODE_IMMEDIATE_KHR),
+
+        MAILBOX(KHRSurface.VK_PRESENT_MODE_MAILBOX_KHR),
+
+        FIFO(KHRSurface.VK_PRESENT_MODE_FIFO_KHR),
+
+        FIFO_RELAXED(KHRSurface.VK_PRESENT_MODE_FIFO_RELAXED_KHR),
+
+        SHARED_DEMAND_REFRESH(KHRSharedPresentableImage.VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR),
+
+        SHARED_CONTINUOUS_REFRESH(KHRSharedPresentableImage.VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR),
+
+        FIFO_LATEST_READY(KHRPresentModeFifoLatestReady.VK_PRESENT_MODE_FIFO_LATEST_READY_KHR);
+
+        private final int vkEnum;
+
+        private PresentMode(int vkEnum) {
+            this.vkEnum = vkEnum;
+        }
+
+        public int vkEnum() {
+            return vkEnum;
         }
     }
 

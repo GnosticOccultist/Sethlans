@@ -4,8 +4,13 @@ import java.nio.IntBuffer;
 import java.util.Optional;
 
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.KHRGetSurfaceCapabilities2;
+import org.lwjgl.vulkan.KHRSharedPresentableImage;
 import org.lwjgl.vulkan.KHRSurface;
 import org.lwjgl.vulkan.VkExtent2D;
+import org.lwjgl.vulkan.VkPhysicalDeviceSurfaceInfo2KHR;
+import org.lwjgl.vulkan.VkSharedPresentSurfaceCapabilitiesKHR;
+import org.lwjgl.vulkan.VkSurfaceCapabilities2KHR;
 import org.lwjgl.vulkan.VkSurfaceCapabilitiesKHR;
 import org.lwjgl.vulkan.VkSurfaceFormatKHR;
 
@@ -13,6 +18,8 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.render.vk.device.PhysicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanFormat;
+import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.CompositeAlpha;
+import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.PresentMode;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class SurfaceProperties {
@@ -20,25 +27,45 @@ public class SurfaceProperties {
     private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.context");
 
     private final VkSurfaceCapabilitiesKHR capabilities;
+    private VkSharedPresentSurfaceCapabilitiesKHR sharedPresentCapabilities = null;
     private final VkSurfaceFormatKHR.Buffer formats;
     private final IntBuffer presentationModes;
 
     public SurfaceProperties(PhysicalDevice physicalDevice, long surfaceHandle, MemoryStack stack) {
         // Obtain the capabilities of the VkSurfaceKHR.
-        this.capabilities = VkSurfaceCapabilitiesKHR.malloc(stack);
-        var err = KHRSurface.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice.handle(), surfaceHandle,
-                capabilities);
-        VkUtil.throwOnFailure(err, "obtain surface capabilities");
+        var surfaceInfo = VkPhysicalDeviceSurfaceInfo2KHR.calloc(stack)
+                .sType(KHRGetSurfaceCapabilities2.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR)
+                .surface(surfaceHandle);
+
+        if (physicalDevice.hasExtension(KHRSharedPresentableImage.VK_KHR_SHARED_PRESENTABLE_IMAGE_EXTENSION_NAME)) {
+            this.sharedPresentCapabilities = VkSharedPresentSurfaceCapabilitiesKHR.calloc(stack)
+                    .sType(KHRSharedPresentableImage.VK_STRUCTURE_TYPE_SHARED_PRESENT_SURFACE_CAPABILITIES_KHR);
+        }
+
+        if (physicalDevice.hasExtension(KHRGetSurfaceCapabilities2.VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME)) {
+            var capabilities2 = VkSurfaceCapabilities2KHR.calloc(stack)
+                    .sType(KHRGetSurfaceCapabilities2.VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR)
+                    .pNext(sharedPresentCapabilities);
+            var err = KHRGetSurfaceCapabilities2.vkGetPhysicalDeviceSurfaceCapabilities2KHR(physicalDevice.handle(),
+                    surfaceInfo, capabilities2);
+            VkUtil.throwOnFailure(err, "obtain surface capabilities 2");
+            this.capabilities = capabilities2.surfaceCapabilities();
+
+        } else {
+            this.capabilities = VkSurfaceCapabilitiesKHR.calloc(stack);
+            var err = KHRSurface.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice.handle(), surfaceHandle,
+                    capabilities);
+            VkUtil.throwOnFailure(err, "obtain surface capabilities");
+        }
 
         // Count the available surface formats.
         var storeInt = stack.mallocInt(1);
-        err = KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice.handle(), surfaceHandle, storeInt,
-                null);
+        var err = KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice.handle(), surfaceHandle, storeInt, null);
         VkUtil.throwOnFailure(err, "count surface formats");
         var numFormats = storeInt.get(0);
 
         // Enumerate the available surface formats.
-        this.formats = VkSurfaceFormatKHR.malloc(numFormats, stack);
+        this.formats = VkSurfaceFormatKHR.calloc(numFormats, stack);
         if (numFormats > 0) {
             err = KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice.handle(), surfaceHandle, storeInt,
                     formats);
@@ -54,8 +81,8 @@ public class SurfaceProperties {
         // Enumerate the available surface-presentation modes.
         this.presentationModes = stack.mallocInt(numModes);
         if (numModes > 0) {
-            err = KHRSurface.vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice.handle(), surfaceHandle,
-                    storeInt, presentationModes);
+            err = KHRSurface.vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice.handle(), surfaceHandle, storeInt,
+                    presentationModes);
             VkUtil.throwOnFailure(err, "enumerate presentation modes");
         }
     }
@@ -70,6 +97,19 @@ public class SurfaceProperties {
 
     public int currentTransform() {
         return capabilities.currentTransform();
+    }
+
+    public int supportedCompositeAlpha() {
+        return capabilities.supportedCompositeAlpha();
+    }
+
+    public CompositeAlpha getDefaultCompositeAlpha() {
+        for (var alpha : CompositeAlpha.values()) {
+            if (alpha.containedIn(supportedCompositeAlpha())) {
+                return alpha;
+            }
+        }
+        throw new RuntimeException("No supported composite alpha mode found!");
     }
 
     public boolean supportsUsage(int usageBit) {
@@ -130,18 +170,18 @@ public class SurfaceProperties {
         return presentationModes.hasRemaining();
     }
 
-    public int getPresentationMode(int preferredMode) {
+    public PresentMode getPresentationMode(PresentMode preferredMode) {
         for (var i = 0; i < presentationModes.capacity(); ++i) {
             var mode = presentationModes.get(i);
-            if (mode == preferredMode) {
-                return mode;
+            if (mode == preferredMode.vkEnum()) {
+                return preferredMode;
             }
         }
 
-        logger.warning("Surface doesn't support presentation mode " + preferredMode + ", defaulting to FIFO mode");
+        logger.warning("Surface doesn't support presentation mode " + preferredMode + ", defaulting to FIFO mode.");
 
         // All Vulkan implementations support FIFO mode.
-        return KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
+        return PresentMode.FIFO;
     }
 
     public record SurfaceFormat(VulkanFormat format, int colorSpace) {
