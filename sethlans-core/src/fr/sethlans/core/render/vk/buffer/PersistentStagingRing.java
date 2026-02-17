@@ -8,10 +8,11 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import org.lwjgl.system.MemoryUtil;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
+import fr.sethlans.core.render.buffer.BufferPartition;
 import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.buffer.PersistentBuffer;
 import fr.sethlans.core.render.buffer.StageableBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.memory.MemoryProperty;
 
 public final class PersistentStagingRing {
 
@@ -31,7 +32,7 @@ public final class PersistentStagingRing {
     }
 
     public boolean stage(StageableBuffer<?> buffer) {
-        if (buffer.getRegions().isEmpty()) {
+        if (buffer.getDirtyRegions().isEmpty()) {
             return false;
         }
 
@@ -40,30 +41,33 @@ public final class PersistentStagingRing {
             throw new IllegalArgumentException(dst + " isn't a valid transfer destination!");
         }
 
-        var partition = allocate(buffer.getRegions().dirtySize());
-        logger.info("add " + partition.getOffset());
+        var partition = allocate(buffer.getDirtyRegions().dirtySize());
         try (var srcM = buffer.map()) {
             try (var partM = partition.map()) {
                 var srcBytes = srcM.getBytes();
                 var partitionBytes = partM.getBytes();
                 var copy = new BufferCopy(partition, dst);
-                int partitionOffset = 0;
-                for (var r : buffer.getRegions()) {
+                var partitionOffset = 0;
+                for (var r : buffer.getDirtyRegions()) {
                     if (r.end() > srcBytes.limit()) {
                         throw new IllegalStateException("Buffer region extends outside source buffer!");
                     }
-                    // copy src to intermediate
+
+                    // Copy source dirty region to allocated staging region.
                     MemoryUtil.memCopy(MemoryUtil.memAddress(srcBytes, (int) r.start()),
                             MemoryUtil.memAddress(partitionBytes, partitionOffset), r.size());
+
+                    // Partition buffer offset + region offset.
                     copy.srcOffset = (int) (partition.getOffset() + partitionOffset);
                     copy.dstOffset = (int) r.start();
                     copy.size = (int) r.size();
                     partitionOffset += r.size();
-                    
-                    logger.info(copy);
                 }
-                buffer.getRegions().clear();
+
+                buffer.getDirtyRegions().clear();
                 copyCommands.add(copy);
+
+                logger.info("Staging " + buffer);
             }
         }
 
@@ -80,10 +84,11 @@ public final class PersistentStagingRing {
             command.beginRecording();
             for (BufferCopy c; (c = copyCommands.poll()) != null;) {
                 command.copyBuffer(c.getSrc(), c.srcOffset, c.getDst(), c.dstOffset, c.size);
-                logger.info("upload " + c);
                 toRelease.add(c);
             }
         }
+
+        logger.info("Submitted " + toRelease.size() + " staging command.");
 
         for (var c : toRelease) {
             c.release();
@@ -104,13 +109,12 @@ public final class PersistentStagingRing {
         return ring.allocatePartition(bytes);
     }
 
-    private static class StagingRing extends BaseVulkanBuffer {
+    private static class StagingRing extends PersistentBuffer<HostVisibleBuffer> {
 
         private final AllocatedRegion head = new AllocatedRegion(this, 0, 0);
 
         public StagingRing(LogicalDevice logicalDevice, MemorySize size) {
-            super(logicalDevice, size, BufferUsage.TRANSFER_SRC,
-                    MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT), true);
+            super(new HostVisibleBuffer(logicalDevice, size, BufferUsage.TRANSFER_SRC, true));
         }
 
         public BufferPartition<StagingRing> allocatePartition(int bytes) {
@@ -136,7 +140,6 @@ public final class PersistentStagingRing {
             }
             return false;
         }
-
     }
 
     private static class AllocatedRegion {
@@ -152,7 +155,7 @@ public final class PersistentStagingRing {
         }
 
         public BufferPartition<StagingRing> allocateBytesAfter(int bytes) {
-            if (availableBytesAfter() >= bytes)
+            if (availableBytesAfter() >= bytes) {
                 synchronized (this) {
                     if (next == null) {
                         // create next island so other concurrent allocation requests won't all pile
@@ -171,6 +174,7 @@ public final class PersistentStagingRing {
                         return new BufferPartition<>(ring, MemorySize.bytes(pStart, bytes));
                     }
                 }
+            }
             return null;
         }
 
@@ -218,7 +222,7 @@ public final class PersistentStagingRing {
         }
 
         public VulkanBuffer getSrc() {
-            return src.getBuffer();
+            return src.getParentBuffer().getBuffer();
         }
 
         public VulkanBuffer getDst() {
@@ -226,7 +230,7 @@ public final class PersistentStagingRing {
         }
 
         public void release() {
-            src.getBuffer().releasePartition(src);
+            src.getParentBuffer().releasePartition(src);
         }
 
         @Override

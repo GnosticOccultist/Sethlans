@@ -11,5 +11,8 @@ public class HostVisibleBuffer extends BaseVulkanBuffer {
         super(logicalDevice, size, usage, MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT));
     }
 
-    
+    public HostVisibleBuffer(LogicalDevice logicalDevice, MemorySize size, VkFlag<BufferUsage> usage,
+            boolean concurrent) {
+        super(logicalDevice, size, usage, MemoryProperty.HOST_VISIBLE.add(MemoryProperty.HOST_COHERENT), concurrent);
+    }
 }

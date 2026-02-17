@@ -35,7 +35,7 @@ public final class BufferUtils {
         }
 
         var size = MemorySize.floats(values.length);
-        var result = new MallocBuffer(size);
+        var result = new ArenaBuffer(size);
 
         try (var m = result.map()) {
             var buff = m.getFloats();
@@ -57,30 +57,36 @@ public final class BufferUtils {
         NativeBuffer result = null;
 
         if (max <= UINT8_LIMIT) {
-            result = new MallocBuffer(MemorySize.bytes(capacity));
+            result = new ArenaBuffer(MemorySize.bytes(capacity));
             try (var m = result.map()) {
                 var buff = m.getBytes();
                 for (int v : values) {
                     buff.put((byte) v);
                 }
+                
+                buff.flip();
             }
 
         } else if (max <= UINT16_LIMIT) {
-            result = new MallocBuffer(MemorySize.shorts(capacity));
+            result = new ArenaBuffer(MemorySize.shorts(capacity));
             try (var m = result.map()) {
                 var buff = m.getShorts();
                 for (int v : values) {
                     buff.put((short) v);
                 }
+                
+                buff.flip();
             }
 
         } else {
-            result = new MallocBuffer(MemorySize.ints(capacity));
+            result = new ArenaBuffer(MemorySize.ints(capacity));
             try (var m = result.map()) {
                 var buff = m.getInts();
                 for (int v : values) {
                     buff.put(v);
                 }
+                
+                buff.flip();
             }
         }
 
@@ -98,30 +104,36 @@ public final class BufferUtils {
         NativeBuffer result = null;
 
         if (max <= UINT8_LIMIT) {
-            result = new MallocBuffer(MemorySize.bytes(capacity));
+            result = new ArenaBuffer(MemorySize.bytes(capacity));
             try (var m = result.map()) {
                 var buff = m.getBytes();
                 for (int v : values) {
                     buff.put((byte) v);
                 }
+                
+                buff.flip();
             }
 
         } else if (max <= UINT16_LIMIT) {
-            result = new MallocBuffer(MemorySize.shorts(capacity));
+            result = new ArenaBuffer(MemorySize.shorts(capacity));
             try (var m = result.map()) {
                 var buff = m.getShorts();
                 for (int v : values) {
                     buff.put((short) v);
                 }
+                
+                buff.flip();
             }
 
         } else {
-            result = new MallocBuffer(MemorySize.ints(capacity));
+            result = new ArenaBuffer(MemorySize.ints(capacity));
             try (var m = result.map()) {
                 var buff = m.getInts();
                 for (int v : values) {
                     buff.put(v);
                 }
+                
+                buff.flip();
             }
         }
 
@@ -139,13 +151,15 @@ public final class BufferUtils {
         }
 
         var size = MemorySize.floats(vertices.size() * reference.numFloats());
-        var result = new MallocBuffer(size);
+        var result = new ArenaBuffer(size);
 
         try (var m = result.map()) {
             var buff = m.getFloats();
             for (var v : vertices) {
                 v.populate(buff);
             }
+            
+            buff.flip();
         }
 
         return result;

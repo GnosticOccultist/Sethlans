@@ -7,15 +7,13 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
 
-import org.lwjgl.PointerBuffer;
-
 import fr.sethlans.core.render.struct.StructView;
 import fr.sethlans.core.render.struct.StructLayoutGenerator.StructLayout;
 
 public interface BufferMapping extends AutoCloseable {
 
     void push(long offset, long size);
-
+    
     long getAddress();
 
     long getSize();
@@ -31,8 +29,6 @@ public interface BufferMapping extends AutoCloseable {
     DoubleBuffer getDoubles();
 
     LongBuffer getLongs();
-
-    PointerBuffer getPointers();
     
     default StructView map(StructLayout layout) {
         return new StructView(getBytes(), layout);

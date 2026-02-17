@@ -30,7 +30,7 @@ public class StageableBuffer<T extends NativeBuffer> implements NativeBuffer {
         buffer.unmap();
     }
     
-    public DirtyRegions getRegions() {
+    public DirtyRegions getDirtyRegions() {
         return regions;
     }
 
@@ -62,5 +62,10 @@ public class StageableBuffer<T extends NativeBuffer> implements NativeBuffer {
         return () -> {
 
         };
+    }
+
+    @Override
+    public String toString() {
+        return "StageableBuffer [buffer=" + buffer + ", destBuffer=" + destBuffer + "]";
     }
 }

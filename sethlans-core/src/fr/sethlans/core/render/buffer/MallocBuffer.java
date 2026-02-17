@@ -107,11 +107,6 @@ public class MallocBuffer extends AbstractNativeResource<Long> implements Native
     }
 
     @Override
-    public PointerBuffer getPointers() {
-        return pAddress;
-    }
-
-    @Override
     public MemorySize size() {
         return size;
     }

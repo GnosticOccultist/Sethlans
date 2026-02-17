@@ -3,6 +3,7 @@ package fr.sethlans.core.render.buffer;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -31,6 +32,8 @@ public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeB
 
     private MemorySegment mappedSlice;
 
+    private ByteBuffer buff;
+
     public ArenaBuffer(MemorySize size) {
         this.size = size;
         this.arena = Arena.ofConfined();
@@ -53,13 +56,10 @@ public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeB
         }
 
         if (offset != lastMappedOffset) {
-            if (offset == 0) {
-                pAddress.put(0, baseAddress);
-            } else {
+            if (offset != 0) {
                 mappedSlice = segment.asSlice(offset, size);
-                var address = mappedSlice.address();
-                pAddress.put(0, MemoryUtil.memPointerBuffer(address, (int) size));
             }
+            buff = null;
             lastMappedOffset = offset;
         }
 
@@ -78,7 +78,11 @@ public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeB
 
     @Override
     public ByteBuffer getBytes() {
-        return lastMappedOffset == 0 ? segment.asByteBuffer() : mappedSlice.asByteBuffer();
+        if (buff == null) {
+            buff = lastMappedOffset == 0 ? segment.asByteBuffer().order(ByteOrder.nativeOrder())
+                    : mappedSlice.asByteBuffer().order(ByteOrder.nativeOrder());
+        }
+        return buff;
     }
 
     @Override
@@ -104,11 +108,6 @@ public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeB
     @Override
     public LongBuffer getLongs() {
         return getBytes().asLongBuffer();
-    }
-
-    @Override
-    public PointerBuffer getPointers() {
-        return pAddress;
     }
 
     @Override

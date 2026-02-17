@@ -20,7 +20,6 @@ public class SourceBufferMapping implements BufferMapping {
     private FloatBuffer floats;
     private DoubleBuffer doubles;
     private LongBuffer longs;
-    private PointerBuffer pointers;
 
     public SourceBufferMapping(NativeBuffer source, PointerBuffer address, long size) {
         this.source = source;
@@ -94,13 +93,5 @@ public class SourceBufferMapping implements BufferMapping {
             longs = address.getLongBuffer(0, (int) size / Long.BYTES);
         }
         return longs;
-    }
-
-    @Override
-    public PointerBuffer getPointers() {
-        if (pointers == null) {
-            pointers = address.getPointerBuffer(0, (int) size);
-        }
-        return pointers;
     }
 }
