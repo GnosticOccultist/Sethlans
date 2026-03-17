@@ -1,9 +1,8 @@
-package fr.sethlans.core.render.vk.image;
+package fr.sethlans.core.render.vk.util;
 
 import org.lwjgl.vulkan.VK10;
 
 import fr.sethlans.core.render.vk.image.VulkanImage.Aspect;
-import fr.sethlans.core.render.vk.util.VkFlag;
 
 public enum VulkanFormat {
 
@@ -32,6 +31,10 @@ public enum VulkanFormat {
     B8G8R8A8_UNORM(VK10.VK_FORMAT_B8G8R8A8_UNORM, VkFlag.of(Aspect.COLOR)),
     
     B8G8R8A8_SRGB(VK10.VK_FORMAT_B8G8R8A8_SRGB, VkFlag.of(Aspect.COLOR)),
+    
+    R32G32B32_SFLOAT(VK10.VK_FORMAT_R32G32B32_SFLOAT, VkFlag.of(Aspect.COLOR)),
+    
+    R32G32B32A32_SFLOAT(VK10.VK_FORMAT_R32G32B32A32_SFLOAT, VkFlag.of(Aspect.COLOR)),
 
     DEPTH16_UNORM(VK10.VK_FORMAT_D16_UNORM, VkFlag.of(Aspect.DEPTH)),
 

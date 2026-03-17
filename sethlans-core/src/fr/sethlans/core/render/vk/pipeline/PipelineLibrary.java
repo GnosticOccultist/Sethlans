@@ -66,7 +66,8 @@ public class PipelineLibrary {
             b.setDynamic(DynamicState.SCISSOR, true);
             b.setColorAttachmentFormat(swapChain.imageFormat());
             b.setDepthAttachmentFormat(swapChain.depthFormat());
-            b.setSampleCount(swapChain.sampleCount());
+            // TODO: enforce render state.
+            // b.setSampleCount(swapChain.sampleCount());
         });
 
         return pipeline;

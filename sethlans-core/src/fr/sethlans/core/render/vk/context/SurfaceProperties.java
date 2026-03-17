@@ -17,10 +17,10 @@ import org.lwjgl.vulkan.VkSurfaceFormatKHR;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.render.vk.device.PhysicalDevice;
-import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.CompositeAlpha;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.PresentMode;
 import fr.sethlans.core.render.vk.util.VkUtil;
+import fr.sethlans.core.render.vk.util.VulkanFormat;
 
 public class SurfaceProperties {
 

@@ -16,6 +16,7 @@ import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.material.layout.PushConstantLayout;
 import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.natives.cache.CacheableNativeBuilder;
+import fr.sethlans.core.render.device.DeviceLimit;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.AbstractDeviceResource;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
@@ -90,7 +91,7 @@ public class PipelineLayout extends AbstractDeviceResource {
                     ? VkPushConstantRange.calloc(numPushConstantLayouts, stack)
                     : null;
             var physicalDevice = getLogicalDevice().physicalDevice();
-            var maxPush = physicalDevice.maxPushConstantsSize();
+            var maxPush = physicalDevice.getIntLimit(DeviceLimit.MAX_PUSH_CONSTANT_SIZE);
             for (var i = 0; i < numPushConstantLayouts; ++i) {
                 var pc = pushConstants.get(i);
                 var pushSize = pc.size();

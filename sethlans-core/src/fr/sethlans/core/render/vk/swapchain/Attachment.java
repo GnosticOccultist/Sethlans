@@ -6,12 +6,12 @@ import org.lwjgl.vulkan.VkExtent2D;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.image.ImageView;
-import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.BaseVulkanImage;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain.PresentationImage;
 import fr.sethlans.core.render.vk.util.VkFlag;
+import fr.sethlans.core.render.vk.util.VulkanFormat;
 
 public class Attachment {
     

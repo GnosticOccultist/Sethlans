@@ -14,6 +14,7 @@ import fr.sethlans.core.render.vk.command.SingleUseCommand;
 import fr.sethlans.core.render.vk.pipeline.Access;
 import fr.sethlans.core.render.vk.pipeline.PipelineStage;
 import fr.sethlans.core.render.vk.util.VkFlag;
+import fr.sethlans.core.render.vk.util.VulkanFormat;
 
 public interface VulkanImage extends NativeResource<Long> {
 

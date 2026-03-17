@@ -17,11 +17,11 @@ import fr.sethlans.core.render.vk.context.SurfaceProperties;
 import fr.sethlans.core.render.vk.context.SurfaceProperties.SurfaceFormat;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.image.ImageUsage;
-import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.image.BaseVulkanImage;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame.State;
 import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
+import fr.sethlans.core.render.vk.util.VulkanFormat;
 
 public class PresentationSwapChain extends SwapChain {
 

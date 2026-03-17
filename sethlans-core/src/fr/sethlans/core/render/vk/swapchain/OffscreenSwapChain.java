@@ -11,10 +11,10 @@ import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.context.VulkanContext;
-import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.util.VkFlag;
+import fr.sethlans.core.render.vk.util.VulkanFormat;
 
 public class OffscreenSwapChain extends SwapChain {
 

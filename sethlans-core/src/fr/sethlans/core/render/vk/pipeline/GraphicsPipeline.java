@@ -28,15 +28,17 @@ import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.natives.cache.Cache;
 import fr.sethlans.core.natives.cache.CacheableNativeBuilder;
 import fr.sethlans.core.render.state.RenderState;
+import fr.sethlans.core.render.state.depth.DepthStencilState;
+import fr.sethlans.core.render.state.multisample.MultisampleState;
 import fr.sethlans.core.render.state.raster.RasterizationState;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.mesh.VulkanMesh;
 import fr.sethlans.core.render.vk.shader.ShaderModule;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkRenderState;
 import fr.sethlans.core.render.vk.util.VkUtil;
+import fr.sethlans.core.render.vk.util.VulkanFormat;
 import fr.sethlans.core.scenegraph.mesh.Topology;
 
 public class GraphicsPipeline extends AbstractPipeline {
@@ -58,14 +60,10 @@ public class GraphicsPipeline extends AbstractPipeline {
     private boolean primitiveRestart = false;
 
     private RasterizationState rasterizationState = RasterizationState.DEFAULT.copy();
-
-    private int sampleCount = VK10.VK_SAMPLE_COUNT_1_BIT;
-
-    private boolean alphaToCoverage = false;
-
-    private boolean alphaToOne = false;
-
-    private float minSampleShading = 0f;
+    
+    private MultisampleState multisampleState = MultisampleState.DEFAULT.copy();
+    
+    private DepthStencilState depthStencilState = DepthStencilState.DEFAULT.copy();
 
     private EnumSet<DynamicState> dynamicStates = EnumSet.noneOf(DynamicState.class);
 
@@ -83,9 +81,9 @@ public class GraphicsPipeline extends AbstractPipeline {
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(alphaToCoverage, alphaToOne, colorAttachmentFormat, createFlags,
-                depthAttachmentFormat, dynamicStates, minSampleShading, parent, pipelineCache, primitiveRestart,
-                rasterizationState, renderPass, sampleCount, shaders, topology);
+        int result = Objects.hash(colorAttachmentFormat, createFlags,
+                depthAttachmentFormat, dynamicStates, parent, pipelineCache, primitiveRestart,
+                rasterizationState, multisampleState, depthStencilState, renderPass, shaders, topology);
         return result;
     }
 
@@ -101,26 +99,26 @@ public class GraphicsPipeline extends AbstractPipeline {
 
         var other = (GraphicsPipeline) obj;
         return layout == other.layout && pipelineCache == other.pipelineCache
-                && alphaToCoverage == other.alphaToCoverage && alphaToOne == other.alphaToOne
                 && colorAttachmentFormat == other.colorAttachmentFormat && createFlags.is(other.createFlags)
                 && depthAttachmentFormat == other.depthAttachmentFormat
                 && Objects.equals(dynamicStates, other.dynamicStates)
-                && Float.floatToIntBits(minSampleShading) == Float.floatToIntBits(other.minSampleShading)
                 && Objects.equals(parent, other.parent) && Objects.equals(pipelineCache, other.pipelineCache)
                 && primitiveRestart == other.primitiveRestart
                 && Objects.equals(rasterizationState, other.rasterizationState)
-                && Objects.equals(renderPass, other.renderPass) && sampleCount == other.sampleCount
+                && Objects.equals(multisampleState, other.multisampleState)
+                && Objects.equals(depthStencilState, other.depthStencilState)
+                && Objects.equals(renderPass, other.renderPass)
                 && Objects.equals(shaders, other.shaders) && topology == other.topology;
     }
 
     @Override
     public String toString() {
-        return "GraphicsPipeline [renderPass=" + renderPass + ", parent=" + parent + ", createFlags=" + createFlags.toString(Create.class)
+        return "GraphicsPipeline [renderPass=" + renderPass + ", parent=" + parent + ", createFlags=" + createFlags
                 + ", colorAttachmentFormat=" + colorAttachmentFormat + ", depthAttachmentFormat="
                 + depthAttachmentFormat + ", pipelineCache=" + pipelineCache + ", shaders=" + shaders + ", topology="
                 + topology + ", primitiveRestart=" + primitiveRestart + ", rasterizationState=" + rasterizationState
-                + ", sampleCount=" + sampleCount + ", alphaToCoverage=" + alphaToCoverage + ", alphaToOne=" + alphaToOne
-                + ", minSampleShading=" + minSampleShading + ", dynamicStates=" + dynamicStates + "]";
+                + ", multisampleState=" + multisampleState + ", depthStencilState=" + depthStencilState
+                + ", dynamicStates=" + dynamicStates + "]";
     }
 
     public static GraphicsPipeline build(LogicalDevice logicalDevice, PipelineLayout layout, Consumer<Builder> config) {
@@ -228,23 +226,48 @@ public class GraphicsPipeline extends AbstractPipeline {
         protected VkPipelineDepthStencilStateCreateInfo createDepthStencilStateInfo(MemoryStack stack) {
             var dssCreateInfo = VkPipelineDepthStencilStateCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO)
-                    .depthTestEnable(true)
-                    .depthWriteEnable(true)
-                    .depthCompareOp(VK10.VK_COMPARE_OP_LESS_OR_EQUAL)
-                    .depthBoundsTestEnable(false)
-                    .stencilTestEnable(false);
+                    .depthTestEnable(depthStencilState.isDepthTest())
+                    .depthWriteEnable(depthStencilState.isDepthWrite())
+                    .depthCompareOp(VkRenderState.getVkCompareOp(depthStencilState.getDepthCompare()))
+                    .depthBoundsTestEnable(depthStencilState.isDepthBoundsTest())
+                    .stencilTestEnable(depthStencilState.isStencilTest())
+                    .minDepthBounds(depthStencilState.getMinDepth())
+                    .maxDepthBounds(depthStencilState.getMaxDepth());
+            
+            if (depthStencilState.isStencilTest()) {
+                var front = depthStencilState.getFront();
+                dssCreateInfo.front(f -> 
+                        f.failOp(VkRenderState.getVkStencilOp(front.getFailOp()))
+                        .passOp(VkRenderState.getVkStencilOp(front.getPassOp()))
+                        .depthFailOp(VkRenderState.getVkStencilOp(front.getDepthFailOp()))
+                        .compareOp(VkRenderState.getVkCompareOp(front.getCompareOp()))
+                        .compareMask(front.getCompareMask())
+                        .writeMask(front.getWriteMask())
+                        .reference(front.getReference()));
+                
+                var back = depthStencilState.getBack();
+                dssCreateInfo.back(b -> 
+                        b.failOp(VkRenderState.getVkStencilOp(back.getFailOp()))
+                        .passOp(VkRenderState.getVkStencilOp(back.getPassOp()))
+                        .depthFailOp(VkRenderState.getVkStencilOp(back.getDepthFailOp()))
+                        .compareOp(VkRenderState.getVkCompareOp(back.getCompareOp()))
+                        .compareMask(back.getCompareMask())
+                        .writeMask(back.getWriteMask())
+                        .reference(back.getReference()));
+            }
             
             return dssCreateInfo;
         }
         
         protected VkPipelineMultisampleStateCreateInfo createMultisampleStateInfo(MemoryStack stack) {
+            var sampleCount = Math.max(VK10.VK_SAMPLE_COUNT_1_BIT, multisampleState.getSampleCount());
             var msCreateInfo = VkPipelineMultisampleStateCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO)
                     .rasterizationSamples(sampleCount)
-                    .alphaToCoverageEnable(alphaToCoverage)
-                    .alphaToOneEnable(alphaToOne)
-                    .minSampleShading(minSampleShading)
-                    .sampleShadingEnable(minSampleShading > 0.0f);
+                    .minSampleShading(multisampleState.getMinSampleShading())
+                    .sampleShadingEnable(multisampleState.getMinSampleShading() > 0.0f)
+                    .alphaToCoverageEnable(multisampleState.isAlphaToCoverage())
+                    .alphaToOneEnable(multisampleState.isAlphaToOne());
             
             return msCreateInfo;
         }
@@ -331,10 +354,20 @@ public class GraphicsPipeline extends AbstractPipeline {
         
         public void applyRenderState(RenderState state) {
             applyRasterizationState(state.getRasterizationState());
+            applyMultisampleState(state.getMultisampleState());
+            applyDepthStencilState(state.getDepthStencilState());
         }
         
         public void applyRasterizationState(RasterizationState rasterizationState) {
             GraphicsPipeline.this.rasterizationState.set(rasterizationState);
+        }
+        
+        public void applyMultisampleState(MultisampleState multisampleState) {
+            GraphicsPipeline.this.multisampleState.set(multisampleState);
+        }
+        
+        public void applyDepthStencilState(DepthStencilState depthStencilState) {
+            GraphicsPipeline.this.depthStencilState.set(depthStencilState);
         }
 
         public void setRenderPass(RenderPass renderPass) {
@@ -370,22 +403,6 @@ public class GraphicsPipeline extends AbstractPipeline {
 
         public void setPrimitiveRestart(boolean primitiveRestart) {
             GraphicsPipeline.this.primitiveRestart = primitiveRestart;
-        }
-
-        public void setSampleCount(int sampleCount) {
-            GraphicsPipeline.this.sampleCount = sampleCount;
-        }
-
-        public void setAlphaToCoverage(boolean alphaToCoverage) {
-            GraphicsPipeline.this.alphaToCoverage = alphaToCoverage;
-        }
-
-        public void setAlphaToOne(boolean alphaToOne) {
-            GraphicsPipeline.this.alphaToOne = alphaToOne;
-        }
-
-        public void setMinSampleShading(float minSampleShading) {
-            GraphicsPipeline.this.minSampleShading = minSampleShading;
         }
         
         public void setDynamic(DynamicState state, boolean enable) {
