@@ -20,16 +20,17 @@ import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.device.DeviceLimit;
 import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.FormatFeature;
 import fr.sethlans.core.render.vk.image.ImageUsage;
-import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.VulkanImage.Tiling;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
+import fr.sethlans.core.render.vk.util.VulkanFormat;
 
 public abstract class SwapChain {
 
@@ -65,7 +66,7 @@ public abstract class SwapChain {
 
         var requestedSampleCount = config.getInteger(SethlansApplication.MSAA_SAMPLES_PROP,
                 SethlansApplication.DEFAULT_MSSA_SAMPLES);
-        var maxSampleCount = context.getPhysicalDevice().maxSamplesCount();
+        var maxSampleCount = context.getPhysicalDevice().getIntLimit(DeviceLimit.FRAMEBUFFER_COLOR_SAMPLES);
         this.sampleCount = Math.min(requestedSampleCount, maxSampleCount);
         this.sampleCount = Math.max(sampleCount, VK10.VK_SAMPLE_COUNT_1_BIT);
         logger.info("Using " + sampleCount + " samples (requested= " + requestedSampleCount + ", max= " + maxSampleCount

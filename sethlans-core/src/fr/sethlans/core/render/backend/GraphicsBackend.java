@@ -2,6 +2,7 @@ package fr.sethlans.core.render.backend;
 
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.render.Window;
+import fr.sethlans.core.render.device.GpuDevice;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 
 public interface GraphicsBackend {
@@ -21,4 +22,6 @@ public interface GraphicsBackend {
     void terminate();
 
     Window getWindow();
+    
+    GpuDevice getGpuDevice();
 }

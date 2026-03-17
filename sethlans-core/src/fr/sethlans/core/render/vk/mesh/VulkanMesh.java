@@ -6,6 +6,7 @@ import org.lwjgl.vulkan.VkPipelineInputAssemblyStateCreateInfo;
 
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
+import fr.sethlans.core.render.device.DeviceFeature;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.buffer.DeviceLocalBuffer;
 import fr.sethlans.core.render.vk.buffer.PersistentStagingRing;
@@ -91,7 +92,7 @@ public class VulkanMesh {
             vkTopology = VK10.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
             break;
         case TRIANGLE_FAN:
-            var supports = logicalDevice.physicalDevice().supportsTriangleFans();
+            var supports = logicalDevice.physicalDevice().supportsFeature(DeviceFeature.TRIANGLE_FAN_TOPOLOGY);
             if (!supports) {
                 logger.warning(
                         "Triangle fans topology isn't supported with device " + logicalDevice.physicalDevice() + "!");

@@ -15,10 +15,11 @@ import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.backend.GlfwBasedGraphicsBackend;
+import fr.sethlans.core.render.device.DeviceLimit;
+import fr.sethlans.core.render.device.GpuDevice;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.FormatFeature;
 import fr.sethlans.core.render.vk.image.ImageUsage;
-import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.image.VulkanImage.Tiling;
 import fr.sethlans.core.render.vk.pipeline.PipelineCache;
 import fr.sethlans.core.render.vk.swapchain.AttachmentDescriptor;
@@ -29,6 +30,7 @@ import fr.sethlans.core.render.vk.swapchain.SubpassDependency;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.render.vk.util.VkFlag;
+import fr.sethlans.core.render.vk.util.VulkanFormat;
 
 public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
@@ -134,7 +136,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
         var requestedSampleCount = config.getInteger(SethlansApplication.MSAA_SAMPLES_PROP,
                 SethlansApplication.DEFAULT_MSSA_SAMPLES);
-        var maxSampleCount = context.getPhysicalDevice().maxSamplesCount();
+        var maxSampleCount = context.getPhysicalDevice().getIntLimit(DeviceLimit.FRAMEBUFFER_COLOR_SAMPLES);
         var sampleCount = Math.min(requestedSampleCount, maxSampleCount);
         logger.info("Using " + sampleCount + " samples (requested= " + requestedSampleCount + ", max= " + maxSampleCount
                 + ").");
@@ -354,6 +356,11 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
 
     public VulkanContext getContext() {
         return context;
+    }
+    
+    @Override
+    public GpuDevice getGpuDevice() {
+        return context.getPhysicalDevice();
     }
 
     public int getCurrentFrameIndex() {

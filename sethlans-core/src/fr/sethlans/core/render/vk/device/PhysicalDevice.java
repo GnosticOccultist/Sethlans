@@ -1,6 +1,8 @@
 package fr.sethlans.core.render.vk.device;
 
 import java.nio.IntBuffer;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -21,6 +23,7 @@ import org.lwjgl.vulkan.KHRSwapchain;
 import org.lwjgl.vulkan.KHRSynchronization2;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VK11;
+import org.lwjgl.vulkan.VK12;
 import org.lwjgl.vulkan.VK13;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkDeviceCreateInfo;
@@ -30,14 +33,17 @@ import org.lwjgl.vulkan.VkExtensionProperties;
 import org.lwjgl.vulkan.VkFormatProperties;
 import org.lwjgl.vulkan.VkFormatProperties2;
 import org.lwjgl.vulkan.VkPhysicalDevice;
+import org.lwjgl.vulkan.VkPhysicalDeviceDriverProperties;
 import org.lwjgl.vulkan.VkPhysicalDeviceDynamicRenderingFeaturesKHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures;
 import org.lwjgl.vulkan.VkPhysicalDeviceFeatures2;
 import org.lwjgl.vulkan.VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT;
 import org.lwjgl.vulkan.VkPhysicalDeviceIndexTypeUint8FeaturesKHR;
+import org.lwjgl.vulkan.VkPhysicalDeviceLimits;
 import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties;
 import org.lwjgl.vulkan.VkPhysicalDevicePortabilitySubsetFeaturesKHR;
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
+import org.lwjgl.vulkan.VkPhysicalDeviceProperties2;
 import org.lwjgl.vulkan.VkPhysicalDeviceSynchronization2Features;
 import org.lwjgl.vulkan.VkPhysicalDeviceToolProperties;
 import org.lwjgl.vulkan.VkQueueFamilyProperties;
@@ -49,17 +55,22 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.app.kernel.OS;
 import fr.sethlans.core.natives.AbstractNativeResource;
 import fr.sethlans.core.natives.NativeResource;
+import fr.sethlans.core.render.device.DeviceFeature;
+import fr.sethlans.core.render.device.DeviceInfo;
+import fr.sethlans.core.render.device.DeviceLimit;
+import fr.sethlans.core.render.device.GpuDevice;
+import fr.sethlans.core.render.device.Vendor;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.context.VulkanGraphicsBackend;
 import fr.sethlans.core.render.vk.image.FormatFeature;
-import fr.sethlans.core.render.vk.image.VulkanFormat;
 import fr.sethlans.core.render.vk.image.VulkanImage.Tiling;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
+import fr.sethlans.core.render.vk.util.VulkanFormat;
 
-public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
+public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> implements GpuDevice {
 
     private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.device");
     
@@ -105,7 +116,7 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
         }
 
         // Discrete GPUs have a significant performance advantage over integrated GPUs.
-        if (pd.type() == VK10.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+        if (pd.info.type() == Type.DISCRETE_GPU) {
             score += 100f;
         }
 
@@ -135,7 +146,7 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
         }
 
         // Discrete GPUs have a significant performance advantage over integrated GPUs.
-        if (pd.type() == VK10.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+        if (pd.info.type() == Type.DISCRETE_GPU) {
             score += 100f;
         }
 
@@ -143,26 +154,12 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
     };
 
     private final VulkanContext context;
-
-    private String name;
-
-    private int type = -1;
-
-    private int maxSamplesCount = -1;
-
-    private float minSampleShading = 0f;
-
-    private long minUboAlignment = -1;
-
-    private int maxPushConstantsSize = -1;
     
-    private boolean depthClamp;
-
-    private boolean byteIndexSupported;
+    private final DeviceInfo info;
     
-    private boolean triangleFansSupported;
-
-    private float maxAnisotropy;
+    private final EnumSet<DeviceFeature> features = EnumSet.noneOf(DeviceFeature.class);
+    
+    private final EnumMap<DeviceLimit, Number> limits = new EnumMap<>(DeviceLimit.class);
     
     private Set<QueueFamily> queueFamilies;
 
@@ -180,9 +177,71 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
         this.context = context;
         var instance = context.getVulkanInstance();
         this.object = new VkPhysicalDevice(handle, instance.handle());
-        
+
+        this.info = createDeviceInfo();
+
         this.ref = NativeResource.get().register(this);
         instance.getNativeReference().addDependent(ref);
+    }
+    
+    private DeviceInfo createDeviceInfo() {
+        try (var stack = MemoryStack.stackPush()) {
+            var properties = VkPhysicalDeviceProperties.calloc(stack);
+            VK10.vkGetPhysicalDeviceProperties(object, properties);
+            
+            var vendor = Vendor.fromID(properties.vendorID());
+            if (vendor == Vendor.UNKNOWN) {
+                logger.warning("Unknown vendor for id " + properties.vendorID() + "!");
+            }
+            
+            var type = fromVkPhysicalDeviceType(properties.deviceType());
+            
+            String driverName = null;
+            String driverInfo = null;
+            if (context.getVulkanInstance().getApiVersion() >= VK12.VK_API_VERSION_1_2) {
+                var driverProps = VkPhysicalDeviceDriverProperties.calloc(stack)
+                        .sType(VK12.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES);
+                var properties2 = VkPhysicalDeviceProperties2.calloc(stack)
+                        .sType(VK12.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2)
+                        .pNext(driverProps.address());
+                VK12.vkGetPhysicalDeviceProperties2(object, properties2);
+
+                driverName = driverProps.driverNameString();
+                driverInfo = driverProps.driverInfoString();
+            }
+
+            gatherDeviceLimits(properties.limits());
+            
+            var info = new DeviceInfo(properties.deviceNameString(), vendor, type, driverName, driverInfo);
+            return info;
+        }
+    }
+    
+    private void gatherDeviceLimits(VkPhysicalDeviceLimits vkLimits) {
+        limits.put(DeviceLimit.MAX_PUSH_CONSTANT_SIZE, vkLimits.maxPushConstantsSize());
+        limits.put(DeviceLimit.MIN_UBO_ALIGNMENT, vkLimits.minUniformBufferOffsetAlignment());
+        limits.put(DeviceLimit.MAX_SAMPLER_ANISOTROPY, vkLimits.maxSamplerAnisotropy());
+
+        putSampleLimit(DeviceLimit.FRAMEBUFFER_COLOR_SAMPLES, vkLimits.framebufferColorSampleCounts());
+        putSampleLimit(DeviceLimit.FRAMEBUFFER_DEPTH_SAMPLES, vkLimits.framebufferDepthSampleCounts());
+        putSampleLimit(DeviceLimit.FRAMEBUFFER_STENCIL_SAMPLES, vkLimits.framebufferStencilSampleCounts());
+
+        putSampleLimit(DeviceLimit.SAMPLED_IMAGE_COLOR_SAMPLES, vkLimits.sampledImageColorSampleCounts());
+        putSampleLimit(DeviceLimit.SAMPLED_IMAGE_DEPTH_SAMPLES, vkLimits.sampledImageDepthSampleCounts());
+        putSampleLimit(DeviceLimit.SAMPLED_IMAGE_STENCIL_SAMPLES, vkLimits.sampledImageStencilSampleCounts());
+    }
+    
+    public static Type fromVkPhysicalDeviceType(int vkPhysicalDeviceType) {
+        Type type = switch (vkPhysicalDeviceType) {
+        case VK10.VK_PHYSICAL_DEVICE_TYPE_OTHER -> Type.OTHER;
+        case VK10.VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU -> Type.INTEGRATED_GPU;
+        case VK10.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU -> Type.DISCRETE_GPU;
+        case VK10.VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU -> Type.VIRTUAL_GPU;
+        case VK10.VK_PHYSICAL_DEVICE_TYPE_CPU -> Type.CPU;
+        default -> throw new IllegalArgumentException("Unexpected device type " + vkPhysicalDeviceType + "!");
+        };
+
+        return type;
     }
 
     private boolean hasAdequateSwapChainSupport(long surfaceHandle) {
@@ -209,44 +268,43 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
                     .sType(VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
 
             // Set up required features.
-            var features = VkPhysicalDeviceFeatures.calloc(stack);
+            var vkFeatures = VkPhysicalDeviceFeatures.calloc(stack);
             // Request features for the physical device.
-            VK11.vkGetPhysicalDeviceFeatures(object, features);
+            VK11.vkGetPhysicalDeviceFeatures(object, vkFeatures);
 
             var sampleShading = config.getFloat(SethlansApplication.MIN_SAMPLE_SHADING_PROP,
                     SethlansApplication.DEFAULT_MIN_SAMPLE_SHADING);
             var enableSampleShading = sampleShading > 0f;
-            if (enableSampleShading && !features.sampleRateShading()) {
+            if (enableSampleShading && !vkFeatures.sampleRateShading()) {
                 logger.warning(
                         "Requested Sample Shading, but physical device " + this + " doesn't support this feature.");
-                this.minSampleShading = 0.0f;
             } else {
-                features.sampleRateShading(enableSampleShading);
-                this.minSampleShading = Math.min(minSampleShading, 1.0f);
+                vkFeatures.sampleRateShading(enableSampleShading);
+                features.add(DeviceFeature.SAMPLE_RATE_SHADING);
                 
-                logger.info("Sample shading supported by " + this + ", minSampleShading= " + minSampleShading + ".");
+                logger.info("Sample shading supported by " + this + ", minSampleShading= " + sampleShading + ".");
             }
             
-            if (!features.samplerAnisotropy()) {
+            if (!vkFeatures.samplerAnisotropy()) {
                 logger.warning(
                         "Physical device " + this + " doesn't support anisotropic filtering for texture sampling.");
-                this.maxAnisotropy = 0;
+                limits.put(DeviceLimit.MAX_SAMPLER_ANISOTROPY, 0f);
             } else {
-                features.samplerAnisotropy(true);
-                logger.info("Anisotropic filtering supported by " + this + ", maxAnisotropy= " + maxAnisotropy + ".");
+                vkFeatures.samplerAnisotropy(true);
+                features.add(DeviceFeature.SAMPLER_ANISOTROPY);
+                logger.info("Anisotropic filtering supported by " + this + ", maxAnisotropy= " + getFloatLimit(DeviceLimit.MAX_SAMPLER_ANISOTROPY) + ".");
             }
             
-            if (!features.depthClamp()) {
+            if (!vkFeatures.depthClamp()) {
                 logger.warning(
                         "Physical device " + this + " doesn't support depth clamping.");
-                this.depthClamp = false;
             } else {
-                features.depthClamp(true);
-                this.depthClamp = true;
+                vkFeatures.depthClamp(true);
+                features.add(DeviceFeature.DEPTH_CLAMP);
                 logger.info("Depth clamping supported by " + this + ".");
             }
 
-            createInfo.pEnabledFeatures(features);
+            createInfo.pEnabledFeatures(vkFeatures);
             
             var uint8Features = VkPhysicalDeviceIndexTypeUint8FeaturesKHR.calloc(stack)
                     .sType(KHRIndexTypeUint8.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_KHR);
@@ -275,7 +333,7 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
             VK11.vkGetPhysicalDeviceFeatures2(object, features2);
             if (uint8Features.indexTypeUint8()) {
                 uint8Features.indexTypeUint8(true);
-                this.byteIndexSupported = true;
+                features.add(DeviceFeature.INDEX_TYPE_UINT8);
                 logger.info("Index u8int type supported by " + this + ".");
 
                 // Request uint8 indices support.
@@ -284,7 +342,7 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
 
             if (portabilityFeatures.triangleFans()) {
                 portabilityFeatures.triangleFans(true);
-                this.triangleFansSupported = true;
+                features.add(DeviceFeature.TRIANGLE_FAN_TOPOLOGY);
                 logger.info("Triangle fans supported by " + this + ".");
 
                 // Request triangle fans support.
@@ -361,7 +419,7 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
                 }
             }
 
-            if (supportsByteIndex()) {
+            if (supportsFeature(DeviceFeature.INDEX_TYPE_UINT8)) {
                 requiredExtensions = VkUtil.appendStringPointer(requiredExtensions,
                         EXTIndexTypeUint8.VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME, stack);
             }
@@ -466,35 +524,22 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
             availableToolProperties.add(toolName);
         }
     }
-
-    private void gatherDeviceProperties(MemoryStack stack) {
-        var properties = VkPhysicalDeviceProperties.calloc(stack);
-        VK10.vkGetPhysicalDeviceProperties(object, properties);
-
-        this.name = properties.deviceNameString();
-        this.maxPushConstantsSize = properties.limits().maxPushConstantsSize();
-        this.minUboAlignment = properties.limits().minUniformBufferOffsetAlignment();
-        this.maxAnisotropy = properties.limits().maxSamplerAnisotropy();
-
-        this.type = properties.deviceType();
-
-        var limits = properties.limits();
-        var bitmask = limits.framebufferColorSampleCounts() & limits.framebufferDepthSampleCounts();
-
+    
+    private void putSampleLimit(DeviceLimit limit, int bitmask) {
         if ((bitmask & VK10.VK_SAMPLE_COUNT_64_BIT) != 0x0) {
-            this.maxSamplesCount = 64;
+            this.limits.put(limit, 64);
         } else if ((bitmask & VK10.VK_SAMPLE_COUNT_32_BIT) != 0x0) {
-            this.maxSamplesCount = 32;
+            this.limits.put(limit, 32);
         } else if ((bitmask & VK10.VK_SAMPLE_COUNT_16_BIT) != 0x0) {
-            this.maxSamplesCount = 16;
+            this.limits.put(limit, 16);
         } else if ((bitmask & VK10.VK_SAMPLE_COUNT_8_BIT) != 0x0) {
-            this.maxSamplesCount = 8;
+            this.limits.put(limit, 8);
         } else if ((bitmask & VK10.VK_SAMPLE_COUNT_4_BIT) != 0x0) {
-            this.maxSamplesCount = 4;
+            this.limits.put(limit, 4);
         } else if ((bitmask & VK10.VK_SAMPLE_COUNT_2_BIT) != 0x0) {
-            this.maxSamplesCount = 2;
+            this.limits.put(limit, 2);
         } else {
-            this.maxSamplesCount = 1;
+            this.limits.put(limit, 1);
         }
     }
 
@@ -656,66 +701,6 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
         }
     }
 
-    public int maxSamplesCount() {
-        if (maxSamplesCount <= 0) {
-            try (var stack = MemoryStack.stackPush()) {
-                gatherDeviceProperties(stack);
-            }
-        }
-
-        assert maxSamplesCount > 1 : maxSamplesCount;
-        assert maxSamplesCount <= 64 : maxSamplesCount;
-
-        return maxSamplesCount;
-    }
-
-    public float minSampleShading() {
-        assert minSampleShading >= 0f : minSampleShading;
-        assert minSampleShading <= 1f : minSampleShading;
-
-        return minSampleShading;
-    }
-    
-    public int maxPushConstantsSize() {
-        if (maxPushConstantsSize <= 0) {
-            try (var stack = MemoryStack.stackPush()) {
-                gatherDeviceProperties(stack);
-            }
-        }
-
-        return maxPushConstantsSize;
-    }
-
-    public long minUboAlignment() {
-        if (minUboAlignment <= 0) {
-            try (var stack = MemoryStack.stackPush()) {
-                gatherDeviceProperties(stack);
-            }
-        }
-
-        return minUboAlignment;
-    }
-
-    public boolean supportsDepthClamp() {
-        return depthClamp;
-    }
-
-    public boolean supportsByteIndex() {
-        return byteIndexSupported;
-    }
-
-    public float maxAnisotropy() {
-        return maxAnisotropy;
-    }
-
-    public boolean supportsAnisotropicFiltering() {
-        return maxAnisotropy > 0.0f;
-    }
-
-    public boolean supportsTriangleFans() {
-        return triangleFansSupported;
-    }
-
     public boolean supportsDynamicRendering() {
         return dynamicRenderingSupported;
     }
@@ -747,25 +732,20 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
         
         return queueFamilies;
     }
-
-    public int type() {
-        if (type == -1) {
-            try (var stack = MemoryStack.stackPush()) {
-                gatherDeviceProperties(stack);
-            }
-        }
-
-        return type;
+    
+    @Override
+    public Number getLimit(DeviceLimit limit) {
+        return limits.get(limit);
     }
-
-    public String name() {
-        if (name == null) {
-            try (var stack = MemoryStack.stackPush()) {
-                gatherDeviceProperties(stack);
-            }
-        }
-
-        return name;
+    
+    @Override
+    public boolean supportsFeature(DeviceFeature feature) {
+        return features.contains(feature);
+    }
+    
+    @Override
+    public DeviceInfo getDeviceInfo() {
+        return info;
     }
 
     public VulkanContext getContext() {
@@ -785,6 +765,6 @@ public class PhysicalDevice extends AbstractNativeResource<VkPhysicalDevice> {
 
     @Override
     public String toString() {
-        return "'" + name() + "'";
+        return "'" + info.name() + "'";
     }
 }

@@ -6,6 +6,8 @@ import org.lwjgl.vulkan.VkSamplerCreateInfo;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.natives.NativeResource;
+import fr.sethlans.core.render.device.DeviceFeature;
+import fr.sethlans.core.render.device.DeviceLimit;
 import fr.sethlans.core.render.vk.device.AbstractDeviceResource;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
@@ -16,7 +18,7 @@ class TextureSampler extends AbstractDeviceResource {
         
         try (var stack = MemoryStack.stackPush()) {
             var physicalDevice = getLogicalDevice().physicalDevice();
-            var useAnisotropicFilter = anisotropic && physicalDevice.supportsAnisotropicFiltering();
+            var useAnisotropicFilter = anisotropic && physicalDevice.supportsFeature(DeviceFeature.SAMPLER_ANISOTROPY);
             
             var createInfo = VkSamplerCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO)
@@ -34,7 +36,7 @@ class TextureSampler extends AbstractDeviceResource {
                     .maxLod(mipLevels)
                     .mipLodBias(0.0f)
                     .anisotropyEnable(useAnisotropicFilter)
-                    .maxAnisotropy(physicalDevice.maxAnisotropy());
+                    .maxAnisotropy(physicalDevice.getFloatLimit(DeviceLimit.MAX_SAMPLER_ANISOTROPY));
 
             var vkDevice = logicalDeviceHandle();
             var pHandle = stack.mallocLong(1);
