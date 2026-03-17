@@ -10,13 +10,13 @@ public class ColorBlendModeAttachment {
 
     private BlendFactor srcColorBlendFactor = BlendFactor.ONE;
 
-    private BlendFactor dstColorBlendFactor = BlendFactor.ONE;
+    private BlendFactor dstColorBlendFactor = BlendFactor.ZERO;
 
     private BlendOp colorBlendOp = BlendOp.ADD;
 
     private BlendFactor srcAlphaBlendFactor = BlendFactor.ONE;
 
-    private BlendFactor dstAlphaBlendFactor = BlendFactor.ONE;
+    private BlendFactor dstAlphaBlendFactor = BlendFactor.ZERO;
 
     private BlendOp alphaBlendOp = BlendOp.ADD;
 

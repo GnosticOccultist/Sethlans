@@ -2,6 +2,8 @@ package fr.sethlans.core.render.vk.util;
 
 import org.lwjgl.vulkan.VK10;
 
+import fr.sethlans.core.render.state.blend.BlendFactor;
+import fr.sethlans.core.render.state.blend.BlendOp;
 import fr.sethlans.core.render.state.blend.LogicOp;
 import fr.sethlans.core.render.state.depth.CompareOp;
 import fr.sethlans.core.render.state.depth.StencilOp;
@@ -98,5 +100,46 @@ public final class VkRenderState {
         };
 
         return vkLogicOp;
+    }
+    
+    public static int getVkBlendOp(BlendOp blendOp) {
+        var vkBlendOp = switch (blendOp) {
+        case ADD -> VK10.VK_BLEND_OP_ADD;
+        case SUBTRACT -> VK10.VK_BLEND_OP_SUBTRACT;
+        case MIN -> VK10.VK_BLEND_OP_MIN;
+        case MAX -> VK10.VK_BLEND_OP_MAX;
+        case REVERSE_SUBTRACT -> VK10.VK_BLEND_OP_REVERSE_SUBTRACT;
+        default -> throw new IllegalArgumentException("Unexpected value " + blendOp + "!");
+        };
+
+        return vkBlendOp;
+    }
+    
+    public static int getVkBlendFactor(BlendFactor blendFactor) {
+        var vkBlendFactor = switch (blendFactor) {
+        case ZERO -> VK10.VK_BLEND_FACTOR_ZERO;
+        case ONE -> VK10.VK_BLEND_FACTOR_ONE;
+        case SRC_COLOR -> VK10.VK_BLEND_FACTOR_SRC_COLOR;
+        case ONE_MINUS_SRC_COLOR -> VK10.VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+        case DST_COLOR -> VK10.VK_BLEND_FACTOR_DST_COLOR;
+        case ONE_MINUS_DST_COLOR -> VK10.VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+        case SRC_ALPHA -> VK10.VK_BLEND_FACTOR_SRC_ALPHA;
+        case ONE_MINUS_SRC_ALPHA -> VK10.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        case DST_ALPHA -> VK10.VK_BLEND_FACTOR_DST_ALPHA;
+        case ONE_MINUS_DST_ALPHA -> VK10.VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+        case CONSTANT_COLOR -> VK10.VK_BLEND_FACTOR_CONSTANT_COLOR;
+        case ONE_MINUS_CONSTANT_COLOR -> VK10.VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
+        case CONSTANT_ALPHA -> VK10.VK_BLEND_FACTOR_CONSTANT_ALPHA;
+        case ONE_MINUS_CONSTANT_ALPHA -> VK10.VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA;
+        case SRC_ALPHA_SATURATE -> VK10.VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
+        case SRC1_COLOR -> VK10.VK_BLEND_FACTOR_SRC1_COLOR;
+        case ONE_MINUS_SRC1_COLOR -> VK10.VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
+        case SRC1_ALPHA -> VK10.VK_BLEND_FACTOR_SRC1_ALPHA;
+        case ONE_MINUS_SRC1_ALPHA -> VK10.VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
+        
+        default -> throw new IllegalArgumentException("Unexpected value " + blendFactor + "!");
+        };
+
+        return vkBlendFactor;
     }
 }

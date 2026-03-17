@@ -1,8 +1,10 @@
 package fr.sethlans.core.render.vk.pipeline;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -28,6 +30,7 @@ import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.natives.cache.Cache;
 import fr.sethlans.core.natives.cache.CacheableNativeBuilder;
 import fr.sethlans.core.render.state.RenderState;
+import fr.sethlans.core.render.state.blend.ColorBlendState;
 import fr.sethlans.core.render.state.depth.DepthStencilState;
 import fr.sethlans.core.render.state.multisample.MultisampleState;
 import fr.sethlans.core.render.state.raster.RasterizationState;
@@ -60,13 +63,21 @@ public class GraphicsPipeline extends AbstractPipeline {
     private boolean primitiveRestart = false;
 
     private RasterizationState rasterizationState = RasterizationState.DEFAULT.copy();
-    
+
     private MultisampleState multisampleState = MultisampleState.DEFAULT.copy();
-    
+
     private DepthStencilState depthStencilState = DepthStencilState.DEFAULT.copy();
 
-    private EnumSet<DynamicState> dynamicStates = EnumSet.noneOf(DynamicState.class);
+    private boolean logicOpEnable = false;
 
+    private int logicOp = VK10.VK_LOGIC_OP_COPY;
+    
+    private float[] blendConstants = new float[4];
+
+    private final List<PipelineColorBlendAttachment> colorBlendAttachments = new ArrayList<>();
+
+    private final EnumSet<DynamicState> dynamicStates = EnumSet.noneOf(DynamicState.class);
+    
     protected GraphicsPipeline(LogicalDevice logicalDevice, PipelineLayout layout) {
         super(logicalDevice, BindPoint.GRAPHICS, layout);
     }
@@ -78,12 +89,14 @@ public class GraphicsPipeline extends AbstractPipeline {
     public boolean isDynamic(DynamicState state) {
         return dynamicStates.contains(state);
     }
-
+    
     @Override
     public int hashCode() {
-        int result = Objects.hash(colorAttachmentFormat, createFlags,
-                depthAttachmentFormat, dynamicStates, parent, pipelineCache, primitiveRestart,
-                rasterizationState, multisampleState, depthStencilState, renderPass, shaders, topology);
+        var result = Objects.hash(createFlags, colorAttachmentFormat, depthAttachmentFormat, 
+                dynamicStates, parent, pipelineCache, primitiveRestart, rasterizationState, 
+                multisampleState, depthStencilState, renderPass, shaders, topology,
+                blendConstants, colorAttachmentFormat);
+        result = !logicOpEnable ? result : Objects.hash(result, logicOp);
         return result;
     }
 
@@ -104,6 +117,10 @@ public class GraphicsPipeline extends AbstractPipeline {
                 && Objects.equals(dynamicStates, other.dynamicStates)
                 && Objects.equals(parent, other.parent) && Objects.equals(pipelineCache, other.pipelineCache)
                 && primitiveRestart == other.primitiveRestart
+                && logicOpEnable == other.logicOpEnable 
+                && (!logicOpEnable || logicOp == other.logicOp)
+                && Arrays.equals(blendConstants, other.blendConstants)
+                && Objects.equals(colorBlendAttachments, other.colorBlendAttachments)
                 && Objects.equals(rasterizationState, other.rasterizationState)
                 && Objects.equals(multisampleState, other.multisampleState)
                 && Objects.equals(depthStencilState, other.depthStencilState)
@@ -356,18 +373,30 @@ public class GraphicsPipeline extends AbstractPipeline {
             applyRasterizationState(state.getRasterizationState());
             applyMultisampleState(state.getMultisampleState());
             applyDepthStencilState(state.getDepthStencilState());
+            applyColorBlendState(state.getColorBlendState());
         }
-        
+
         public void applyRasterizationState(RasterizationState rasterizationState) {
             GraphicsPipeline.this.rasterizationState.set(rasterizationState);
         }
-        
+
         public void applyMultisampleState(MultisampleState multisampleState) {
             GraphicsPipeline.this.multisampleState.set(multisampleState);
         }
-        
+
         public void applyDepthStencilState(DepthStencilState depthStencilState) {
             GraphicsPipeline.this.depthStencilState.set(depthStencilState);
+        }
+
+        public void applyColorBlendState(ColorBlendState colorBlendState) {
+            GraphicsPipeline.this.logicOpEnable = colorBlendState.isLogicOpEnable();
+            GraphicsPipeline.this.logicOp = VkRenderState.getVkLogicOp(colorBlendState.getLogicOp());
+            GraphicsPipeline.this.blendConstants = Arrays.copyOf(colorBlendState.getBlendConstants(), blendConstants.length);
+            
+            GraphicsPipeline.this.colorBlendAttachments.clear();
+            for (var attachment : colorBlendState.getBlendAttachments()) {
+                GraphicsPipeline.this.colorBlendAttachments.add(new PipelineColorBlendAttachment(attachment));
+            }
         }
 
         public void setRenderPass(RenderPass renderPass) {
