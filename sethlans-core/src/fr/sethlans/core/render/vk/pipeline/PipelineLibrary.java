@@ -4,6 +4,7 @@ import fr.sethlans.core.material.MaterialLayout;
 import fr.sethlans.core.material.MaterialPass;
 import fr.sethlans.core.material.layout.BindingType;
 import fr.sethlans.core.natives.cache.Cache;
+import fr.sethlans.core.render.state.raster.CullMode;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.descriptor.DescriptorType;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
@@ -56,6 +57,12 @@ public class PipelineLibrary {
 
         var pipelineLayout = getOrCreate(device, materialPass.getLayout());
 
+        // TODO: enforce render state.
+        materialPass.getRenderState().getMultisampleState().setSampleCount(swapChain.sampleCount());
+        materialPass.getRenderState().getDepthStencilState().setDepthTest(true);
+        materialPass.getRenderState().getDepthStencilState().setDepthWrite(true);
+        materialPass.getRenderState().getRasterizationState().setCullMode(CullMode.BACK);
+        
         var pipeline = GraphicsPipeline.build(device, pipelineLayout, b -> {
             b.apply(materialPass, shaderCache);
             b.setRenderPass(renderPass);

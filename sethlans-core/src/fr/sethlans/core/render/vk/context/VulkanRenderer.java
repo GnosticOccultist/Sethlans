@@ -95,6 +95,8 @@ public class VulkanRenderer {
     public void beginRender(VulkanFrame frame) {
         this.currentFrame = frame;
         frame.setCommand(drawCommands[frame.imageIndex()]);
+        
+        builtinDescriptorManager.update(context.getBackend().getCurrentFrameIndex());
 
         if (useDynamicRendering) {
             var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
@@ -200,6 +202,8 @@ public class VulkanRenderer {
             vkMesh.uploadData(mesh, stagingRing);
             mesh.clean();
         }
+        
+        stagingRing.upload();
 
 //        var texture = geometry.getTexture();
 //        if (texture != null) {
@@ -226,8 +230,6 @@ public class VulkanRenderer {
 //                samplerDescriptorSet.updateTextureDescriptorSet(vkTexture, 0);
 //            }
 //        }
-        
-        stagingRing.upload();
 
         var pushConstants = layout.getPushConstants();
         for (var pushConstant : pushConstants) {

@@ -30,17 +30,17 @@ public class BufferPartition<T extends NativeBuffer> implements NativeBuffer {
         buffer.push(size().getOffset() + offset, size);
     }
 
-    @Override
-    public void unmap() {
-        buffer.unmap();
-    }
-
     public T getParentBuffer() {
         return buffer;
     }
 
     public long getOffset() {
         return size.getOffset();
+    }
+    
+    @Override
+    public long address() {
+        return buffer.address();
     }
 
     @Override

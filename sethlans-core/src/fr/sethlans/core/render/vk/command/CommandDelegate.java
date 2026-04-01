@@ -10,6 +10,8 @@ import org.lwjgl.vulkan.VkBufferCopy;
 import org.lwjgl.vulkan.VkBufferCopy2;
 import org.lwjgl.vulkan.VkBufferImageCopy;
 import org.lwjgl.vulkan.VkBufferImageCopy2;
+import org.lwjgl.vulkan.VkBufferMemoryBarrier;
+import org.lwjgl.vulkan.VkBufferMemoryBarrier2;
 import org.lwjgl.vulkan.VkCommandBufferSubmitInfo;
 import org.lwjgl.vulkan.VkCopyBufferInfo2;
 import org.lwjgl.vulkan.VkCopyBufferToImageInfo2;
@@ -45,6 +47,25 @@ import fr.sethlans.core.render.vk.util.VkFlag;
 public interface CommandDelegate {
     
     CommandDelegate COMMAND = new CommandDelegate() {
+        
+        @Override
+        public CommandBuffer addBarrier(CommandBuffer command, VulkanBuffer buffer, VkFlag<Access> srcAccess,
+                VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage) {
+            try (var stack = MemoryStack.stackPush()) {
+                var pBarrier = VkBufferMemoryBarrier.calloc(1, stack)
+                        .sType(VK10.VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER)
+                        .srcQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
+                        .dstQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
+                        .buffer(buffer.handle())
+                        .offset(0)
+                        .size(VK10.VK_WHOLE_SIZE)
+                        .srcAccessMask(srcAccess.bits())
+                        .dstAccessMask(dstAccess.bits());
+
+                VK10.vkCmdPipelineBarrier(command.getNativeObject(), srcStage.bits(), dstStage.bits(), 0x0, null, pBarrier, null);
+            }
+            return command;
+        }
 
         @Override
         public CommandBuffer addBarrier(CommandBuffer command, VulkanImage image, Layout srcLayout, Layout dstLayout,
@@ -261,6 +282,31 @@ public interface CommandDelegate {
     };
     
     CommandDelegate COMMAND_2 = new CommandDelegate() {
+        
+        @Override
+        public CommandBuffer addBarrier(CommandBuffer command, VulkanBuffer buffer, VkFlag<Access> srcAccess,
+                VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage) {
+            try (var stack = MemoryStack.stackPush()) {
+                var pBarrier = VkBufferMemoryBarrier2.calloc(1, stack)
+                        .sType(VK13.VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2)
+                        .srcQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
+                        .dstQueueFamilyIndex(VK10.VK_QUEUE_FAMILY_IGNORED)
+                        .buffer(buffer.handle())
+                        .offset(0)
+                        .size(VK10.VK_WHOLE_SIZE)
+                        .srcAccessMask(srcAccess.bits())
+                        .srcStageMask(srcStage.bits())
+                        .dstAccessMask(dstAccess.bits())
+                        .dstStageMask(dstStage.bits());
+                
+                var pDependencyInfo = VkDependencyInfo.calloc(stack)
+                        .sType(VK13.VK_STRUCTURE_TYPE_DEPENDENCY_INFO)
+                        .pBufferMemoryBarriers(pBarrier);
+
+                VK13.vkCmdPipelineBarrier2(command.getNativeObject(), pDependencyInfo);
+                return command;
+            }
+        }
 
         @Override
         public CommandBuffer addBarrier(CommandBuffer command, VulkanImage image, Layout srcLayout, Layout dstLayout,
@@ -540,29 +586,33 @@ public interface CommandDelegate {
             return command;
         }
     };
-
-    CommandBuffer addBarrier(CommandBuffer command, VulkanImage image, Layout srcLayout, Layout dstLayout, VkFlag<Access> srcAccess,
-            VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage, int baseMipLevel,
-            int levelCount);
-
-    CommandBuffer addBlit(CommandBuffer command, VulkanImage srcImage, Layout srcLayout, int srcWidth,
-            int srcHeight, Consumer<VkImageSubresourceLayers> srcSubresource, VulkanImage dstImage,
-            Layout dstLayout, int dstWidth, int dstHeight, Consumer<VkImageSubresourceLayers> dstSubresource,
-            Filter filter);
     
+    CommandBuffer addBarrier(CommandBuffer command, VulkanBuffer buffer, VkFlag<Access> srcAccess,
+            VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage);
+
+    CommandBuffer addBarrier(CommandBuffer command, VulkanImage image, Layout srcLayout, Layout dstLayout,
+            VkFlag<Access> srcAccess, VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage,
+            VkFlag<PipelineStage> dstStage, int baseMipLevel, int levelCount);
+
+    CommandBuffer addBlit(CommandBuffer command, VulkanImage srcImage, Layout srcLayout, int srcWidth, int srcHeight,
+            Consumer<VkImageSubresourceLayers> srcSubresource, VulkanImage dstImage, Layout dstLayout, int dstWidth,
+            int dstHeight, Consumer<VkImageSubresourceLayers> dstSubresource, Filter filter);
+
     CommandBuffer addResolve(CommandBuffer command, VulkanImage srcImage, Layout srcLayout,
             Consumer<VkImageSubresourceLayers> srcSubresource, VulkanImage dstImage, Layout dstLayout,
             Consumer<VkImageSubresourceLayers> dstSubresource);
-    
-    CommandBuffer copyBuffer(CommandBuffer command, VulkanBuffer source, int srcOffset, VulkanBuffer destination, int dstOffset, int size);
-    
+
+    CommandBuffer copyBuffer(CommandBuffer command, VulkanBuffer source, int srcOffset, VulkanBuffer destination,
+            int dstOffset, int size);
+
     CommandBuffer copyBuffer(CommandBuffer command, VulkanBuffer source, VulkanImage destination, Layout destLayout);
-    
+
     CommandBuffer copyImage(CommandBuffer command, VulkanImage source, Layout srcLayout, VulkanBuffer destination);
-    
-    CommandBuffer copyImage(CommandBuffer command, VulkanImage source, Layout srcLayout, VulkanImage destination, Layout destLayout);
+
+    CommandBuffer copyImage(CommandBuffer command, VulkanImage source, Layout srcLayout, VulkanImage destination,
+            Layout destLayout);
 
     CommandBuffer submitFrame(CommandBuffer command, VulkanFrame frame);
-    
+
     CommandBuffer submit(CommandBuffer command, Fence fence);
 }

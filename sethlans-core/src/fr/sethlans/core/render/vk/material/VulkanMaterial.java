@@ -96,9 +96,8 @@ public class VulkanMaterial {
                     var bindingLayout = getBindingLayout(binding.getKey());
                     if (bindingLayout.builtin()) {
                         desc = builtinDescriptorManager.getOrCreate(bindingLayout, layout);
-                        var buff = builtinDescriptorManager.getOrCreate(logicalDevice, bindingLayout.name());
+                        var buff = builtinDescriptorManager.getOrCreate(logicalDevice, bindingLayout.name(), command);
                         desc.write(Arrays.asList(buff.createWriter(binding.getValue())), imageIndex);
-                        
 
                     } else {
                         desc = set.getSet();

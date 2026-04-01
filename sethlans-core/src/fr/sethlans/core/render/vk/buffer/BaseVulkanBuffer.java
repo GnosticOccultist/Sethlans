@@ -74,17 +74,17 @@ public class BaseVulkanBuffer extends AbstractDeviceResource implements VulkanBu
 
     @Override
     public BufferMapping map(long offset, long size) {
-        return new SourceBufferMapping(this, memory.map(size().getOffset() + offset, size), size);
+        return new SourceBufferMapping(this, memory.map(size().getOffset() + offset, size), size, () -> memory.unmap());
     }
     
     @Override
     public void push(long offset, long size) {
         
     }
-
+    
     @Override
-    public void unmap() {
-        memory.unmap();
+    public long address() {
+        return 0;
     }
 
     @Override

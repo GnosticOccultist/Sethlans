@@ -18,11 +18,6 @@ public class DeviceLocalBuffer extends BaseVulkanBuffer {
     }
 
     @Override
-    public void unmap() {
-        throw new UnsupportedOperationException("Device local buffer cannot be mapped!");
-    }
-
-    @Override
     public void push(long offset, long size) {
     }
 }

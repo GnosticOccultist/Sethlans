@@ -21,12 +21,12 @@ public final class StructLayoutGenerator {
 
             offset = align(offset, alignment);
 
-            fields.add(new StructField(component.getName(), offset, size, alignment, type));
+            fields.add(new SimpleStructField(component.getName(), offset, size, alignment, type));
         }
 
         var structAlignment = formatter.getStructAlignment();
         var structSize = align(offset, structAlignment);
-        var layout = new StructLayout(structSize, fields);
+        var layout = new StructLayout(struct.getSimpleName(), 0, structSize, fields);
 
         return layout;
     }
@@ -34,14 +34,23 @@ public final class StructLayoutGenerator {
     static int align(int offset, int alignment) {
         return (offset + alignment - 1) & ~(alignment - 1);
     }
-
-    public record StructField(String name, int offset, int size, int alignment, Class<?> type) {
+    
+    public interface StructField {
+        
+        String name();
+        
+        int offset();
+        
+        int size();
     }
 
-    public record StructLayout(int size, List<StructField> fields) {
+    public record SimpleStructField(String name, int offset, int size, int alignment, Class<?> type) implements StructField {
+    }
+
+    public record StructLayout(String name, int offset, int size, List<StructField> fields) implements StructField {
 
         public StructField getField(String name) {
-            return fields.stream().filter(field -> field.name.equals(name)).findFirst().orElseThrow();
+            return fields.stream().filter(field -> field.name().equals(name)).findFirst().orElseThrow();
         }
     }
 }

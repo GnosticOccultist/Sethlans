@@ -1,29 +1,18 @@
 package fr.sethlans.core.render.buffer;
 
 import java.nio.ByteBuffer;
-import java.nio.DoubleBuffer;
-import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
-import java.nio.LongBuffer;
-import java.nio.ShortBuffer;
-
-import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryUtil;
 
 import fr.sethlans.core.natives.AbstractNativeResource;
 import fr.sethlans.core.natives.NativeResource;
 
-public class MallocBuffer extends AbstractNativeResource<Long> implements NativeBuffer, BufferMapping {
+public class MallocBuffer extends AbstractNativeResource<Long> implements NativeBuffer {
 
     private MemorySize size;
-
-    private final PointerBuffer pAddress = MemoryUtil.memCallocPointer(1);
 
     private ByteBuffer buffer;
 
     private long baseAddress = MemoryUtil.NULL;
-
-    private long lastMappedOffset = -1;
 
     public MallocBuffer(MemorySize size) {
         this.size = size;
@@ -44,16 +33,9 @@ public class MallocBuffer extends AbstractNativeResource<Long> implements Native
                     "Mapping out of bounds [" + offset + ", " + size + "], " + size().getBytes() + "!");
         }
 
-        if (offset != lastMappedOffset) {
-            if (offset == 0) {
-                pAddress.put(0, baseAddress);
-            } else {
-                pAddress.put(0, MemoryUtil.memAddress(buffer, (int) offset));
-            }
-            lastMappedOffset = offset;
-        }
-
-        return this;
+        var mapping = offset == 0 ? new VirtualBufferMapping(buffer.duplicate())
+                : new VirtualBufferMapping(buffer.position((int) offset).limit((int) (offset + size)).slice());
+        return mapping;
     }
 
     @Override
@@ -62,48 +44,8 @@ public class MallocBuffer extends AbstractNativeResource<Long> implements Native
     }
 
     @Override
-    public void unmap() {
-
-    }
-
-    @Override
-    public ByteBuffer getBytes() {
-        if (lastMappedOffset == 0) {
-            return buffer;
-        }
-
-        var buff = pAddress.getByteBuffer(0, (int) size.getBytes());
-        return buff;
-    }
-
-    @Override
-    public ShortBuffer getShorts() {
-        var buff = pAddress.getShortBuffer(0, (int) (size.getBytes() / Short.BYTES));
-        return buff;
-    }
-
-    @Override
-    public IntBuffer getInts() {
-        var buff = pAddress.getIntBuffer(0, (int) (size.getBytes() / Integer.BYTES));
-        return buff;
-    }
-
-    @Override
-    public FloatBuffer getFloats() {
-        var buff = pAddress.getFloatBuffer(0, (int) (size.getBytes() / Float.BYTES));
-        return buff;
-    }
-
-    @Override
-    public DoubleBuffer getDoubles() {
-        var buff = pAddress.getDoubleBuffer(0, (int) (size.getBytes() / Double.BYTES));
-        return buff;
-    }
-
-    @Override
-    public LongBuffer getLongs() {
-        var buff = pAddress.getLongBuffer(0, (int) (size.getBytes() / Long.BYTES));
-        return buff;
+    public long address() {
+        return baseAddress;
     }
 
     @Override
@@ -112,25 +54,9 @@ public class MallocBuffer extends AbstractNativeResource<Long> implements Native
     }
 
     @Override
-    public long getAddress() {
-        return pAddress.get(0);
-    }
-
-    @Override
-    public long getSize() {
-        return size.getBytes();
-    }
-
-    @Override
     public Runnable createDestroyAction() {
         return () -> {
             MemoryUtil.memFree(buffer);
-            MemoryUtil.memFree(pAddress);
         };
-    }
-
-    @Override
-    public void close() {
-
     }
 }

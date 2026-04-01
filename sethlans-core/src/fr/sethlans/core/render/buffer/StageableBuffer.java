@@ -24,14 +24,13 @@ public class StageableBuffer<T extends NativeBuffer> implements NativeBuffer {
     public void push(long offset, long size) {
         regions.add(offset, size);
     }
-
-    @Override
-    public void unmap() {
-        buffer.unmap();
-    }
     
     public DirtyRegions getDirtyRegions() {
         return regions;
+    }
+
+    public T getBuffer() {
+        return buffer;
     }
 
     public NativeBuffer getDestBuffer() {
@@ -40,6 +39,11 @@ public class StageableBuffer<T extends NativeBuffer> implements NativeBuffer {
 
     public void setDestBuffer(NativeBuffer destBuffer) {
         this.destBuffer = destBuffer;
+    }
+    
+    @Override
+    public long address() {
+        return buffer.address();
     }
 
     @Override

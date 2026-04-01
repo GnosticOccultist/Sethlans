@@ -52,7 +52,7 @@ public final class PersistentStagingRing {
                     if (r.end() > srcBytes.limit()) {
                         throw new IllegalStateException("Buffer region extends outside source buffer!");
                     }
-
+                    
                     // Copy source dirty region to allocated staging region.
                     MemoryUtil.memCopy(MemoryUtil.memAddress(srcBytes, (int) r.start()),
                             MemoryUtil.memAddress(partitionBytes, partitionOffset), r.size());
@@ -61,8 +61,9 @@ public final class PersistentStagingRing {
                     copy.srcOffset = (int) (partition.getOffset() + partitionOffset);
                     copy.dstOffset = (int) r.start();
                     copy.size = (int) r.size();
+                    
                     partitionOffset += r.size();
-                }
+                } 
 
                 buffer.getDirtyRegions().clear();
                 copyCommands.add(copy);

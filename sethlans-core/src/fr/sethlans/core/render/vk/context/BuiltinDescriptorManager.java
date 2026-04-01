@@ -8,18 +8,17 @@ import fr.sethlans.core.material.layout.BindingLayout;
 import fr.sethlans.core.render.Projection;
 import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.struct.GpuStruct;
-import fr.sethlans.core.render.struct.LayoutFormatter;
-import fr.sethlans.core.render.struct.StructLayoutGenerator;
-import fr.sethlans.core.render.struct.StructLayoutGenerator.StructLayout;
-import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
+import fr.sethlans.core.render.struct.GpuStructLayout;
+import fr.sethlans.core.render.struct.GpuStructLayout.LayoutType;
+import fr.sethlans.core.render.struct.foreign.ForeignStructLayoutGenerator;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.buffer.HostVisibleBuffer;
+import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.descriptor.AbstractDescriptorSet;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
-import fr.sethlans.core.render.vk.memory.MemoryProperty;
-import fr.sethlans.core.render.vk.uniform.BufferUniform;
+import fr.sethlans.core.render.vk.uniform.StructUniform;
 import fr.sethlans.core.render.vk.uniform.UpdateRate;
 
 public class BuiltinDescriptorManager {
@@ -36,7 +35,7 @@ public class BuiltinDescriptorManager {
 
     private final Map<BuiltinBinding, AbstractDescriptorSet> setCache = new HashMap<>();
 
-    private final Map<BuiltinBinding, BufferUniform> uniformCache = new HashMap<>();
+    private final Map<BuiltinBinding, StructUniform> uniformCache = new HashMap<>();
 
     private Projection projection;
 
@@ -48,19 +47,27 @@ public class BuiltinDescriptorManager {
         this.viewMatrix = new Matrix4f();
 
         builtinBindings.put("Global", new BuiltinBinding("Global", UpdateRate.STATIC,
-                StructLayoutGenerator.generate(Global.class, LayoutFormatter.STD140)));
+                ForeignStructLayoutGenerator.layoutOf(Global.class, LayoutType.STD140)));
         builtinBindings.put("Dynamic", new BuiltinBinding("Dynamic", UpdateRate.PER_FRAME,
-                StructLayoutGenerator.generate(Dynamic.class, LayoutFormatter.STD140)));
+                ForeignStructLayoutGenerator.layoutOf(Dynamic.class, LayoutType.STD140)));
+    }
+
+    void update(int currentFrame) {
+//        var uniform = get("Dynamic");
+//        if (uniform != null) {
+//            var buffer = uniform.map();
+//            buffer.set("view", currentFrame, viewMatrix);
+//        }
     }
 
     void resize(LogicalDevice logicalDevice, int width, int height) {
         projection.update(width, height);
 
-        var uniform = getOrCreate(logicalDevice, "Global");
-        try (var m = uniform.get().map()) {
-            var buffer = m.map(builtinBindings.get("Global").layout());
-            buffer.set("projection", projection.getMatrix());
-        }
+//        var uniform = get("Global");
+//        if (uniform != null) {
+//            var buffer = uniform.map();
+//            buffer.set("projection", projection.getMatrix());
+//        }
     }
 
     public AbstractDescriptorSet getOrCreate(BindingLayout bindingLayout, DescriptorSetLayout descLayout) {
@@ -85,39 +92,45 @@ public class BuiltinDescriptorManager {
         return descriptorSet;
     }
 
-    public BufferUniform getOrCreate(LogicalDevice logicalDevice, String builtinName) {
+    public StructUniform get(String builtinName) {
+        var builtin = builtinBindings.get(builtinName);
+        var bufferUniform = uniformCache.get(builtin);
+        return bufferUniform;
+    }
+
+    public StructUniform getOrCreate(LogicalDevice logicalDevice, String builtinName, CommandBuffer command) {
         var builtin = builtinBindings.get(builtinName);
         var bufferUniform = uniformCache.computeIfAbsent(builtin, k -> {
 
-            BufferUniform vkBuffUniform = null;
+            var vkBuffUniform = new StructUniform(builtin.layout());
             if (k.updateRate == UpdateRate.PER_FRAME) {
-                vkBuffUniform = new BufferUniform();
                 var globalUniform = new HostVisibleBuffer(logicalDevice,
                         MemorySize.floats(16 * VulkanGraphicsBackend.MAX_FRAMES_IN_FLIGHT), BufferUsage.UNIFORM);
                 vkBuffUniform.set(globalUniform);
-                try (var m = globalUniform.map()) {
-                    var buffer = m.map(builtin.layout());
-                    buffer.set("view", viewMatrix);
-                }
-
             } else {
-                vkBuffUniform = new BufferUniform();
-                var globalUniform = new BaseVulkanBuffer(logicalDevice, MemorySize.floats(16), BufferUsage.UNIFORM,
-                        MemoryProperty.HOST_VISIBLE);
+                var globalUniform = new HostVisibleBuffer(logicalDevice, MemorySize.floats(16), BufferUsage.UNIFORM);
                 vkBuffUniform.set(globalUniform);
-                try (var m = globalUniform.map()) {
-                    var buffer = m.map(builtin.layout());
-                    buffer.set("projection", projection.getMatrix());
-                }
             }
-
+            
+            computeInitialValue(vkBuffUniform, builtin);
             return vkBuffUniform;
         });
 
         return bufferUniform;
     }
 
-    public record BuiltinBinding(String name, UpdateRate updateRate, StructLayout layout) {
+    private void computeInitialValue(StructUniform uniform, BuiltinBinding builtin) {
+        if (builtin.name().equals("Global")) {
+            var buffer = uniform.map();
+            buffer.set("projection", projection.getMatrix());
+
+        } else if (builtin.name().equals("Dynamic")) {
+            var buffer = uniform.map();
+            buffer.set("view", 0, viewMatrix);
+        }
+    }
+
+    public record BuiltinBinding(String name, UpdateRate updateRate, GpuStructLayout layout) {
 
     }
 }

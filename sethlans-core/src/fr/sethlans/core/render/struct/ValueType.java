@@ -44,11 +44,16 @@ public enum ValueType {
     }
 
     public static ValueType typeOf(Class<?> type) {
-        for (var t : values()) {
-            if (t.isOfType(type)) {
-                return t;
+        var t = type;
+        if (type.isArray()) {
+            t = type.getComponentType();
+        }
+        
+        for (var v : values()) {
+            if (v.isOfType(t)) {
+                return v;
             }
         }
-        throw new IllegalArgumentException("Unexpected value type '" + type + "'!");
+        throw new IllegalArgumentException("Unexpected value type '" + t + "'!");
     }
 }

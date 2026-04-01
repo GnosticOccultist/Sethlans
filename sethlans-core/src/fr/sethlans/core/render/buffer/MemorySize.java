@@ -8,7 +8,7 @@ public final class MemorySize {
     private final int bytesPerElement;
     private final long offset, bytes;
 
-    public static MemorySize bytes(int elements) {
+    public static MemorySize bytes(long elements) {
         return new MemorySize(0, elements, Byte.BYTES);
     }
 
@@ -16,7 +16,7 @@ public final class MemorySize {
         return new MemorySize(offset, elements, Byte.BYTES);
     }
 
-    public static MemorySize shorts(int elements) {
+    public static MemorySize shorts(long elements) {
         return new MemorySize(0, elements, Short.BYTES);
     }
 
@@ -32,7 +32,7 @@ public final class MemorySize {
         return new MemorySize(offset, elements, Integer.BYTES);
     }
 
-    public static MemorySize floats(int elements) {
+    public static MemorySize floats(long elements) {
         return new MemorySize(0, elements, Float.BYTES);
     }
 
@@ -40,7 +40,7 @@ public final class MemorySize {
         return new MemorySize(offset, elements, Float.BYTES);
     }
 
-    public static MemorySize doubles(int elements) {
+    public static MemorySize doubles(long elements) {
         return new MemorySize(0, elements, Double.BYTES);
     }
 

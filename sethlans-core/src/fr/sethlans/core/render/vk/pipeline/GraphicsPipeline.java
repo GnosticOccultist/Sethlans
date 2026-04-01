@@ -94,8 +94,8 @@ public class GraphicsPipeline extends AbstractPipeline {
     public int hashCode() {
         var result = Objects.hash(createFlags, colorAttachmentFormat, depthAttachmentFormat, 
                 dynamicStates, parent, pipelineCache, primitiveRestart, rasterizationState, 
-                multisampleState, depthStencilState, renderPass, shaders, topology,
-                blendConstants, colorAttachmentFormat);
+                multisampleState, depthStencilState, renderPass, shaders, topology, 
+                Arrays.hashCode(blendConstants), colorBlendAttachments);
         result = !logicOpEnable ? result : Objects.hash(result, logicOp);
         return result;
     }

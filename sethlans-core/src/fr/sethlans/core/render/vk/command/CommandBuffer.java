@@ -91,6 +91,10 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
         }
     }
     
+    public CommandBuffer addBarrier(VulkanBuffer buffer, VkFlag<Access> srcAccess, VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage) {
+        return syncDelegate.addBarrier(this, buffer, srcAccess, dstAccess, srcStage, dstStage);
+    }
+    
     public CommandBuffer addBarrier(VulkanImage image, Layout srcLayout, Layout dstLayout, VkFlag<Access> srcAccess,
             VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage) {
         return syncDelegate.addBarrier(this, image, srcLayout, dstLayout, srcAccess, dstAccess, srcStage, dstStage, 0,

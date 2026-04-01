@@ -37,13 +37,13 @@ public class PersistentBuffer<T extends NativeBuffer> implements NativeBuffer {
         buffer.push(offset, size);
     }
 
-    @Override
-    public void unmap() {
-       
-    }
-
     public T getBuffer() {
         return buffer;
+    }
+    
+    @Override
+    public long address() {
+        return buffer.address();
     }
 
     @Override

@@ -1,5 +1,6 @@
 package fr.sethlans.core.render.buffer;
 
+import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
@@ -7,41 +8,44 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
 
-import org.lwjgl.PointerBuffer;
+import org.lwjgl.system.MemoryUtil;
 
-public class SourceBufferMapping implements BufferMapping {
+public class VirtualBufferMapping implements BufferMapping {
 
-    private final NativeBuffer source;
-    private final PointerBuffer address;
-    private final long size;
-    private final Runnable unmap;
+    private final long address;
+    private final int size;
     private ByteBuffer bytes;
     private ShortBuffer shorts;
     private IntBuffer ints;
     private FloatBuffer floats;
     private DoubleBuffer doubles;
     private LongBuffer longs;
-
-    public SourceBufferMapping(NativeBuffer source, PointerBuffer address, long size, Runnable unmap) {
-        this.source = source;
+    
+    public VirtualBufferMapping(long address, long size) {
         this.address = address;
-        this.size = size;
-        this.unmap = unmap;
+        this.size = (int) size;
+    }
+    
+    public VirtualBufferMapping(ByteBuffer bytes) {
+        this.address = MemoryUtil.memAddress(bytes, 0);
+        this.bytes = bytes;
+        this.size = bytes.limit();
     }
 
-    @Override
-    public void close() {
-        unmap.run();
+    public VirtualBufferMapping(MemorySegment segment) {
+        this.address = segment.address();
+        this.bytes = segment.asByteBuffer();
+        this.size = (int) segment.byteSize();
     }
-
+    
     @Override
     public void push(long offset, long size) {
-        source.push(offset, size);
+       
     }
 
     @Override
     public long getAddress() {
-        return address.get(0);
+        return address;
     }
 
     @Override
@@ -52,15 +56,15 @@ public class SourceBufferMapping implements BufferMapping {
     @Override
     public ByteBuffer getBytes() {
         if (bytes == null) {
-            bytes = address.getByteBuffer(0, (int) size);
+            bytes = MemoryUtil.memByteBuffer(address, size);
         }
-        return bytes.position(0).limit((int) size);
+        return bytes;
     }
 
     @Override
     public ShortBuffer getShorts() {
         if (shorts == null) {
-            shorts = address.getShortBuffer(0, (int) size / Short.BYTES);
+            shorts = MemoryUtil.memShortBuffer(address, size / Short.BYTES);
         }
         return shorts;
     }
@@ -68,7 +72,7 @@ public class SourceBufferMapping implements BufferMapping {
     @Override
     public IntBuffer getInts() {
         if (ints == null) {
-            ints = address.getIntBuffer(0, (int) size / Integer.BYTES);
+            ints = MemoryUtil.memIntBuffer(address, size / Integer.BYTES);
         }
         return ints;
     }
@@ -76,7 +80,7 @@ public class SourceBufferMapping implements BufferMapping {
     @Override
     public FloatBuffer getFloats() {
         if (floats == null) {
-            floats = address.getFloatBuffer(0, (int) size / Float.BYTES);
+            floats = MemoryUtil.memFloatBuffer(address, size / Float.BYTES);
         }
         return floats;
     }
@@ -84,7 +88,7 @@ public class SourceBufferMapping implements BufferMapping {
     @Override
     public DoubleBuffer getDoubles() {
         if (doubles == null) {
-            doubles = address.getDoubleBuffer(0, (int) size / Double.BYTES);
+            doubles = MemoryUtil.memDoubleBuffer(address, size / Double.BYTES);
         }
         return doubles;
     }
@@ -92,8 +96,13 @@ public class SourceBufferMapping implements BufferMapping {
     @Override
     public LongBuffer getLongs() {
         if (longs == null) {
-            longs = address.getLongBuffer(0, (int) size / Long.BYTES);
+            longs = MemoryUtil.memLongBuffer(address, size / Long.BYTES);
         }
         return longs;
+    }
+
+    @Override
+    public void close() {
+        
     }
 }
