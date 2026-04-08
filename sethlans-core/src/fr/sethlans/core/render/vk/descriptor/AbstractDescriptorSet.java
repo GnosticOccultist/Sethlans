@@ -44,4 +44,9 @@ public abstract class AbstractDescriptorSet extends AbstractDeviceResource {
     public DescriptorSetLayout getLayout() {
         return layout;
     }
+
+    @Override
+    public String toString() {
+        return "AbstractDescriptorSet [descriptorPool=" + descriptorPool + ", layout=" + layout + "]";
+    }
 }

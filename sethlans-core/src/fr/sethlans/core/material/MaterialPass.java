@@ -62,6 +62,11 @@ public class MaterialPass {
         return sortId;
     }
     
+    public ShaderModuleInfo getComputeShader() {
+        assert sources.containsKey(ShaderType.COMPUTE);
+        return sources.get(ShaderType.COMPUTE);
+    }
+    
     public boolean isComputePass() {
         return sources.containsKey(ShaderType.COMPUTE);
     }

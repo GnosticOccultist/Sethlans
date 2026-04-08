@@ -23,6 +23,7 @@ import fr.sethlans.core.material.MaterialPass.ShaderType;
 import fr.sethlans.core.material.layout.BindingLayout;
 import fr.sethlans.core.material.layout.BindingType;
 import fr.sethlans.core.material.layout.PushConstantLayout;
+import fr.sethlans.core.render.buffer.MemorySize;
 
 public class MaterialLoader {
 
@@ -138,7 +139,7 @@ public class MaterialLoader {
         var shadersValue = pushConstantObj.getOptional("shaders").orElseThrow(IOException::new);
         var shaderTypes = getShaderTypes(shadersValue);
         
-        var pushConstant = new PushConstantLayout(name, offset, size, shaderTypes);
+        var pushConstant = new PushConstantLayout(name, MemorySize.bytes(offset, size), shaderTypes);
         return pushConstant;
     }
 

@@ -21,13 +21,13 @@ import org.lwjgl.vulkan.VkViewport;
 
 import fr.sethlans.core.natives.AbstractNativeResource;
 import fr.sethlans.core.natives.NativeResource;
+import fr.sethlans.core.render.buffer.IndexBuffer;
 import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
 import fr.sethlans.core.render.vk.command.CommandPool.Create;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanImage;
 import fr.sethlans.core.render.vk.image.VulkanImage.Filter;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
-import fr.sethlans.core.render.vk.mesh.IndexType;
 import fr.sethlans.core.render.vk.pipeline.AbstractPipeline.BindPoint;
 import fr.sethlans.core.render.vk.shader.ShaderStage;
 import fr.sethlans.core.render.vk.pipeline.Access;
@@ -160,8 +160,8 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
         return this;
     }
 
-    public CommandBuffer bindIndexBuffer(VulkanBuffer indexBuffer) {
-        VK10.vkCmdBindIndexBuffer(object, indexBuffer.handle(), 0, IndexType.of(indexBuffer).vkEnum());
+    public <T extends VulkanBuffer> CommandBuffer bindIndexBuffer(IndexBuffer<T> indexBuffer) {
+        VK10.vkCmdBindIndexBuffer(object, indexBuffer.getNativeObject(), 0, indexBuffer.getType().vkEnum());
         return this;
     }
 
@@ -209,8 +209,8 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
         return this;
     }
 
-    public CommandBuffer drawIndexed(VulkanBuffer indexBuffer) {
-        VK10.vkCmdDrawIndexed(object, (int) indexBuffer.size().getElements(), 1, 0, 0, 0);
+    public <T extends VulkanBuffer> CommandBuffer drawIndexed(IndexBuffer<T> indexBuffer) {
+        VK10.vkCmdDrawIndexed(object, indexBuffer.getElements(), 1, 0, 0, 0);
         return this;
     }
 

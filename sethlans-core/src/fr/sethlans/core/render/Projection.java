@@ -10,7 +10,7 @@ public class Projection {
 
     public Projection(int width, int height) {
         this.projectionMatrix.identity().perspective((float) Math.toRadians(45f), (float) width / (float) height, 0.1f,
-                100.0f, true);
+                10000.0f, true);
     }
 
     public ByteBuffer store(int offset, ByteBuffer buffer) {
@@ -20,7 +20,7 @@ public class Projection {
 
     public void update(int width, int height) {
         this.projectionMatrix.identity().perspective((float) Math.toRadians(45f), (float) width / (float) height, 0.1f,
-                100.0f, true);
+                10000.0f, true);
     }
 
     public Matrix4f getMatrix() {

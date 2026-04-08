@@ -40,11 +40,6 @@ public class StageableBuffer<T extends NativeBuffer> implements NativeBuffer {
     public void setDestBuffer(NativeBuffer destBuffer) {
         this.destBuffer = destBuffer;
     }
-    
-    @Override
-    public long address() {
-        return buffer.address();
-    }
 
     @Override
     public MemorySize size() {

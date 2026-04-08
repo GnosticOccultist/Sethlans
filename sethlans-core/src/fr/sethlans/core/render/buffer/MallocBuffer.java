@@ -12,14 +12,8 @@ public class MallocBuffer extends AbstractNativeResource<Long> implements Native
 
     private ByteBuffer buffer;
 
-    private long baseAddress = MemoryUtil.NULL;
-
     public MallocBuffer(MemorySize size) {
         this.size = size;
-        this.buffer = MemoryUtil.memAlloc((int) size.getBytes()).limit((int) size.getBytes());
-        this.baseAddress = MemoryUtil.memAddress(buffer, 0);
-
-        this.ref = NativeResource.get().register(this);
     }
 
     @Override
@@ -33,19 +27,24 @@ public class MallocBuffer extends AbstractNativeResource<Long> implements Native
                     "Mapping out of bounds [" + offset + ", " + size + "], " + size().getBytes() + "!");
         }
 
-        var mapping = offset == 0 ? new VirtualBufferMapping(buffer.duplicate())
-                : new VirtualBufferMapping(buffer.position((int) offset).limit((int) (offset + size)).slice());
+        if (buffer == null) {
+            if (ref != null) {
+                ref.destroy();
+            }
+
+            buffer = MemoryUtil.memCalloc((int) size().getEnd());
+            ref = NativeResource.get().register(this);
+        }
+
+        var mapping = offset == 0 ? new DirectBufferMapping(buffer.duplicate())
+                : new DirectBufferMapping(buffer.position((int) (size().getOffset() + offset))
+                        .limit((int) (size().getOffset() + offset + size)).slice());
         return mapping;
     }
 
     @Override
     public void push(long offset, long size) {
 
-    }
-
-    @Override
-    public long address() {
-        return baseAddress;
     }
 
     @Override
@@ -57,6 +56,7 @@ public class MallocBuffer extends AbstractNativeResource<Long> implements Native
     public Runnable createDestroyAction() {
         return () -> {
             MemoryUtil.memFree(buffer);
+            buffer = null;
         };
     }
 }

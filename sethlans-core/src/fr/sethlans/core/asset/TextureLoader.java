@@ -42,7 +42,7 @@ public class TextureLoader {
             var w = image.getWidth();
             var h = image.getHeight();
 
-            var size = new MemorySize(w * h, 4);
+            var size = MemorySize.bytes(w * h * 4);
 
             var pixels = new ArenaBuffer(size);
             try (var m = pixels.map()) {

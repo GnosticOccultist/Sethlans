@@ -64,7 +64,7 @@ public class SethlansTest extends SethlansApplication {
 
         var materialPass = box.getMaterial().getDefaultMaterialPass();
         
-        frame.command().begin(materialPass);
+        frame.command().begin(box, materialPass);
         frame.render(box);
         frame.command().end();
     }

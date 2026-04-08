@@ -6,9 +6,10 @@ import java.util.Collections;
 import java.util.List;
 
 import fr.sethlans.core.render.buffer.ArenaBuffer;
-import fr.sethlans.core.render.buffer.MallocBuffer;
+import fr.sethlans.core.render.buffer.IndexBuffer;
 import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.buffer.NativeBuffer;
+import fr.sethlans.core.render.vk.mesh.IndexType;
 import fr.sethlans.core.scenegraph.mesh.Vertex;
 
 public final class BufferUtils {
@@ -46,7 +47,7 @@ public final class BufferUtils {
         return result;
     }
 
-    public static NativeBuffer create(int[] values) {
+    public static IndexBuffer<NativeBuffer> create(int[] values) {
         if (values == null) {
             return null;
         }
@@ -55,6 +56,7 @@ public final class BufferUtils {
         var maxValue = Arrays.stream(values).max().getAsInt();
         var max = 1 + maxValue;
         NativeBuffer result = null;
+        IndexType type = null;
 
         if (max <= UINT8_LIMIT) {
             result = new ArenaBuffer(MemorySize.bytes(capacity));
@@ -63,9 +65,10 @@ public final class BufferUtils {
                 for (int v : values) {
                     buff.put((byte) v);
                 }
-                
+
                 buff.flip();
             }
+            type = IndexType.UINT8;
 
         } else if (max <= UINT16_LIMIT) {
             result = new ArenaBuffer(MemorySize.shorts(capacity));
@@ -74,9 +77,10 @@ public final class BufferUtils {
                 for (int v : values) {
                     buff.put((short) v);
                 }
-                
+
                 buff.flip();
             }
+            type = IndexType.UINT16;
 
         } else {
             result = new ArenaBuffer(MemorySize.ints(capacity));
@@ -85,15 +89,16 @@ public final class BufferUtils {
                 for (int v : values) {
                     buff.put(v);
                 }
-                
+
                 buff.flip();
             }
+            type = IndexType.UINT32;
         }
 
-        return result;
+        return new IndexBuffer<>(type, result);
     }
 
-    public static NativeBuffer create(Collection<Integer> values) {
+    public static IndexBuffer<NativeBuffer> create(Collection<Integer> values) {
         if (values == null || values.isEmpty()) {
             return null;
         }
@@ -102,6 +107,7 @@ public final class BufferUtils {
         var maxValue = Collections.max(values);
         var max = 1 + maxValue;
         NativeBuffer result = null;
+        IndexType type = null;
 
         if (max <= UINT8_LIMIT) {
             result = new ArenaBuffer(MemorySize.bytes(capacity));
@@ -110,9 +116,10 @@ public final class BufferUtils {
                 for (int v : values) {
                     buff.put((byte) v);
                 }
-                
+
                 buff.flip();
             }
+            type = IndexType.UINT8;
 
         } else if (max <= UINT16_LIMIT) {
             result = new ArenaBuffer(MemorySize.shorts(capacity));
@@ -121,9 +128,10 @@ public final class BufferUtils {
                 for (int v : values) {
                     buff.put((short) v);
                 }
-                
+
                 buff.flip();
             }
+            type = IndexType.UINT16;
 
         } else {
             result = new ArenaBuffer(MemorySize.ints(capacity));
@@ -132,12 +140,13 @@ public final class BufferUtils {
                 for (int v : values) {
                     buff.put(v);
                 }
-                
+
                 buff.flip();
             }
+            type = IndexType.UINT32;
         }
 
-        return result;
+        return new IndexBuffer<>(type, result);
     }
 
     public static NativeBuffer createVertex(List<Vertex> vertices) {
@@ -158,7 +167,7 @@ public final class BufferUtils {
             for (var v : vertices) {
                 v.populate(buff);
             }
-            
+
             buff.flip();
         }
 

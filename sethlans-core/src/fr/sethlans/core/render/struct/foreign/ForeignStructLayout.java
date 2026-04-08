@@ -6,7 +6,6 @@ import org.joml.Matrix4f;
 
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
-import fr.sethlans.core.render.buffer.ArenaBuffer;
 import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.buffer.NativeBuffer;
 import fr.sethlans.core.render.struct.GpuStructLayout;
@@ -25,21 +24,6 @@ public class ForeignStructLayout implements GpuStructLayout {
         this.layout = layout;
     }
 
-    void update(ArenaBuffer buffer, Matrix4f value) {
-        var handle = structLayout.varHandle(MemoryLayout.PathElement.groupElement("projection"),
-                MemoryLayout.PathElement.sequenceElement(), MemoryLayout.PathElement.sequenceElement());
-        MemorySegment.ofAddress(buffer.address());
-        handle.set(buffer.getSegment());
-    }
-
-    public void set(long address, String name, Object value) {
-        var segment = MemorySegment.ofAddress(address);
-        var handle = structLayout.varHandle(MemoryLayout.PathElement.groupElement("projection"),
-                MemoryLayout.PathElement.sequenceElement(), MemoryLayout.PathElement.sequenceElement());
-
-        handle.set(segment);
-    }
-
     @Override
     public <T> T get(String name, NativeBuffer buffer) {
         var handle = structLayout.varHandle(MemoryLayout.PathElement.groupElement(name),
@@ -53,8 +37,6 @@ public class ForeignStructLayout implements GpuStructLayout {
     @Override
     public void set(NativeBuffer buffer, String name, Object value) {
         var type = ValueType.typeOf(value.getClass());
-        var handle = structLayout.varHandle(MemoryLayout.PathElement.groupElement(name),
-                MemoryLayout.PathElement.sequenceElement(), MemoryLayout.PathElement.sequenceElement());
         try (var m = buffer.map()) {
             switch (type) {
             case BOOLEAN:
@@ -84,9 +66,6 @@ public class ForeignStructLayout implements GpuStructLayout {
     @Override
     public <T> void set(NativeBuffer buffer, String name, int frameIndex, T value) {
         var type = ValueType.typeOf(value.getClass());
-//        var handle = structLayout.varHandle(MemoryLayout.PathElement.groupElement(name),
-//                MemoryLayout.PathElement.sequenceElement(), MemoryLayout.PathElement.sequenceElement());
-
         try (var m = buffer.map()) {
             switch (type) {
             case BOOLEAN:

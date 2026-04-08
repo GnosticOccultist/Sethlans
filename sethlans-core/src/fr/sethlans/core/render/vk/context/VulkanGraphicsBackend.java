@@ -274,7 +274,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
                 .stencilLoadOp(VK10.VK_ATTACHMENT_LOAD_OP_DONT_CARE) // Ignore stencil operations.
                 .stencilStoreOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE) // Ignore stencil operations.
                 .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED);
-        presentationDesc.clearValue().color().float32(0, 0.5f).float32(1, 0.7f).float32(2, 0.9f).float32(3, 1.0f);
+        presentationDesc.clearValue().color().float32(0, 0.0f).float32(1, 0.0f).float32(2, 0.0f).float32(3, 1.0f);
 
         var depthDesc = new AttachmentDescriptor();
         depthDesc.finalLayout(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL).format(depthFormat.vkEnum())
@@ -297,7 +297,7 @@ public class VulkanGraphicsBackend extends GlfwBasedGraphicsBackend {
                     .stencilLoadOp(VK10.VK_ATTACHMENT_LOAD_OP_DONT_CARE) // Ignore stencil operations.
                     .stencilStoreOp(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE) // Ignore stencil operations.
                     .initialLayout(VK10.VK_IMAGE_LAYOUT_UNDEFINED);
-            transientDesc.clearValue().color().float32(0, 0.5f).float32(1, 0.7f).float32(2, 0.9f).float32(3, 1.0f);
+            transientDesc.clearValue().color().float32(0, 0.0f).float32(1, 0.0f).float32(2, 0.0f).float32(3, 1.0f);
 
             presentationDesc.description().loadOp(VK10.VK_ATTACHMENT_LOAD_OP_DONT_CARE);
 

@@ -9,10 +9,16 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.lwjgl.system.MemoryStack;
-
+import fr.alchemy.utilities.logging.FactoryLogger;
+import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.material.MaterialInstance;
 import fr.sethlans.core.material.layout.BindingLayout;
 import fr.sethlans.core.material.layout.BindingType;
+import fr.sethlans.core.render.buffer.DirectBufferMapping;
+import fr.sethlans.core.render.buffer.MallocBuffer;
+import fr.sethlans.core.render.buffer.MemorySize;
+import fr.sethlans.core.render.vk.buffer.BufferUsage;
+import fr.sethlans.core.render.vk.buffer.DeviceLocalBuffer;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.context.BuiltinDescriptorManager;
 import fr.sethlans.core.render.vk.descriptor.AbstractDescriptorSet;
@@ -24,23 +30,29 @@ import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.uniform.VulkanUniform;
+import fr.sethlans.core.render.vk.util.VkShader;
+import fr.sethlans.core.scenegraph.Geometry;
 import fr.sethlans.core.render.vk.uniform.BufferUniform;
+import fr.sethlans.core.render.vk.uniform.PushConstantUniform;
 import fr.sethlans.core.render.vk.uniform.TextureUniform;
 
 public class VulkanMaterial {
+    
+    private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.context");
 
     private final Map<String, VulkanUniform<?>> uniforms = new HashMap<>();
     private final Map<DescriptorSetLayout, CachedDescriptorSet> setCache = new HashMap<>();
 
-    private MaterialInstance material;
     private LogicalDevice logicalDevice;
-
+    
+    private MaterialInstance material;
+    
     public VulkanMaterial(LogicalDevice logicalDevice, MaterialInstance material) {
         this.logicalDevice = logicalDevice;
         this.material = material;
     }
 
-    public void uploadData(MaterialInstance material) {
+    public void uploadData(MaterialInstance material, Geometry geometry) {
         var layout = material.getMaterial().getDefaultMaterialPass().getLayout();
         for (var entry : layout.setLayouts()) {
             for (var bindLayout : entry.getValue()) {
@@ -56,21 +68,42 @@ public class VulkanMaterial {
                     if (bindinLayout.type() == BindingType.COMBINED_IMAGE_SAMPLER) {
                         return new TextureUniform();
                     }
+                    if (bindinLayout.type() == BindingType.STORAGE_BUFFER) {
+                        return new BufferUniform();
+                    }
                     return null;
                 });
                 
                 if (uniform instanceof TextureUniform tu) {
                     tu.set(new VulkanTexture(logicalDevice, material.getTexture()));
                 }
+                
+                if (uniform instanceof BufferUniform tu && bindinLayout.type() == BindingType.STORAGE_BUFFER) {
+                    tu.set(new DeviceLocalBuffer(logicalDevice, MemorySize.bytes(8 * Float.BYTES * 80128), 
+                            BufferUsage.STORAGE.add(BufferUsage.VERTEX).add(BufferUsage.TRANSFER_DST)));
+                }
+            }
+        }
+        
+        for (var pushConstant : layout.pushConstantLayouts()) {
+            var uniform = (PushConstantUniform) uniforms.computeIfAbsent(pushConstant.name(),
+                    _ -> new PushConstantUniform());
+            uniform.set(new MallocBuffer(MemorySize.copy(pushConstant.size())));
+
+            if (pushConstant.name().equals("Object") && geometry != null) {
+                try (var map = uniform.get().map()) {
+                    geometry.getModelMatrix().get(map.getBytes());
+                }
             }
         }
     }
 
-    public void bind(Pipeline pipeline, BuiltinDescriptorManager builtinDescriptorManager, CommandBuffer command,
+    public void bind(Pipeline pipeline, String pass, Geometry geometry, BuiltinDescriptorManager builtinDescriptorManager, CommandBuffer command,
             DescriptorPool pool, int imageIndex) {
-        var layouts = pipeline.getLayout().getSetLayouts();
-        List<DescriptorSetLayout> reqSetAllocation = new ArrayList<>(layouts.size());
-        for (DescriptorSetLayout l : layouts) {
+        var layout = pipeline.getLayout();
+        var descLayouts = layout.getSetLayouts();
+        List<DescriptorSetLayout> reqSetAllocation = new ArrayList<>(descLayouts.size());
+        for (DescriptorSetLayout l : descLayouts) {
             if (!setCache.containsKey(l)) {
                 reqSetAllocation.add(l);
             }
@@ -84,18 +117,18 @@ public class VulkanMaterial {
         }
 
         try (var stack = MemoryStack.stackPush()) {
-            var pDescriptorSets = stack.mallocLong(layouts.size());
-            for (var layout : layouts) {
-                var set = setCache.get(layout);
+            var pDescriptorSets = stack.mallocLong(descLayouts.size());
+            for (var descLayout : descLayouts) {
+                var set = setCache.get(descLayout);
                 if (set == null) {
                     throw new NullPointerException("Cached descriptor set not available.");
                 }
 
                 AbstractDescriptorSet desc = null;
-                for (var binding : layout.getBindings()) {
-                    var bindingLayout = getBindingLayout(binding.getKey());
+                for (var binding : descLayout.getBindings()) {
+                    var bindingLayout = getBindingLayout(binding.getKey(), pass);
                     if (bindingLayout.builtin()) {
-                        desc = builtinDescriptorManager.getOrCreate(bindingLayout, layout);
+                        desc = builtinDescriptorManager.getOrCreate(bindingLayout, descLayout);
                         var buff = builtinDescriptorManager.getOrCreate(logicalDevice, bindingLayout.name(), command);
                         desc.write(Arrays.asList(buff.createWriter(binding.getValue())), imageIndex);
 
@@ -123,11 +156,39 @@ public class VulkanMaterial {
 
             pDescriptorSets.flip();
             command.bindDescriptorSets(pipeline.getLayout().handle(), pipeline.getBindPoint(), pDescriptorSets, null);
+            
+            if (!layout.getPushConstants().isEmpty()) {
+                try (var push = new DirectBufferMapping(stack.malloc(layout.getPushConstantBytes()))) {
+                    for (var pushConstant : layout.getPushConstants()) {
+
+                        var uniform = uniforms.get(pushConstant.name());
+                        if (!(uniform instanceof PushConstantUniform)) {
+                            throw new IllegalStateException("Uniform '" + pushConstant.name()
+                                    + "' does not exist as a uniform buffer, as requested by layout push constants!");
+                        }
+
+                        var buffUniform = (PushConstantUniform) uniform;
+
+                        try (var map = buffUniform.get().map()) {
+                            
+                            if (pushConstant.name().equals("Object") && geometry != null) {
+                                geometry.getModelMatrix().get(0, push.getBytes());
+                                command.pushConstants(layout.handle(), VkShader.getShaderStages(pushConstant.shaderTypes()),
+                                        0, push.getBytes());
+                            }
+                        }
+                    }
+                }
+            }
         }
+    }   
+    
+    public <T> VulkanUniform<T> getUniform(String name) {
+        return (VulkanUniform<T>) uniforms.get(name);
     }
 
-    private BindingLayout getBindingLayout(String name) {
-        for (var entry : material.getMaterial().getDefaultMaterialPass().getLayout().setLayouts()) {
+    private BindingLayout getBindingLayout(String name, String pass) {
+        for (var entry : material.getMaterial().getMaterialPass(pass).getLayout().setLayouts()) {
             for (var bindLayout : entry.getValue()) {
                 if (Objects.equals(bindLayout.name(), name)) {
                     return bindLayout;
@@ -154,8 +215,10 @@ public class VulkanMaterial {
         }
 
         public void writeChanges(int imageIndex) {
-            if (changes.isEmpty())
+            if (changes.isEmpty()) {
                 return;
+            }
+                
             set.write(changes.values(), imageIndex);
             changes.clear();
         }

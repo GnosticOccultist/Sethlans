@@ -23,8 +23,6 @@ public interface NativeBuffer extends NativeResource<Long> {
     default void push() {
         push(0, size().getBytes());
     }
-    
-    long address();
 
     MemorySize size();
 }

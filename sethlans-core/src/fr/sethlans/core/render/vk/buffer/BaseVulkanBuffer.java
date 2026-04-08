@@ -81,11 +81,6 @@ public class BaseVulkanBuffer extends AbstractDeviceResource implements VulkanBu
     public void push(long offset, long size) {
         
     }
-    
-    @Override
-    public long address() {
-        return 0;
-    }
 
     @Override
     public MemorySize size() {

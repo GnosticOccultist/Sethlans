@@ -1,12 +1,17 @@
 package fr.sethlans.core.render.vk.context;
 
 import java.util.Arrays;
+
+import org.lwjgl.glfw.GLFW;
+import org.lwjgl.system.MemoryStack;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
+import fr.sethlans.core.material.MaterialInstance;
 import fr.sethlans.core.material.MaterialPass;
 import fr.sethlans.core.render.vk.buffer.PersistentStagingRing;
+import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool.Create;
@@ -15,14 +20,14 @@ import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.material.VulkanMaterial;
 import fr.sethlans.core.render.vk.mesh.VulkanMesh;
 import fr.sethlans.core.render.vk.pipeline.Access;
-import fr.sethlans.core.render.vk.pipeline.GraphicsPipeline;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineLibrary;
 import fr.sethlans.core.render.vk.pipeline.PipelineStage;
+import fr.sethlans.core.render.vk.shader.ShaderStage;
 import fr.sethlans.core.render.vk.swapchain.DrawCommand;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
-import fr.sethlans.core.render.vk.util.VkShader;
+import fr.sethlans.core.render.vk.uniform.VulkanUniform;
 import fr.sethlans.core.scenegraph.Geometry;
 import fr.sethlans.core.scenegraph.mesh.Topology;
 
@@ -124,6 +129,16 @@ public class VulkanRenderer {
                     context.getBackend().getRenderPass());
         }
     }
+    
+    public void beginRendering(DrawCommand drawCommand) {
+        var command = drawCommand.getCommandBuffer();
+        if (useDynamicRendering) {
+            command.beginRendering(swapChain, currentFrame.imageIndex());
+        } else {
+            command.beginRenderPass(swapChain, swapChain.frameBuffer(currentFrame.imageIndex()),
+                    context.getBackend().getRenderPass());
+        }
+    }
 
     public void endRender(VulkanFrame frame) {
         if (useDynamicRendering) {
@@ -155,8 +170,6 @@ public class VulkanRenderer {
 
     public VulkanMesh bind(Pipeline pipeline, Geometry geometry, CommandBuffer command, int imageIndex) {
         var logicalDevice = context.getLogicalDevice();
-        var mesh = geometry.getMesh();
-        var layout = pipeline.getLayout();
         var material = geometry.getMaterialInstance();
 
         VulkanMaterial vkMaterial = null;
@@ -176,12 +189,126 @@ public class VulkanRenderer {
 
         if (material.isDirty()) {
             logger.info("Update material for " + geometry);
-            vkMaterial.uploadData(material);
+            vkMaterial.uploadData(material, geometry);
             material.clean();
         }
 
-        vkMaterial.bind(pipeline, builtinDescriptorManager, command, descriptorPool, imageIndex);
+        vkMaterial.bind(pipeline, "forward", geometry, builtinDescriptorManager, command, descriptorPool, imageIndex);
 
+        VulkanMesh vkMesh = getVulkanMesh(geometry);
+        
+        stagingRing.upload();
+
+        return vkMesh;
+    }
+    
+    public void drawParticles(Pipeline pipeline, Geometry geometry, MaterialInstance material, CommandBuffer command, int imageIndex) {
+        var logicalDevice = context.getLogicalDevice();
+        VulkanMaterial vkMaterial = null;
+        if (material.hasBackendObject()) {
+            vkMaterial = materials[material.backendId()];
+
+        } else {
+            for (var i = 0; i < materials.length; ++i) {
+                if (materials[i] == null) {
+                    materials[i] = new VulkanMaterial(logicalDevice, material);
+                    vkMaterial = materials[i];
+                    material.assignId(i);
+                    break;
+                }
+            }
+        }
+
+        if (material.isDirty()) {
+            logger.info("Update material for " + material);
+            vkMaterial.uploadData(material, null);
+            material.clean();
+        }
+
+        vkMaterial.bind(pipeline, "forward", geometry, builtinDescriptorManager, command, descriptorPool, imageIndex);
+        
+        try (var stack = MemoryStack.stackPush()) {
+            var buff = stack.malloc(6 * Float.BYTES);
+            buff.putFloat((float) GLFW.glfwGetTime());
+            buff.putInt(75000);
+            buff.putFloat(10.0f);
+            buff.putFloat(500.0f);
+            buff.putFloat(150f);
+            buff.putFloat(300.0f);
+            
+            buff.flip();
+            
+            var layout = pipeline.getLayout();
+            command.pushConstants(layout.handle(), ShaderStage.VERTEX, 0, buff);
+        }
+        
+        command.draw(6 * 80128);
+    }
+    
+    public void computeParticles(Pipeline pipeline, Geometry geometry, MaterialInstance material, CommandBuffer command, int imageIndex) {
+        var logicalDevice = context.getLogicalDevice();
+        VulkanMaterial vkMaterial = null;
+        if (material.hasBackendObject()) {
+            vkMaterial = materials[material.backendId()];
+
+        } else {
+            for (var i = 0; i < materials.length; ++i) {
+                if (materials[i] == null) {
+                    materials[i] = new VulkanMaterial(logicalDevice, material);
+                    vkMaterial = materials[i];
+                    material.assignId(i);
+                    break;
+                }
+            }
+        }
+
+        if (material.isDirty()) {
+            logger.info("Update material " + material);
+            vkMaterial.uploadData(material, null);
+            material.clean();
+        }
+        
+        vkMaterial.bind(pipeline, "compute", geometry, builtinDescriptorManager, command, descriptorPool, imageIndex);
+        VulkanUniform<VulkanBuffer> uniform = vkMaterial.getUniform("Particles");
+        
+        try (var stack = MemoryStack.stackPush()) {
+            var buff = stack.malloc(15 * Float.BYTES);
+            buff.putInt(75000);
+            buff.putFloat(3500.0f);
+            buff.putFloat(1250.0f);
+            buff.putFloat(6.28f);
+            buff.putFloat(0.85f);
+
+            buff.putFloat(300.0f);
+            buff.putFloat(250.0f);
+           
+            buff.putFloat(3000.0f);
+            buff.putFloat(9000.0f);
+            buff.putFloat(4000.0f);
+            
+            buff.putFloat(0.1f);
+            buff.putFloat(0.5f);
+           
+            buff.putFloat(0.01f);
+            buff.putFloat(0.05f);
+            
+            buff.putFloat(10.0f);
+            
+            buff.flip();
+            
+            var layout = pipeline.getLayout();
+            command.pushConstants(layout.handle(), ShaderStage.COMPUTE, 0, buff);
+        }
+        
+        command.dispatch(80128 / 256, 1, 1);
+        command.addBarrier(uniform.get(), Access.SHADER_WRITE, Access.VERTEX_ATTRIBUTE_READ, PipelineStage.COMPUTE_SHADER, PipelineStage.VERTEX_INPUT);
+        // logicalDevice.waitIdle();
+    }
+    
+    public VulkanMesh getVulkanMesh(Geometry geometry) {
+        var mesh = geometry.getMesh();
+        var logicalDevice = context.getLogicalDevice();
+        
         VulkanMesh vkMesh = null;
         if (mesh.hasBackendObject()) {
             vkMesh = meshes[mesh.backendId()];
@@ -202,46 +329,31 @@ public class VulkanRenderer {
             vkMesh.uploadData(mesh, stagingRing);
             mesh.clean();
         }
-        
-        stagingRing.upload();
-
-//        var texture = geometry.getTexture();
-//        if (texture != null) {
-//            VulkanTexture vkTexture = null;
-//            if (texture.hasBackendObject()) {
-//                vkTexture = textures[texture.backendId()];
-//
-//            } else {
-//                for (var i = 0; i < textures.length; ++i) {
-//                    if (textures[i] == null) {
-//                        textures[i] = new VulkanTexture(logicalDevice, texture);
-//                        vkTexture = textures[i];
-//                        texture.assignId(i);
-//                        break;
-//                    }
-//                }
-//            }
-//
-//            if (texture.isDirty()) {
-//                logger.info("Update texture for " + geometry);
-//                vkTexture.uploadData(texture);
-//                texture.clean();
-//
-//                samplerDescriptorSet.updateTextureDescriptorSet(vkTexture, 0);
-//            }
-//        }
-
-        var pushConstants = layout.getPushConstants();
-        for (var pushConstant : pushConstants) {
-            command.pushConstants(layout.handle(), VkShader.getShaderStages(pushConstant.shaderTypes()), 0,
-                    geometry.getModelMatrix());
-        }
 
         return vkMesh;
     }
+    
+    public Pipeline getPipeline(Topology topology, MaterialPass materialPass) {
+        Pipeline pipeline = null;
+        if (materialPass.isComputePass()) {
+            pipeline = pipelineLibrary.getOrCreate(context.getLogicalDevice(), materialPass);
+        
+        } else {
+            pipeline = pipelineLibrary.getOrCreate(context.getLogicalDevice(), topology, materialPass);
+        }
+        
+        return pipeline;
+    }
 
-    public GraphicsPipeline getPipeline(Topology topology, MaterialPass materialPass) {
-        var pipeline = pipelineLibrary.getOrCreate(context.getLogicalDevice(), topology, materialPass);
+    public Pipeline getPipeline(VulkanMesh mesh, MaterialPass materialPass) {
+        Pipeline pipeline = null;
+        if (materialPass.isComputePass()) {
+            pipeline = pipelineLibrary.getOrCreate(context.getLogicalDevice(), materialPass);
+        
+        } else {
+            pipeline = pipelineLibrary.getOrCreate(context.getLogicalDevice(), mesh, materialPass);
+        }
+        
         return pipeline;
     }
 

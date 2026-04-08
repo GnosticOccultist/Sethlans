@@ -78,7 +78,7 @@ public class AssimpTest extends SethlansApplication {
         
         var materialPass = vikingRoom.getMaterial().getDefaultMaterialPass();
         
-        frame.command().begin(materialPass);
+        frame.command().begin(vikingRoom, materialPass);
         frame.render(vikingRoom);
         frame.command().end();
     }

@@ -5,6 +5,7 @@ import java.util.List;
 
 import fr.alchemy.utilities.Validator;
 import fr.sethlans.core.render.backend.BackendObject;
+import fr.sethlans.core.render.buffer.IndexBuffer;
 import fr.sethlans.core.render.buffer.NativeBuffer;
 import fr.sethlans.core.render.buffer.StageableBuffer;
 import fr.sethlans.core.util.BufferUtils;
@@ -17,7 +18,7 @@ public class Mesh extends BackendObject {
 
     private StageableBuffer<NativeBuffer> vertexData;
 
-    private StageableBuffer<NativeBuffer> indices;
+    private StageableBuffer<IndexBuffer<NativeBuffer>> indices;
 
     private int fpv;
 
@@ -59,7 +60,7 @@ public class Mesh extends BackendObject {
         return vertexData;
     }
 
-    public StageableBuffer<NativeBuffer> getIndices() {
+    public StageableBuffer<IndexBuffer<NativeBuffer>> getIndices() {
         return indices;
     }
 }

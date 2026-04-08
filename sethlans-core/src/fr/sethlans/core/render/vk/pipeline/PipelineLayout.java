@@ -30,6 +30,8 @@ public class PipelineLayout extends AbstractDeviceResource {
     private final List<DescriptorSetLayout> layouts = new ArrayList<>();
 
     private final List<PushConstantLayout> pushConstants = new ArrayList<>();
+    
+    private int pushConstantBytes;
 
     protected PipelineLayout(LogicalDevice logicalDevice) {
         super(logicalDevice);
@@ -41,6 +43,10 @@ public class PipelineLayout extends AbstractDeviceResource {
 
     public List<PushConstantLayout> getPushConstants() {
         return Collections.unmodifiableList(pushConstants);
+    }
+
+    public int getPushConstantBytes() {
+        return pushConstantBytes;
     }
 
     @Override
@@ -85,7 +91,7 @@ public class PipelineLayout extends AbstractDeviceResource {
 
         @Override
         protected void construct(MemoryStack stack) {
-         // Define push constants layouts.
+            // Define push constants layouts.
             var numPushConstantLayouts = pushConstants.size();
             var pPushConstantRanges = numPushConstantLayouts > 0
                     ? VkPushConstantRange.calloc(numPushConstantLayouts, stack)
@@ -93,8 +99,9 @@ public class PipelineLayout extends AbstractDeviceResource {
             var physicalDevice = getLogicalDevice().physicalDevice();
             var maxPush = physicalDevice.getIntLimit(DeviceLimit.MAX_PUSH_CONSTANT_SIZE);
             for (var i = 0; i < numPushConstantLayouts; ++i) {
+                pushConstantBytes = 0;
                 var pc = pushConstants.get(i);
-                var pushSize = pc.size();
+                var pushSize = pc.size().getBytes();
                 if (pushSize > maxPush) {
                     logger.warning("Physical device " + physicalDevice + " only support up to " + maxPush
                             + " bytes as push constants, but requested " + pushSize + " bytes!");
@@ -104,8 +111,9 @@ public class PipelineLayout extends AbstractDeviceResource {
                 // Create a push constant state.
                 pPushConstantRanges.get(i)
                         .stageFlags(VkShader.getShaderStages(pc.shaderTypes()).bits())
-                        .offset(pc.offset())
-                        .size(pushSize);
+                        .offset((int) pc.size().getOffset())
+                        .size((int) pushSize);
+                pushConstantBytes += pushSize;
             }
 
             // Define descriptor-set layouts.

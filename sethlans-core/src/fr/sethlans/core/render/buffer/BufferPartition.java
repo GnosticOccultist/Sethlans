@@ -37,11 +37,6 @@ public class BufferPartition<T extends NativeBuffer> implements NativeBuffer {
     public long getOffset() {
         return size.getOffset();
     }
-    
-    @Override
-    public long address() {
-        return buffer.address();
-    }
 
     @Override
     public MemorySize size() {

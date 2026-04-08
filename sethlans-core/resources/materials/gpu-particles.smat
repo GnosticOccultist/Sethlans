@@ -1,0 +1,75 @@
+{
+	"name": "Gpu Particles",
+	"description": "Material used for rendering GPU computed particles.",
+	"passes": {
+		"compute": {
+			"layout": {
+				"sets": [
+					{ 
+						"set": 0,
+						"bindings": [
+							{
+								"binding": 0,
+								"name": "Particles",
+								"type": "storage_buffer",
+								"shaders": "compute"
+							}
+						]
+					}
+				],
+				"push_constants": [
+					{ "name": "Params", "size": 60, "shaders": "compute" }
+				]
+			},
+			"shaders": [
+				{ "compute": "particles/galaxy_sim.comp" }
+			]
+		},
+		"forward": {
+			"layout": {
+				"sets": [
+					{ 
+						"set": 0,
+						"bindings": [
+							{
+								"binding": 0,
+								"name": "Particles",
+                                "type": "storage_buffer",
+								"shaders": "vertex"
+							}
+						]
+					},
+					{ 
+						"set": 1,
+						"bindings": [
+							{
+								"binding": 0,
+								"builtin": "Global",
+								"type": "uniform_buffer",
+								"shaders": "vertex"
+							}
+						]
+					},
+					{ 
+						"set": 2,
+						"bindings": [
+							{
+								"binding": 0,
+								"builtin": "Dynamic",
+								"type": "uniform_buffer",
+								"shaders": "vertex"
+							}
+						]
+					}
+				],
+				"push_constants": [
+					{ "name": "Params", "size": 24, "shaders": "vertex" }
+				]
+			},
+			"shaders": [
+				{ "vertex": "particles/particle.vert" },
+				{ "fragment": "particles/particle.frag" }
+			]
+		}
+	}
+}

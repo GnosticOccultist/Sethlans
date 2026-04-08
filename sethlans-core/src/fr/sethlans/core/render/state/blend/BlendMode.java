@@ -8,6 +8,8 @@ public enum BlendMode {
     
     ADDITIVE,
     
+    ALPHA_ADDITIVE,
+    
     MODULATE,
     
     ALPHA_COMPOSITE,

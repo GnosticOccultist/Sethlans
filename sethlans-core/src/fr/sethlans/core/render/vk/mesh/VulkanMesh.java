@@ -6,6 +6,7 @@ import org.lwjgl.vulkan.VkPipelineInputAssemblyStateCreateInfo;
 
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
+import fr.sethlans.core.render.buffer.IndexBuffer;
 import fr.sethlans.core.render.device.DeviceFeature;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.buffer.DeviceLocalBuffer;
@@ -24,7 +25,7 @@ public class VulkanMesh {
 
     private DeviceLocalBuffer vertexBuffer;
 
-    private DeviceLocalBuffer indexBuffer;
+    private IndexBuffer<DeviceLocalBuffer> indexBuffer;
 
     private Mesh mesh;
 
@@ -34,11 +35,11 @@ public class VulkanMesh {
 
         this.vertexBuffer = new DeviceLocalBuffer(logicalDevice, mesh.getVertexData().size(),
                 VkFlag.of(BufferUsage.TRANSFER_DST, BufferUsage.VERTEX));
-        this.indexBuffer = new DeviceLocalBuffer(logicalDevice, mesh.getIndices().size(),
-                VkFlag.of(BufferUsage.TRANSFER_DST, BufferUsage.INDEX));
+        this.indexBuffer = new IndexBuffer<>(mesh.getIndices().getBuffer().getType(), new DeviceLocalBuffer(
+                logicalDevice, mesh.getIndices().size(), VkFlag.of(BufferUsage.TRANSFER_DST, BufferUsage.INDEX)));
 
         mesh.getVertexData().setDestBuffer(vertexBuffer);
-        mesh.getIndices().setDestBuffer(indexBuffer);
+        mesh.getIndices().setDestBuffer(indexBuffer.getBuffer());
     }
 
     public void uploadData(Mesh mesh, PersistentStagingRing stagingRing) {
@@ -49,23 +50,31 @@ public class VulkanMesh {
         }
 
         if (mesh.getIndices().size().getBytes() > indexBuffer.size().getBytes()) {
-            this.indexBuffer = new DeviceLocalBuffer(logicalDevice, mesh.getIndices().size(),
-                    VkFlag.of(BufferUsage.TRANSFER_DST, BufferUsage.INDEX));
-            mesh.getIndices().setDestBuffer(indexBuffer);
+            this.indexBuffer = new IndexBuffer<>(mesh.getIndices().getBuffer().getType(), new DeviceLocalBuffer(
+                    logicalDevice, mesh.getIndices().size(), VkFlag.of(BufferUsage.TRANSFER_DST, BufferUsage.INDEX)));
+            mesh.getIndices().setDestBuffer(indexBuffer.getBuffer());
         }
-        
+
         stagingRing.stage(mesh.getVertexData());
         stagingRing.stage(mesh.getIndices());
     }
 
     public void render(CommandBuffer command) {
         command.bindVertexBuffer(vertexBuffer).bindIndexBuffer(indexBuffer);
-        if (indexBuffer != null && indexBuffer.size().getElements() > 0) {
+        if (indexBuffer != null && indexBuffer.size().getBytes() > 0) {
             command.drawIndexed(indexBuffer);
 
         } else {
             command.draw(mesh.vertexCount());
         }
+    }
+    
+    public Topology topology() {
+        return mesh.topology();
+    }
+    
+    public VertexInputState createVertexInputState() {
+        return new VertexInputState();
     }
 
     public static VkPipelineInputAssemblyStateCreateInfo createInputAssemblyState(LogicalDevice logicalDevice,

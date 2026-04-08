@@ -23,8 +23,6 @@ import org.lwjgl.vulkan.VkPipelineRenderingCreateInfoKHR;
 import org.lwjgl.vulkan.VkPipelineShaderStageCreateInfo;
 import org.lwjgl.vulkan.VkPipelineVertexInputStateCreateInfo;
 import org.lwjgl.vulkan.VkPipelineViewportStateCreateInfo;
-import org.lwjgl.vulkan.VkVertexInputAttributeDescription;
-import org.lwjgl.vulkan.VkVertexInputBindingDescription;
 import fr.sethlans.core.material.MaterialPass;
 import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.natives.cache.Cache;
@@ -35,6 +33,7 @@ import fr.sethlans.core.render.state.depth.DepthStencilState;
 import fr.sethlans.core.render.state.multisample.MultisampleState;
 import fr.sethlans.core.render.state.raster.RasterizationState;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.mesh.VertexInputState;
 import fr.sethlans.core.render.vk.mesh.VulkanMesh;
 import fr.sethlans.core.render.vk.shader.ShaderModule;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
@@ -57,6 +56,8 @@ public class GraphicsPipeline extends AbstractPipeline {
     private PipelineCache pipelineCache;
 
     private final Collection<ShaderModule> shaders = new ArrayList<>();
+    
+    private VertexInputState vertexInput;
 
     private Topology topology = Topology.TRIANGLES;
 
@@ -135,6 +136,8 @@ public class GraphicsPipeline extends AbstractPipeline {
                 + depthAttachmentFormat + ", pipelineCache=" + pipelineCache + ", shaders=" + shaders + ", topology="
                 + topology + ", primitiveRestart=" + primitiveRestart + ", rasterizationState=" + rasterizationState
                 + ", multisampleState=" + multisampleState + ", depthStencilState=" + depthStencilState
+                + ", logicOpEnable=" + logicOpEnable + ", logicOp=" + logicOp + ", blendConstants="
+                + Arrays.toString(blendConstants) + ", colorBlendAttachments=" + colorBlendAttachments
                 + ", dynamicStates=" + dynamicStates + "]";
     }
 
@@ -204,20 +207,10 @@ public class GraphicsPipeline extends AbstractPipeline {
         }
         
         protected VkPipelineVertexInputStateCreateInfo createVertexInputStateInfo(MemoryStack stack) {
-            var pAttribs = VkVertexInputAttributeDescription.calloc(2, stack);
-            pAttribs.get(0).binding(0).location(0).format(VK10.VK_FORMAT_R32G32B32_SFLOAT).offset(0);
-            pAttribs.get(1).binding(0).location(1).format(VK10.VK_FORMAT_R32G32B32_SFLOAT).offset(3 * Float.BYTES);
-
-            var pBindings = VkVertexInputBindingDescription.calloc(1, stack);
-            pBindings.get(0)
-                    .binding(0)
-                    .stride(3 * Float.BYTES + 2 * Float.BYTES)
-                    .inputRate(VK10.VK_VERTEX_INPUT_RATE_VERTEX);
-            
             var stageCreateInfos = VkPipelineVertexInputStateCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO)
-                    .pVertexAttributeDescriptions(pAttribs)
-                    .pVertexBindingDescriptions(pBindings);
+                    .pVertexAttributeDescriptions(vertexInput == null ? null : vertexInput.getAttributes(stack))
+                    .pVertexBindingDescriptions(vertexInput == null ? null : vertexInput.getBindings(stack));
             
             return stageCreateInfos;
         }
@@ -290,14 +283,21 @@ public class GraphicsPipeline extends AbstractPipeline {
         }
         
         protected VkPipelineColorBlendStateCreateInfo createColorBlendStateInfo(MemoryStack stack) {
-            var cbaState = VkPipelineColorBlendAttachmentState.calloc(1, stack)
-                    .colorWriteMask(VK10.VK_COLOR_COMPONENT_R_BIT | VK10.VK_COLOR_COMPONENT_G_BIT
-                            | VK10.VK_COLOR_COMPONENT_B_BIT | VK10.VK_COLOR_COMPONENT_A_BIT);
-            
+            var cbaState = VkPipelineColorBlendAttachmentState.calloc(colorBlendAttachments.size(), stack);
+            for (var blend : colorBlendAttachments) {
+                blend.fill(cbaState.get());
+            }
+            cbaState.flip();
+
+            var pBlendConstants = stack.floats(blendConstants);
+
             var cbsCreateInfo = VkPipelineColorBlendStateCreateInfo.calloc(stack)
                     .sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO)
+                    .logicOpEnable(logicOpEnable)
+                    .logicOp(logicOp)
+                    .blendConstants(pBlendConstants)
                     .pAttachments(cbaState);
-            
+
             return cbsCreateInfo;
         }
         
@@ -355,7 +355,7 @@ public class GraphicsPipeline extends AbstractPipeline {
             return GraphicsPipeline.this;
         }
         
-        public void apply(MaterialPass materialPass, Cache<Long, ShaderModule> shaderCache) {
+        public void apply(VulkanMesh mesh, MaterialPass materialPass, Cache<Long, ShaderModule> shaderCache) {
             var sources = materialPass.getShaderSources();
             Collection<ShaderModule> modules = new ArrayList<>(shaders.size());
             for (var source : sources) {
@@ -365,6 +365,11 @@ public class GraphicsPipeline extends AbstractPipeline {
                 }));
             }
             shaders.addAll(modules);
+            
+            if (mesh != null) {
+                setTopology(mesh.topology());
+                setVertexInputState(mesh.createVertexInputState());
+            }
             
             applyRenderState(materialPass.getRenderState());
         }
@@ -430,10 +435,14 @@ public class GraphicsPipeline extends AbstractPipeline {
             GraphicsPipeline.this.topology = topology;
         }
 
+        public void setVertexInputState(VertexInputState vertexInput) {
+            GraphicsPipeline.this.vertexInput = vertexInput;
+        }
+
         public void setPrimitiveRestart(boolean primitiveRestart) {
             GraphicsPipeline.this.primitiveRestart = primitiveRestart;
         }
-        
+
         public void setDynamic(DynamicState state, boolean enable) {
             if (enable) {
                 dynamicStates.add(state);

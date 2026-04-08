@@ -83,6 +83,8 @@ public class ComputePipeline extends AbstractPipeline {
             VkUtil.throwOnFailure(err, "create compute pipeline");
             assignHandle(pHandle.get(0));
             
+            logger.info("Created and cached " + getBuildTarget() + " with hash= " + hashCode());
+            
             ref = NativeResource.get().register(getBuildTarget());
             getLogicalDevice().getNativeReference().addDependent(ref);
         }

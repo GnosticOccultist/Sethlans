@@ -38,6 +38,12 @@ public class PipelineColorBlendAttachment {
             this.dstColorFactor = VK10.VK_BLEND_FACTOR_ONE;
             this.dstAlphaFactor = VK10.VK_BLEND_FACTOR_ONE;
             break;
+        case ALPHA_ADDITIVE:
+            this.srcColorFactor = VK10.VK_BLEND_FACTOR_SRC_ALPHA;
+            this.srcAlphaFactor = VK10.VK_BLEND_FACTOR_SRC_ALPHA;
+            this.dstColorFactor = VK10.VK_BLEND_FACTOR_ONE;
+            this.dstAlphaFactor = VK10.VK_BLEND_FACTOR_ONE;
+            break;
         case MODULATE:
             this.srcColorFactor = VK10.VK_BLEND_FACTOR_DST_COLOR;
             this.srcAlphaFactor = VK10.VK_BLEND_FACTOR_DST_COLOR;

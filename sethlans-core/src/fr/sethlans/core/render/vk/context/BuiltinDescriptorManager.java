@@ -50,6 +50,10 @@ public class BuiltinDescriptorManager {
                 ForeignStructLayoutGenerator.layoutOf(Global.class, LayoutType.STD140)));
         builtinBindings.put("Dynamic", new BuiltinBinding("Dynamic", UpdateRate.PER_FRAME,
                 ForeignStructLayoutGenerator.layoutOf(Dynamic.class, LayoutType.STD140)));
+        
+        // viewMatrix.lookAt(-3000.0f, -2500.0f, -3000.0f, 0, 1200, 0, 0, 1, 0);
+        //viewMatrix.transpose();
+        //viewMatrix.(new Vector3f(-200, -1000, -100), new Vector3f(-200, -500, -100), new Vector3f(0, 1, 0));
     }
 
     void update(int currentFrame) {
@@ -63,11 +67,9 @@ public class BuiltinDescriptorManager {
     void resize(LogicalDevice logicalDevice, int width, int height) {
         projection.update(width, height);
 
-//        var uniform = get("Global");
-//        if (uniform != null) {
-//            var buffer = uniform.map();
-//            buffer.set("projection", projection.getMatrix());
-//        }
+        var uniform = get("Global");
+        var buffer = uniform.map();
+        buffer.set("projection", projection.getMatrix());
     }
 
     public AbstractDescriptorSet getOrCreate(BindingLayout bindingLayout, DescriptorSetLayout descLayout) {

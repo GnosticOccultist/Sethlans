@@ -12,9 +12,13 @@ public class ColorBlendState {
 
     private LogicOp logicOp = LogicOp.COPY;
 
-    private final List<ColorBlendModeAttachment> blendAttachments = new ArrayList<>();
+    private final List<ColorBlendModeAttachment> blendAttachments = new ArrayList<>(1);
 
     private float[] blendConstants = new float[4];
+
+    public ColorBlendState() {
+        this.blendAttachments.add(new ColorBlendModeAttachment());
+    }
 
     public ColorBlendState reset() {
         return set(DEFAULT);

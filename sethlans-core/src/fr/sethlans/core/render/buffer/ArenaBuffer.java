@@ -2,8 +2,6 @@ package fr.sethlans.core.render.buffer;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import org.lwjgl.system.MemoryUtil;
-
 import fr.sethlans.core.natives.AbstractNativeResource;
 import fr.sethlans.core.natives.NativeResource;
 
@@ -11,20 +9,12 @@ public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeB
 
     private MemorySize size;
 
-    private Arena arena = Arena.ofConfined();
+    private Arena arena;
 
     private MemorySegment segment;
 
-    private long baseAddress = MemoryUtil.NULL;
-
     public ArenaBuffer(MemorySize size) {
         this.size = size;
-        this.arena = Arena.ofConfined();
-        this.segment = arena.allocate(size.getBytes());
-        this.baseAddress = segment.address();
-
-        this.object = baseAddress;
-        this.ref = NativeResource.get().register(this);
     }
 
     @Override
@@ -37,9 +27,20 @@ public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeB
             throw new IndexOutOfBoundsException(
                     "Mapping out of bounds [" + offset + ", " + size + "], " + size().getBytes() + "!");
         }
-        
-        var mapping = offset == 0 ? new VirtualBufferMapping(segment)
-                : new VirtualBufferMapping(segment.asSlice(offset, size));
+
+        if (segment == null || arena == null) {
+            if (ref != null) {
+                ref.destroy();
+            }
+
+            arena = Arena.ofConfined();
+            
+            segment = arena.allocate(size().getBytes());
+            ref = NativeResource.get().register(this);
+        }
+
+        var mapping = offset == 0 ? new DirectBufferMapping(segment)
+                : new DirectBufferMapping(segment.asSlice(size().getOffset() + offset, size));
         return mapping;
     }
 
@@ -53,11 +54,6 @@ public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeB
     }
 
     @Override
-    public long address() {
-        return segment.address();
-    }
-
-    @Override
     public MemorySize size() {
         return size;
     }
@@ -66,6 +62,9 @@ public class ArenaBuffer extends AbstractNativeResource<Long> implements NativeB
     public Runnable createDestroyAction() {
         return () -> {
             arena.close();
+            arena = null;
+
+            segment = null;
         };
     }
 }
