@@ -12,6 +12,7 @@ import fr.sethlans.core.asset.AssimpLoader;
 import fr.sethlans.core.asset.MaterialLoader;
 import fr.sethlans.core.asset.TextureLoader;
 import fr.sethlans.core.material.Texture;
+import fr.sethlans.core.render.state.raster.CullMode;
 import fr.sethlans.core.render.view.PerspectiveCamera;
 import fr.sethlans.core.render.view.RenderView;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
@@ -66,6 +67,9 @@ public class AssimpTest extends SethlansApplication {
                 indices);
 
         var mat = MaterialLoader.load(getConfig(), "resources/materials/unlit.smat");
+        mat.getMaterialPass("forward").getRenderState().getRasterizationState().setCullMode(CullMode.BACK);
+        mat.getMaterialPass("forward").getRenderState().getDepthStencilState().setDepthTest(true);
+        mat.getMaterialPass("forward").getRenderState().getDepthStencilState().setDepthWrite(true);
 
         var mesh = new Mesh(Topology.TRIANGLES, indices, vertices);
         vikingRoom = new Geometry("Viking Room", mesh);

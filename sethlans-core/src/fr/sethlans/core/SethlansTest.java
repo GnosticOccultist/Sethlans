@@ -9,6 +9,7 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.MaterialLoader;
 import fr.sethlans.core.asset.TextureLoader;
 import fr.sethlans.core.material.Texture;
+import fr.sethlans.core.render.state.raster.CullMode;
 import fr.sethlans.core.render.view.PerspectiveCamera;
 import fr.sethlans.core.render.view.RenderView;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
@@ -57,6 +58,9 @@ public class SethlansTest extends SethlansApplication {
         texture = TextureLoader.load(getConfig(), "resources/textures/vulkan-logo.png");
 
         var mat = MaterialLoader.load(getConfig(), "resources/materials/unlit.smat");
+        mat.getMaterialPass("forward").getRenderState().getRasterizationState().setCullMode(CullMode.BACK);
+        mat.getMaterialPass("forward").getRenderState().getDepthStencilState().setDepthTest(true);
+        mat.getMaterialPass("forward").getRenderState().getDepthStencilState().setDepthWrite(true);
 
         box = new Box("Box");
         box.setMaterial(mat);
