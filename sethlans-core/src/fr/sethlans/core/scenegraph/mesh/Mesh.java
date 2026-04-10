@@ -22,6 +22,12 @@ public class Mesh extends BackendObject {
 
     private int fpv;
 
+    public Mesh(Topology topology, int vertexCount) {
+        Validator.nonNull(topology, "The mesh topology can't be null!");
+        this.topology = topology;
+        this.vertexCount = vertexCount;
+    }
+
     public Mesh(Topology topology, Collection<Integer> indices, List<Vertex> vertices) {
         Validator.nonNull(topology, "The mesh topology can't be null!");
         this.topology = topology;

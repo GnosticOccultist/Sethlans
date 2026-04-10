@@ -9,16 +9,19 @@ import org.lwjgl.vulkan.VkVertexInputAttributeDescription;
 import org.lwjgl.vulkan.VkVertexInputBindingDescription;
 
 import fr.sethlans.core.render.vk.util.VulkanFormat;
+import fr.sethlans.core.scenegraph.mesh.Mesh;
 
 public class VertexInputState {
 
     private final Map<Integer, BindingEntry> bindings = new HashMap<>();
     private final Map<Integer, AttributeEntry> attributes = new HashMap<>();
 
-    public VertexInputState() {
-        bindings.put(0, new BindingEntry(0, 3 * Float.BYTES + 2 * Float.BYTES, VertexInputRate.VERTEX));
-        attributes.put(0, new AttributeEntry(0, 0, 0, VulkanFormat.R32G32B32_SFLOAT));
-        attributes.put(1, new AttributeEntry(1, 0, 3 * Float.BYTES, VulkanFormat.R32G32B32_SFLOAT));
+    public VertexInputState(Mesh mesh) {
+        if (mesh.getVertexData() != null) {
+            bindings.put(0, new BindingEntry(0, 3 * Float.BYTES + 2 * Float.BYTES, VertexInputRate.VERTEX));
+            attributes.put(0, new AttributeEntry(0, 0, 0, VulkanFormat.R32G32B32_SFLOAT));
+            attributes.put(1, new AttributeEntry(1, 0, 3 * Float.BYTES, VulkanFormat.R32G32B32_SFLOAT));
+        }
     }
 
     public VkVertexInputBindingDescription.Buffer getBindings(MemoryStack stack) {

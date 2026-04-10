@@ -8,10 +8,12 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.Objects;
 
+import org.lwjgl.glfw.GLFW;
 import org.lwjgl.system.MemoryStack;
 import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.material.MaterialInstance;
+import fr.sethlans.core.material.MaterialPass.ShaderType;
 import fr.sethlans.core.material.layout.BindingLayout;
 import fr.sethlans.core.material.layout.BindingType;
 import fr.sethlans.core.render.buffer.DirectBufferMapping;
@@ -29,6 +31,7 @@ import fr.sethlans.core.render.vk.descriptor.DescriptorSetWriter;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
+import fr.sethlans.core.render.vk.shader.ShaderStage;
 import fr.sethlans.core.render.vk.uniform.VulkanUniform;
 import fr.sethlans.core.render.vk.util.VkShader;
 import fr.sethlans.core.scenegraph.Geometry;
@@ -37,16 +40,16 @@ import fr.sethlans.core.render.vk.uniform.PushConstantUniform;
 import fr.sethlans.core.render.vk.uniform.TextureUniform;
 
 public class VulkanMaterial {
-    
+
     private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.context");
 
     private final Map<String, VulkanUniform<?>> uniforms = new HashMap<>();
     private final Map<DescriptorSetLayout, CachedDescriptorSet> setCache = new HashMap<>();
 
     private LogicalDevice logicalDevice;
-    
+
     private MaterialInstance material;
-    
+
     public VulkanMaterial(LogicalDevice logicalDevice, MaterialInstance material) {
         this.logicalDevice = logicalDevice;
         this.material = material;
@@ -59,7 +62,7 @@ public class VulkanMaterial {
                 if (bindLayout.builtin()) {
                     continue;
                 }
-                
+
                 final var bindinLayout = bindLayout;
                 var uniform = uniforms.computeIfAbsent(bindinLayout.name(), _ -> {
                     if (bindinLayout.type() == BindingType.UNIFORM_BUFFER) {
@@ -73,18 +76,18 @@ public class VulkanMaterial {
                     }
                     return null;
                 });
-                
+
                 if (uniform instanceof TextureUniform tu) {
                     tu.set(new VulkanTexture(logicalDevice, material.getTexture()));
                 }
-                
+
                 if (uniform instanceof BufferUniform tu && bindinLayout.type() == BindingType.STORAGE_BUFFER) {
-                    tu.set(new DeviceLocalBuffer(logicalDevice, MemorySize.bytes(8 * Float.BYTES * 80128), 
+                    tu.set(new DeviceLocalBuffer(logicalDevice, MemorySize.bytes(8 * Float.BYTES * 80128),
                             BufferUsage.STORAGE.add(BufferUsage.VERTEX).add(BufferUsage.TRANSFER_DST)));
                 }
             }
         }
-        
+
         for (var pushConstant : layout.pushConstantLayouts()) {
             var uniform = (PushConstantUniform) uniforms.computeIfAbsent(pushConstant.name(),
                     _ -> new PushConstantUniform());
@@ -98,8 +101,9 @@ public class VulkanMaterial {
         }
     }
 
-    public void bind(Pipeline pipeline, String pass, Geometry geometry, BuiltinDescriptorManager builtinDescriptorManager, CommandBuffer command,
-            DescriptorPool pool, int imageIndex) {
+    public void bind(Pipeline pipeline, String pass, Geometry geometry,
+            BuiltinDescriptorManager builtinDescriptorManager, CommandBuffer command, DescriptorPool pool,
+            int imageIndex) {
         var layout = pipeline.getLayout();
         var descLayouts = layout.getSetLayouts();
         List<DescriptorSetLayout> reqSetAllocation = new ArrayList<>(descLayouts.size());
@@ -108,7 +112,7 @@ public class VulkanMaterial {
                 reqSetAllocation.add(l);
             }
         }
-        
+
         if (!reqSetAllocation.isEmpty()) {
             var allocatedSets = pool.allocateAll(reqSetAllocation);
             for (ListIterator<DescriptorSetLayout> it = reqSetAllocation.listIterator(); it.hasNext();) {
@@ -134,7 +138,7 @@ public class VulkanMaterial {
 
                     } else {
                         desc = set.getSet();
-                        
+
                         VulkanUniform<?> uniform = uniforms.get(binding.getKey());
                         if (uniform == null) {
                             throw new NullPointerException(
@@ -156,7 +160,7 @@ public class VulkanMaterial {
 
             pDescriptorSets.flip();
             command.bindDescriptorSets(pipeline.getLayout().handle(), pipeline.getBindPoint(), pDescriptorSets, null);
-            
+
             if (!layout.getPushConstants().isEmpty()) {
                 try (var push = new DirectBufferMapping(stack.malloc(layout.getPushConstantBytes()))) {
                     for (var pushConstant : layout.getPushConstants()) {
@@ -169,20 +173,32 @@ public class VulkanMaterial {
 
                         var buffUniform = (PushConstantUniform) uniform;
 
-                        try (var map = buffUniform.get().map()) {
-                            
-                            if (pushConstant.name().equals("Object") && geometry != null) {
-                                geometry.getModelMatrix().get(0, push.getBytes());
-                                command.pushConstants(layout.handle(), VkShader.getShaderStages(pushConstant.shaderTypes()),
-                                        0, push.getBytes());
-                            }
+                        if (pushConstant.name().equals("Object") && geometry != null) {
+                            geometry.getModelMatrix().get(0, push.getBytes());
+                            command.pushConstants(layout.handle(), VkShader.getShaderStages(pushConstant.shaderTypes()),
+                                    0, push.getBytes());
+                        }
+
+                        if (pushConstant.name().equals("Params")
+                                && pushConstant.shaderTypes().contains(ShaderType.VERTEX)) {
+                            var buff = stack.malloc(6 * Float.BYTES);
+                            buff.putFloat((float) GLFW.glfwGetTime());
+                            buff.putInt(75000);
+                            buff.putFloat(10.0f);
+                            buff.putFloat(500.0f);
+                            buff.putFloat(150f);
+                            buff.putFloat(300.0f);
+
+                            buff.flip();
+
+                            command.pushConstants(layout.handle(), ShaderStage.VERTEX, 0, buff);
                         }
                     }
                 }
             }
         }
-    }   
-    
+    }
+
     public <T> VulkanUniform<T> getUniform(String name) {
         return (VulkanUniform<T>) uniforms.get(name);
     }
@@ -218,7 +234,7 @@ public class VulkanMaterial {
             if (changes.isEmpty()) {
                 return;
             }
-                
+
             set.write(changes.values(), imageIndex);
             changes.clear();
         }

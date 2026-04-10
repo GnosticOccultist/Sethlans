@@ -151,8 +151,9 @@ public class PerspectiveCamera implements Camera {
             return;
         }
         
-        this.viewMatrix.identity().translate(-location.x(), -location.y(), -location.z())
-                .rotate(rotation);
+        this.viewMatrix.identity()
+                .rotate(rotation.conjugate(new Quaternionf()))
+                .translate(-location.x(), -location.y(), -location.z());
         
         this.dirtyFields.remove(CameraDirtyFields.VIEW_MATRIX);
         

@@ -8,7 +8,6 @@ import fr.alchemy.utilities.logging.FactoryLogger;
 import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
-import fr.sethlans.core.material.MaterialInstance;
 import fr.sethlans.core.material.MaterialPass;
 import fr.sethlans.core.render.view.RenderView;
 import fr.sethlans.core.render.vk.buffer.PersistentStagingRing;
@@ -30,7 +29,6 @@ import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.render.vk.uniform.VulkanUniform;
 import fr.sethlans.core.scenegraph.Geometry;
-import fr.sethlans.core.scenegraph.mesh.Topology;
 
 public class VulkanRenderer {
 
@@ -215,8 +213,10 @@ public class VulkanRenderer {
         return vkMesh;
     }
     
-    public void drawParticles(Pipeline pipeline, Geometry geometry, MaterialInstance material, CommandBuffer command, int imageIndex) {
+    public void drawParticles(Pipeline pipeline, Geometry geometry, CommandBuffer command, int imageIndex) {
         var logicalDevice = context.getLogicalDevice();
+        var material = geometry.getMaterialInstance();
+        
         VulkanMaterial vkMaterial = null;
         if (material.hasBackendObject()) {
             vkMaterial = materials[material.backendId()];
@@ -255,11 +255,12 @@ public class VulkanRenderer {
             command.pushConstants(layout.handle(), ShaderStage.VERTEX, 0, buff);
         }
         
-        command.draw(6 * 80128);
+        command.draw(geometry.getMesh().vertexCount());
     }
     
-    public void computeParticles(Pipeline pipeline, Geometry geometry, MaterialInstance material, CommandBuffer command, int imageIndex) {
+    public void computeParticles(Pipeline pipeline, Geometry geometry, CommandBuffer command, int imageIndex) {
         var logicalDevice = context.getLogicalDevice();
+        var material = geometry.getMaterialInstance();
         VulkanMaterial vkMaterial = null;
         if (material.hasBackendObject()) {
             vkMaterial = materials[material.backendId()];
@@ -315,7 +316,6 @@ public class VulkanRenderer {
         
         command.dispatch(80128 / 256, 1, 1);
         command.addBarrier(uniform.get(), Access.SHADER_WRITE, Access.VERTEX_ATTRIBUTE_READ, PipelineStage.COMPUTE_SHADER, PipelineStage.VERTEX_INPUT);
-        // logicalDevice.waitIdle();
     }
     
     public VulkanMesh getVulkanMesh(Geometry geometry) {
@@ -346,27 +346,19 @@ public class VulkanRenderer {
         return vkMesh;
     }
     
-    public Pipeline getPipeline(Topology topology, MaterialPass materialPass) {
-        Pipeline pipeline = null;
-        if (materialPass.isComputePass()) {
-            pipeline = pipelineLibrary.getOrCreate(context.getLogicalDevice(), materialPass);
-        
-        } else {
-            pipeline = pipelineLibrary.getOrCreate(context.getLogicalDevice(), topology, materialPass);
-        }
-        
-        return pipeline;
+    public Pipeline getPipeline(MaterialPass materialPass) {
+        return getPipeline(null, materialPass);
     }
 
     public Pipeline getPipeline(VulkanMesh mesh, MaterialPass materialPass) {
         Pipeline pipeline = null;
         if (materialPass.isComputePass()) {
             pipeline = pipelineLibrary.getOrCreate(context.getLogicalDevice(), materialPass);
-        
+
         } else {
             pipeline = pipelineLibrary.getOrCreate(context.getLogicalDevice(), mesh, materialPass);
         }
-        
+
         return pipeline;
     }
 

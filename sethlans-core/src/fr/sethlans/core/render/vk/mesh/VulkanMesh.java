@@ -33,48 +33,63 @@ public class VulkanMesh {
         this.logicalDevice = logicalDevice;
         this.mesh = mesh;
 
-        this.vertexBuffer = new DeviceLocalBuffer(logicalDevice, mesh.getVertexData().size(),
-                VkFlag.of(BufferUsage.TRANSFER_DST, BufferUsage.VERTEX));
-        this.indexBuffer = new IndexBuffer<>(mesh.getIndices().getBuffer().getType(), new DeviceLocalBuffer(
-                logicalDevice, mesh.getIndices().size(), VkFlag.of(BufferUsage.TRANSFER_DST, BufferUsage.INDEX)));
-
-        mesh.getVertexData().setDestBuffer(vertexBuffer);
-        mesh.getIndices().setDestBuffer(indexBuffer.getBuffer());
-    }
-
-    public void uploadData(Mesh mesh, PersistentStagingRing stagingRing) {
-        if (mesh.getVertexData().size().getBytes() > vertexBuffer.size().getBytes()) {
+        if (mesh.getVertexData() != null) {
             this.vertexBuffer = new DeviceLocalBuffer(logicalDevice, mesh.getVertexData().size(),
                     VkFlag.of(BufferUsage.TRANSFER_DST, BufferUsage.VERTEX));
             mesh.getVertexData().setDestBuffer(vertexBuffer);
         }
 
-        if (mesh.getIndices().size().getBytes() > indexBuffer.size().getBytes()) {
+        if (mesh.getIndices() != null) {
             this.indexBuffer = new IndexBuffer<>(mesh.getIndices().getBuffer().getType(), new DeviceLocalBuffer(
                     logicalDevice, mesh.getIndices().size(), VkFlag.of(BufferUsage.TRANSFER_DST, BufferUsage.INDEX)));
             mesh.getIndices().setDestBuffer(indexBuffer.getBuffer());
         }
+    }
 
-        stagingRing.stage(mesh.getVertexData());
-        stagingRing.stage(mesh.getIndices());
+    public void uploadData(Mesh mesh, PersistentStagingRing stagingRing) {
+        if (mesh.getVertexData() != null) {
+            if (mesh.getVertexData().size().getBytes() > vertexBuffer.size().getBytes()) {
+                this.vertexBuffer = new DeviceLocalBuffer(logicalDevice, mesh.getVertexData().size(),
+                        VkFlag.of(BufferUsage.TRANSFER_DST, BufferUsage.VERTEX));
+                mesh.getVertexData().setDestBuffer(vertexBuffer);
+            }
+            stagingRing.stage(mesh.getVertexData());
+        }
+
+        if (mesh.getIndices() != null) {
+            if (mesh.getIndices().size().getBytes() > indexBuffer.size().getBytes()) {
+                this.indexBuffer = new IndexBuffer<>(mesh.getIndices().getBuffer().getType(),
+                        new DeviceLocalBuffer(logicalDevice, mesh.getIndices().size(),
+                                VkFlag.of(BufferUsage.TRANSFER_DST, BufferUsage.INDEX)));
+                mesh.getIndices().setDestBuffer(indexBuffer.getBuffer());
+            }
+            stagingRing.stage(mesh.getIndices());
+        }
+
     }
 
     public void render(CommandBuffer command) {
-        command.bindVertexBuffer(vertexBuffer).bindIndexBuffer(indexBuffer);
-        if (indexBuffer != null && indexBuffer.size().getBytes() > 0) {
+        if (vertexBuffer != null) {
+            command.bindVertexBuffer(vertexBuffer);
+        }
+        if (indexBuffer != null) {
+            command.bindIndexBuffer(indexBuffer);
+        }
+
+        if (indexBuffer != null && indexBuffer.getElements() > 0) {
             command.drawIndexed(indexBuffer);
 
         } else {
             command.draw(mesh.vertexCount());
         }
     }
-    
+
     public Topology topology() {
         return mesh.topology();
     }
-    
+
     public VertexInputState createVertexInputState() {
-        return new VertexInputState();
+        return new VertexInputState(mesh);
     }
 
     public static VkPipelineInputAssemblyStateCreateInfo createInputAssemblyState(LogicalDevice logicalDevice,

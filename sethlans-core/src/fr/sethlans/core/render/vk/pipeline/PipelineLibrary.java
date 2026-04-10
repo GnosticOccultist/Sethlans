@@ -4,7 +4,6 @@ import fr.sethlans.core.material.MaterialLayout;
 import fr.sethlans.core.material.MaterialPass;
 import fr.sethlans.core.material.layout.BindingType;
 import fr.sethlans.core.natives.cache.Cache;
-import fr.sethlans.core.render.state.raster.CullMode;
 import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.descriptor.DescriptorType;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
@@ -12,7 +11,6 @@ import fr.sethlans.core.render.vk.mesh.VulkanMesh;
 import fr.sethlans.core.render.vk.shader.ShaderModule;
 import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
-import fr.sethlans.core.scenegraph.mesh.Topology;
 
 public class PipelineLibrary {
 
@@ -63,33 +61,6 @@ public class PipelineLibrary {
         });
         return pipeline;
     }
-    
-    public GraphicsPipeline getOrCreate(LogicalDevice device, Topology topology, MaterialPass materialPass) {
-
-        var pipelineLayout = getOrCreate(device, materialPass.getLayout());
-
-        // TODO: enforce render state.
-        materialPass.getRenderState().getMultisampleState().setSampleCount(swapChain.sampleCount());
-//        materialPass.getRenderState().getDepthStencilState().setDepthTest(true);
-//        materialPass.getRenderState().getDepthStencilState().setDepthWrite(true);
-//        materialPass.getRenderState().getRasterizationState().setCullMode(CullMode.BACK);
-        
-        var pipeline = GraphicsPipeline.build(device, pipelineLayout, b -> {
-            b.apply(null, materialPass, shaderCache);
-            b.setRenderPass(renderPass);
-            b.setTopology(topology);
-            b.setPipelineCache(pipelineCache);
-            b.setCache(inMemPipelineCache);
-            b.setDynamic(DynamicState.VIEWPORT, true);
-            b.setDynamic(DynamicState.SCISSOR, true);
-            b.setColorAttachmentFormat(swapChain.imageFormat());
-            b.setDepthAttachmentFormat(swapChain.depthFormat());
-            // TODO: enforce render state.
-            // b.setSampleCount(swapChain.sampleCount());
-        });
-
-        return pipeline;
-    }
 
     public GraphicsPipeline getOrCreate(LogicalDevice device, VulkanMesh mesh, MaterialPass materialPass) {
 
@@ -97,9 +68,6 @@ public class PipelineLibrary {
 
         // TODO: enforce render state.
         materialPass.getRenderState().getMultisampleState().setSampleCount(swapChain.sampleCount());
-        materialPass.getRenderState().getDepthStencilState().setDepthTest(true);
-        materialPass.getRenderState().getDepthStencilState().setDepthWrite(true);
-        materialPass.getRenderState().getRasterizationState().setCullMode(CullMode.BACK);
         
         var pipeline = GraphicsPipeline.build(device, pipelineLayout, b -> {
             b.apply(mesh, materialPass, shaderCache);
