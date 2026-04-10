@@ -1,7 +1,9 @@
 package fr.sethlans.core.render.vk.swapchain;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
+import fr.sethlans.core.render.view.RenderView;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.sync.Fence;
 import fr.sethlans.core.render.vk.sync.Semaphore;
@@ -63,6 +65,10 @@ public class VulkanFrame {
 
     public void render(Geometry geometry) {
         this.command.render(geometry, imageIndex);
+    }
+    
+    public void render(List<RenderView> views) {
+        this.command.render(views);
     }
 
     public void fenceWait() {

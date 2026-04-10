@@ -1,5 +1,7 @@
 package fr.sethlans.core;
 
+import org.joml.Quaternionf;
+
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.MaterialLoader;
@@ -7,6 +9,8 @@ import fr.sethlans.core.material.MaterialInstance;
 import fr.sethlans.core.render.state.blend.BlendMode;
 import fr.sethlans.core.render.state.blend.ColorBlendModeAttachment;
 import fr.sethlans.core.render.state.raster.CullMode;
+import fr.sethlans.core.render.view.PerspectiveCamera;
+import fr.sethlans.core.render.view.RenderView;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 
 public class GalaxyTest extends SethlansApplication {
@@ -16,6 +20,7 @@ public class GalaxyTest extends SethlansApplication {
     }
     
     private MaterialInstance matInst;
+    private RenderView view;
     
     @Override
     protected void prepare(ConfigFile appConfig) {
@@ -37,6 +42,14 @@ public class GalaxyTest extends SethlansApplication {
 
     @Override
     protected void initialize() {
+        var camera = new PerspectiveCamera();
+        camera.setAspect((float) getWindow().getWidth() / (float) getWindow().getHeight());
+        camera.setLocation(-3000.0f, -2500.0f, -3000.0f);
+        camera.setRotation(new Quaternionf());
+        
+        view = new RenderView(camera);
+        addView(view);
+        
         var mat = MaterialLoader.load(getConfig(), "resources/materials/gpu-particles.smat");
         matInst = new MaterialInstance(mat);
 

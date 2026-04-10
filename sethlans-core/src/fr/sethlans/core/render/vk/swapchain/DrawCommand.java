@@ -1,7 +1,10 @@
 package fr.sethlans.core.render.vk.swapchain;
 
+import java.util.Collection;
+
 import fr.sethlans.core.material.MaterialInstance;
 import fr.sethlans.core.material.MaterialPass;
+import fr.sethlans.core.render.view.RenderView;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.context.VulkanRenderer;
 import fr.sethlans.core.render.vk.pipeline.DynamicState;
@@ -54,6 +57,52 @@ public class DrawCommand {
         }
 
         this.started = true;
+    }
+    
+    public void render(Collection<RenderView> views) {
+        this.started = true;
+        var command = getCommandBuffer();
+        command.reset().beginRecording();
+        
+        renderer.beginRendering(this);
+
+        for (var view : views) {
+            render(view);
+        }
+        
+        renderer.endRendering(this);
+        command.end();
+        
+        this.started = false;
+    }
+
+    public void render(RenderView view) {
+        if (!view.isEnabled() || view.getGeometries().isEmpty()) {
+            return;
+        }
+        
+        renderer.prepare(view);
+        
+        // TODO: Push view settings.
+        command.setViewport(renderer.getSwapChain());
+        command.setScissor(renderer.getSwapChain());
+
+        for (var geometry : view.getGeometries()) {
+            
+            var vkMesh = renderer.getVulkanMesh(geometry);
+            var materialPass = geometry.getMaterial().getDefaultMaterialPass();
+            
+            var p = renderer.getPipeline(vkMesh, materialPass);
+            if (p != pipeline) {
+                pipeline = p;
+                command.bindPipeline(pipeline);
+            }
+            
+            getRenderer().bind(pipeline, geometry, command, renderer.getCurrentFrameIndex());
+            vkMesh.render(command);
+        }
+        
+        pipeline = null;
     }
     
     // TODO Remove.

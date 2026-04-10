@@ -1,6 +1,7 @@
 package fr.sethlans.core;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -11,6 +12,8 @@ import fr.sethlans.core.asset.AssimpLoader;
 import fr.sethlans.core.asset.MaterialLoader;
 import fr.sethlans.core.asset.TextureLoader;
 import fr.sethlans.core.material.Texture;
+import fr.sethlans.core.render.view.PerspectiveCamera;
+import fr.sethlans.core.render.view.RenderView;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.scenegraph.Geometry;
 import fr.sethlans.core.scenegraph.mesh.Mesh;
@@ -26,6 +29,8 @@ public class AssimpTest extends SethlansApplication {
     private Quaternionf rotation;
 
     private float angle;
+
+    private RenderView view;
 
     public static void main(String[] args) {
         launch(AssimpTest.class, args);
@@ -49,11 +54,17 @@ public class AssimpTest extends SethlansApplication {
 
     @Override
     protected void initialize() {
+        var camera = new PerspectiveCamera();
+        camera.setAspect((float) getWindow().getWidth() / (float) getWindow().getHeight());
+
+        view = new RenderView(camera);
+        addView(view);
+
         var vertices = new ArrayList<Vertex>();
         var indices = new ArrayList<Integer>();
         AssimpLoader.load("resources/models/viking_room/viking_room.obj", Assimp.aiProcess_FlipUVs, true, vertices,
                 indices);
-        
+
         var mat = MaterialLoader.load(getConfig(), "resources/materials/unlit.smat");
 
         var mesh = new Mesh(Topology.TRIANGLES, indices, vertices);
@@ -64,6 +75,7 @@ public class AssimpTest extends SethlansApplication {
         vikingRoom.getMaterialInstance().setTexture(texture);
 
         rotation = new Quaternionf();
+        view.addGeometry(vikingRoom);
     }
 
     @Override
@@ -75,12 +87,8 @@ public class AssimpTest extends SethlansApplication {
         rotation.identity().rotateAxis((float) Math.toRadians(90), new Vector3f(1, 0, 0))
                 .rotateAxis((float) Math.toRadians(angle), new Vector3f(0, 0, 1));
         vikingRoom.getModelMatrix().identity().translationRotateScale(new Vector3f(0, 0.35f, -3f), rotation, 1);
-        
-        var materialPass = vikingRoom.getMaterial().getDefaultMaterialPass();
-        
-        frame.command().begin(vikingRoom, materialPass);
-        frame.render(vikingRoom);
-        frame.command().end();
+
+        frame.render(List.of(view));
     }
 
     @Override

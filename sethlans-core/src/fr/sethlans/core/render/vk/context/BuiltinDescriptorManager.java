@@ -4,6 +4,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.joml.Matrix4f;
+
+import fr.alchemy.utilities.logging.FactoryLogger;
+import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.material.layout.BindingLayout;
 import fr.sethlans.core.render.Projection;
 import fr.sethlans.core.render.buffer.MemorySize;
@@ -11,6 +14,7 @@ import fr.sethlans.core.render.struct.GpuStruct;
 import fr.sethlans.core.render.struct.GpuStructLayout;
 import fr.sethlans.core.render.struct.GpuStructLayout.LayoutType;
 import fr.sethlans.core.render.struct.foreign.ForeignStructLayoutGenerator;
+import fr.sethlans.core.render.view.Camera;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.buffer.HostVisibleBuffer;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
@@ -22,6 +26,8 @@ import fr.sethlans.core.render.vk.uniform.StructUniform;
 import fr.sethlans.core.render.vk.uniform.UpdateRate;
 
 public class BuiltinDescriptorManager {
+    
+    private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.context");
 
     record Global(Matrix4f projection) implements GpuStruct {
     }
@@ -51,17 +57,17 @@ public class BuiltinDescriptorManager {
         builtinBindings.put("Dynamic", new BuiltinBinding("Dynamic", UpdateRate.PER_FRAME,
                 ForeignStructLayoutGenerator.layoutOf(Dynamic.class, LayoutType.STD140)));
         
-        // viewMatrix.lookAt(-3000.0f, -2500.0f, -3000.0f, 0, 1200, 0, 0, 1, 0);
+        viewMatrix.lookAt(-3000.0f, -2500.0f, -3000.0f, 0, 1200, 0, 0, 1, 0);
         //viewMatrix.transpose();
         //viewMatrix.(new Vector3f(-200, -1000, -100), new Vector3f(-200, -500, -100), new Vector3f(0, 1, 0));
     }
 
-    void update(int currentFrame) {
-//        var uniform = get("Dynamic");
-//        if (uniform != null) {
-//            var buffer = uniform.map();
-//            buffer.set("view", currentFrame, viewMatrix);
-//        }
+    void update(Camera camera, int currentFrame) {
+        var uniform = get("Dynamic");
+        if (uniform != null) {
+            var buffer = uniform.map();
+            buffer.set("view", currentFrame, camera.getViewMatrix());
+        }
     }
 
     void resize(LogicalDevice logicalDevice, int width, int height) {
@@ -128,7 +134,7 @@ public class BuiltinDescriptorManager {
 
         } else if (builtin.name().equals("Dynamic")) {
             var buffer = uniform.map();
-            buffer.set("view", 0, viewMatrix);
+            buffer.set("view", 0, new Matrix4f());
         }
     }
 

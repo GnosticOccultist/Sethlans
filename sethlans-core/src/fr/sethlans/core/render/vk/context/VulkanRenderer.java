@@ -10,6 +10,7 @@ import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.material.MaterialInstance;
 import fr.sethlans.core.material.MaterialPass;
+import fr.sethlans.core.render.view.RenderView;
 import fr.sethlans.core.render.vk.buffer.PersistentStagingRing;
 import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
@@ -100,8 +101,6 @@ public class VulkanRenderer {
     public void beginRender(VulkanFrame frame) {
         this.currentFrame = frame;
         frame.setCommand(drawCommands[frame.imageIndex()]);
-        
-        builtinDescriptorManager.update(context.getBackend().getCurrentFrameIndex());
 
         if (useDynamicRendering) {
             var renderMode = config.getString(SethlansApplication.RENDER_MODE_PROP,
@@ -130,6 +129,11 @@ public class VulkanRenderer {
         }
     }
     
+    public void prepare(RenderView view) {
+        var camera = view.getCamera();
+        builtinDescriptorManager.update(camera, getCurrentFrameIndex());
+    }
+    
     public void beginRendering(DrawCommand drawCommand) {
         var command = drawCommand.getCommandBuffer();
         if (useDynamicRendering) {
@@ -153,6 +157,15 @@ public class VulkanRenderer {
 
                 }
             }
+        }
+    }
+    
+    public void endRendering(DrawCommand drawCommand) {
+        var command = drawCommand.getCommandBuffer();
+        if (useDynamicRendering) {
+            command.endRendering();
+        } else {
+            command.endRenderPass();
         }
     }
 

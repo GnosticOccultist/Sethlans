@@ -2,6 +2,8 @@ package fr.sethlans.core.app;
 
 import java.lang.reflect.Constructor;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import fr.alchemy.utilities.Instantiator;
 import fr.alchemy.utilities.logging.FactoryLogger;
@@ -11,6 +13,7 @@ import fr.sethlans.core.app.kernel.OSArch;
 import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.RenderEngine;
 import fr.sethlans.core.render.Window;
+import fr.sethlans.core.render.view.RenderView;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 
 public abstract class SethlansApplication {
@@ -142,6 +145,8 @@ public abstract class SethlansApplication {
     private RenderEngine renderEngine;
 
     private final FrameTimer timer = new FrameTimer(600, this::updateWindowTitle);
+    
+    private final List<RenderView> views = new ArrayList<>();
 
     private ConfigFile config;
 
@@ -203,6 +208,18 @@ public abstract class SethlansApplication {
     public void exit() {
         logger.info("Requested exiting application " + getClass().getSimpleName());
         running = false;
+    }
+    
+    protected void addView(RenderView view) {
+        this.views.add(view);
+    }
+
+    protected void removeView(RenderView view) {
+        this.views.remove(view);
+    }
+
+    public List<RenderView> getViews() {
+        return Collections.unmodifiableList(views);
     }
 
     public List<DisplayMode> getDisplayModes() {

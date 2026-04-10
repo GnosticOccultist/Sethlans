@@ -1,5 +1,7 @@
 package fr.sethlans.core;
 
+import java.util.List;
+
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import fr.sethlans.core.app.ConfigFile;
@@ -7,6 +9,8 @@ import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.MaterialLoader;
 import fr.sethlans.core.asset.TextureLoader;
 import fr.sethlans.core.material.Texture;
+import fr.sethlans.core.render.view.PerspectiveCamera;
+import fr.sethlans.core.render.view.RenderView;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.scenegraph.primitive.Box;
 
@@ -21,6 +25,8 @@ public class SethlansTest extends SethlansApplication {
     private Texture texture;
 
     private Box box;
+    
+    private RenderView view;
 
     @Override
     protected void prepare(ConfigFile appConfig) {
@@ -42,8 +48,14 @@ public class SethlansTest extends SethlansApplication {
 
     @Override
     protected void initialize() {
+        var camera = new PerspectiveCamera();
+        camera.setAspect((float) getWindow().getWidth() / (float) getWindow().getHeight());
+
+        view = new RenderView(camera);
+        addView(view);
+
         texture = TextureLoader.load(getConfig(), "resources/textures/vulkan-logo.png");
-        
+
         var mat = MaterialLoader.load(getConfig(), "resources/materials/unlit.smat");
 
         box = new Box("Box");
@@ -51,6 +63,7 @@ public class SethlansTest extends SethlansApplication {
         box.getMaterialInstance().setTexture(texture);
 
         rotation = new Quaternionf();
+        view.addGeometry(box);
     }
 
     @Override
@@ -62,11 +75,7 @@ public class SethlansTest extends SethlansApplication {
         rotation.identity().rotateAxis((float) Math.toRadians(angle), new Vector3f(0, 1, 0));
         box.getModelMatrix().identity().translationRotateScale(new Vector3f(0, 0, -3f), rotation, 1);
 
-        var materialPass = box.getMaterial().getDefaultMaterialPass();
-        
-        frame.command().begin(box, materialPass);
-        frame.render(box);
-        frame.command().end();
+        frame.render(List.of(view));
     }
 
     @Override
