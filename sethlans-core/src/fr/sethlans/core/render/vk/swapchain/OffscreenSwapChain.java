@@ -13,6 +13,7 @@ import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.framebuffer.FrameBuffer;
+import fr.sethlans.core.render.vk.framebuffer.PresentableFrameBuffer;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.pass.Attachment;
@@ -43,13 +44,7 @@ public class OffscreenSwapChain extends SwapChain {
             this.imageFormat = gammaCorrection ? VulkanFormat.B8G8R8A8_SRGB : VulkanFormat.B8G8R8A8_UNORM;
             this.framebufferExtent.set(desiredWidth, desiredHeight);
             
-            if (renderPass != null) {
-                this.frameBuffers = new FrameBuffer[imageCount];
-                for (var i = 0; i < imageCount; ++i) {
-                    var pAttachments = attachments.describe(stack, i);
-                    frameBuffers[i] = new FrameBuffer(getLogicalDevice(), renderPass, framebufferExtent, pAttachments);
-                }
-            }
+            this.framebuffer = new PresentableFrameBuffer(this, null, attachments, renderPass);
         }
 
         var width = framebufferExtent.width();
@@ -71,20 +66,7 @@ public class OffscreenSwapChain extends SwapChain {
 
             this.framebufferExtent.set(desiredWidth, desiredHeight);
 
-            attachments.destroy();
-            attachments = new AttachmentSet(getLogicalDevice(), this, stack, null, descriptors);
-
-            if (renderPass != null) {
-                for (var frameBuffer : frameBuffers) {
-                    frameBuffer.getNativeReference().destroy();
-                }
-
-                this.frameBuffers = new FrameBuffer[imageCount()];
-                for (var i = 0; i < imageCount(); ++i) {
-                    var pAttachments = attachments.describe(stack, i);
-                    frameBuffers[i] = new FrameBuffer(getLogicalDevice(), renderPass, framebufferExtent, pAttachments);
-                }
-            }
+            this.framebuffer = new PresentableFrameBuffer(this, null, attachments, renderPass);
 
             screenBuffer.getNativeReference().destroy();
 
@@ -112,8 +94,7 @@ public class OffscreenSwapChain extends SwapChain {
     }
 
     public ByteBuffer readImageData(ByteBuffer store) {
-        var attachment = getPrimaryAttachment(index);
-        var image = attachment.image;
+        var image = framebuffer.getCurrentImage();
 
         // Transition image to a valid transfer layout.
         try (var command = image.transitionLayout(Layout.TRANSFER_SRC_OPTIMAL)) {
@@ -121,7 +102,7 @@ public class OffscreenSwapChain extends SwapChain {
             command.copyImage(image, Layout.TRANSFER_SRC_OPTIMAL, screenBuffer);
 
             // Re-transition image layout back for future presentation.
-            image.transitionLayout(command, attachment.finalLayout());
+            image.transitionLayout(command, image.getLayout());
         }
 
         try (var data = screenBuffer.map()) {

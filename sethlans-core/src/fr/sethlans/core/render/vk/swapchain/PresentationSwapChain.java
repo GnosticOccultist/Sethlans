@@ -79,17 +79,7 @@ public class PresentationSwapChain extends SwapChain {
             this.presentationImages = getImages(stack);
             this.imageCount = presentationImages.length;
             
-            /// this.attachments = new AttachmentSet(logicalDevice, this, stack, presentationImages, descriptors);
-            
             this.framebuffer = new PresentableFrameBuffer(this, presentationImages, attachments, renderPass);
-
-//            if (renderPass != null) {
-//                this.frameBuffers = new PresentableFrameBuffer[presentationImages.length];
-//                for (var i = 0; i < presentationImages.length; ++i) {
-//                    var pAttachments = attachments.describe(stack, i);
-//                    frameBuffers[i] = new FrameBuffer(logicalDevice, renderPass, framebufferExtent, pAttachments);
-//                }
-//            }
 
             window.resize(framebufferExtent(stack));
         }
@@ -105,21 +95,6 @@ public class PresentationSwapChain extends SwapChain {
             this.imageCount = presentationImages.length;
             
             this.framebuffer = new PresentableFrameBuffer(this, presentationImages, attachments, renderPass);
-            
-//            attachments.destroy();
-//            attachments = new AttachmentSet(logicalDevice(), this, stack, presentationImages, descriptors);
-            
-//            if (renderPass != null) {
-//                for (var frameBuffer : frameBuffers) {
-//                    frameBuffer.getNativeReference().destroy();
-//                }
-//                
-//                this.frameBuffers = new FrameBuffer[presentationImages.length];
-//                for (var i = 0; i < presentationImages.length; ++i) {
-//                    var pAttachments = attachments.describe(stack, i);
-//                    frameBuffers[i] = new FrameBuffer(logicalDevice(), renderPass, framebufferExtent, pAttachments);
-//                }
-//            }
             
             window.resize(framebufferExtent(stack));
         }

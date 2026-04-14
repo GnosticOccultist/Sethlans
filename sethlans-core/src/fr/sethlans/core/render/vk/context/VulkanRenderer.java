@@ -15,6 +15,7 @@ import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool.Create;
+import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.VulkanImage.Load;
 import fr.sethlans.core.render.vk.image.VulkanImage.Store;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
@@ -107,12 +108,9 @@ public class VulkanRenderer {
             var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
             if (needsSurface) {
-                swapChain.getFramebuffer().prepare();
-//                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionLayout(
-//                        Layout.ATTACHMENT_OPTIMAL, Access.NONE, Access.COLOR_ATTACHMENT_WRITE,
-//                        PipelineStage.COLOR_ATTACHMENT_OUTPUT, PipelineStage.COLOR_ATTACHMENT_OUTPUT)) {
-//
-//                }
+                swapChain.getFramebuffer().transition(Layout.ATTACHMENT_OPTIMAL, Access.NONE,
+                        Access.COLOR_ATTACHMENT_WRITE, PipelineStage.COLOR_ATTACHMENT_OUTPUT,
+                        PipelineStage.COLOR_ATTACHMENT_OUTPUT);
             }
         }
     }
@@ -123,8 +121,7 @@ public class VulkanRenderer {
 
         var fb = swapChain.getFramebuffer();
         if (useDynamicRendering) {
-            fb.beginDynamicRender(command, Load.CLEAR, Store.STORE, Load.CLEAR,
-                    Store.STORE);
+            fb.beginRendering(command, Load.CLEAR, Store.STORE, Load.CLEAR, Store.STORE);
         } else {
             context.getBackend().getRenderPass().begin(command, fb);
         }
@@ -134,14 +131,13 @@ public class VulkanRenderer {
         var camera = view.getCamera();
         builtinDescriptorManager.update(camera, getCurrentFrameIndex());
     }
-    
+
     public void beginRendering(DrawCommand drawCommand) {
         var command = drawCommand.getCommandBuffer();
-        
+
         var fb = swapChain.getFramebuffer();
         if (useDynamicRendering) {
-            fb.beginDynamicRender(command, Load.CLEAR, Store.STORE, Load.CLEAR,
-                    Store.STORE);
+            fb.beginRendering(command, Load.CLEAR, Store.STORE, Load.CLEAR, Store.STORE);
         } else {
             context.getBackend().getRenderPass().begin(command, fb);
         }
@@ -154,12 +150,9 @@ public class VulkanRenderer {
             var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
             if (needsSurface) {
-                swapChain.getFramebuffer().end();
-//                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionLayout(
-//                        Layout.PRESENT_SRC_KHR, Access.COLOR_ATTACHMENT_WRITE.add(Access.COLOR_ATTACHMENT_READ),
-//                        Access.NONE, PipelineStage.COLOR_ATTACHMENT_OUTPUT, PipelineStage.BOTTOM_OF_PIPE)) {
-//
-//                }
+                swapChain.getFramebuffer().transition(Layout.PRESENT_SRC_KHR,
+                        Access.COLOR_ATTACHMENT_WRITE.add(Access.COLOR_ATTACHMENT_READ), Access.NONE,
+                        PipelineStage.COLOR_ATTACHMENT_OUTPUT, PipelineStage.BOTTOM_OF_PIPE);
             }
         }
     }

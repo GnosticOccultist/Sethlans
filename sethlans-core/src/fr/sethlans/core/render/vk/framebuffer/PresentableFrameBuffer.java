@@ -6,8 +6,6 @@ import java.util.Map;
 
 import org.lwjgl.system.MemoryStack;
 
-import fr.alchemy.utilities.logging.FactoryLogger;
-import fr.alchemy.utilities.logging.Logger;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.BaseVulkanImage;
@@ -27,8 +25,6 @@ import fr.sethlans.core.render.vk.swapchain.SwapChain.PresentationImage;
 import fr.sethlans.core.render.vk.util.VkFlag;
 
 public class PresentableFrameBuffer implements VulkanFrameBuffer {
-    
-    private static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.context");
 
     private final PresentationSwapChain swapchain;
     
@@ -101,20 +97,15 @@ public class PresentableFrameBuffer implements VulkanFrameBuffer {
         }
     }
     
-    public void beginDynamicRender(CommandBuffer command, Load colorLoad, Store colorStore, Load depthLoad, Store depthStore) {
-        frames.get(currentImage).beginDynamicRender(command, colorLoad, colorStore, depthLoad, depthStore);
+    @Override
+    public void beginRendering(CommandBuffer command, Load colorLoad, Store colorStore, Load depthLoad, Store depthStore, VkFlag<Render> flags) {
+        frames.get(currentImage).beginRendering(command, colorLoad, colorStore, depthLoad, depthStore, flags);
     }
     
-    public void prepare() {
-        frames.get(currentImage).getPrimaryRenderTarget().transition(Layout.ATTACHMENT_OPTIMAL, Access.NONE,
-                Access.COLOR_ATTACHMENT_WRITE, PipelineStage.COLOR_ATTACHMENT_OUTPUT,
-                PipelineStage.COLOR_ATTACHMENT_OUTPUT);
-    }
-
-    public void end() {
-        frames.get(currentImage).getPrimaryRenderTarget().transition(Layout.PRESENT_SRC_KHR,
-                Access.COLOR_ATTACHMENT_WRITE.add(Access.COLOR_ATTACHMENT_READ), Access.NONE,
-                PipelineStage.COLOR_ATTACHMENT_OUTPUT, PipelineStage.BOTTOM_OF_PIPE);
+    public void transition(Layout dstLayout, VkFlag<Access> srcAccess, VkFlag<Access> dstAccess,
+            VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage) {
+        frames.get(currentImage).getPrimaryRenderTarget().transition(dstLayout, srcAccess, dstAccess, srcStage,
+                dstStage);
     }
 
     @Override
@@ -129,8 +120,7 @@ public class PresentableFrameBuffer implements VulkanFrameBuffer {
 
     @Override
     public VkFlag<Create> getFlags() {
-        // TODO Auto-generated method stub
-        return null;
+        return frames.get(currentImage).getFlags();
     }
 
     @Override

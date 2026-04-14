@@ -70,6 +70,7 @@ public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Int
         return containsAny(flag.bits());
     }
 
+    @SuppressWarnings("unchecked")
     default boolean containsAny(VkFlag<T>... flags) {
         for (var f : flags) {
             if (containsAny(f.bits())) {

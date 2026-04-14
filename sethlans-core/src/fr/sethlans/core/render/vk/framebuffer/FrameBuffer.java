@@ -53,8 +53,8 @@ public class FrameBuffer implements VulkanFrameBuffer {
         this.flags = flags;
     }
     
-    public void beginDynamicRender(CommandBuffer command, Load colorLoad, Store colorStore, Load depthLoad,
-            Store depthStore) {
+    public void beginRendering(CommandBuffer command, Load colorLoad, Store colorStore, Load depthLoad,
+            Store depthStore, VkFlag<Render> flags) {
         try (var stack = MemoryStack.stackPush()) {
             var renderingInfo = VkRenderingInfo.calloc(stack)
                     .sType(VK13.VK_STRUCTURE_TYPE_RENDERING_INFO)
@@ -76,6 +76,7 @@ public class FrameBuffer implements VulkanFrameBuffer {
                 }
                 renderingInfo.pColorAttachments(pColorAttachments.flip());
             }
+            
             if (depthTarget != null) {
                 var pDepthAttachment = VkRenderingAttachmentInfo.calloc(stack)
                         .sType(VK13.VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO);
@@ -87,6 +88,7 @@ public class FrameBuffer implements VulkanFrameBuffer {
                 w = Math.min(w, depthTarget.getView().getImage().width());
                 h = Math.min(h, depthTarget.getView().getImage().height());
             }
+            
             renderingInfo.renderArea().offset().set(0, 0);
             renderingInfo.renderArea().extent().set(w, h);
             command.beginRendering(renderingInfo);
