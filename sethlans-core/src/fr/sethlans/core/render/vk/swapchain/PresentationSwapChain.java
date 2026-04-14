@@ -1,5 +1,7 @@
 package fr.sethlans.core.render.vk.swapchain;
 
+import java.util.List;
+
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.EXTSwapchainColorspace;
 import org.lwjgl.vulkan.KHRPresentModeFifoLatestReady;
@@ -12,12 +14,15 @@ import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
+import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
 import fr.sethlans.core.render.vk.context.SurfaceProperties.SurfaceFormat;
+import fr.sethlans.core.render.vk.framebuffer.PresentableFrameBuffer;
 import fr.sethlans.core.render.vk.context.VulkanContext;
 import fr.sethlans.core.render.vk.image.ImageUsage;
-import fr.sethlans.core.render.vk.image.BaseVulkanImage;
+import fr.sethlans.core.render.vk.pass.Attachment;
+import fr.sethlans.core.render.vk.pass.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame.State;
 import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
@@ -26,8 +31,8 @@ import fr.sethlans.core.render.vk.util.VulkanFormat;
 public class PresentationSwapChain extends SwapChain {
 
     private static final long NO_TIMEOUT = 0xFFFFFFFFFFFFFFFFL;
-
-    private long handle = VK10.VK_NULL_HANDLE;
+    
+    private PresentationImage[] presentationImages;
 
     private VkFlag<ImageUsage> imageUsage;
     
@@ -35,17 +40,16 @@ public class PresentationSwapChain extends SwapChain {
 
     private SurfaceFormat surfaceFormat;
     
-    public PresentationSwapChain(VulkanContext context, ConfigFile config, Window window, RenderPass renderPass, AttachmentDescriptor[] descriptors) {
-        this(context, config, window, renderPass, CompositeAlpha.OPAQUE, descriptors);
+    public PresentationSwapChain(VulkanContext context, ConfigFile config, Window window, RenderPass renderPass, List<Attachment> attachments) {
+        this(context, config, window, renderPass, CompositeAlpha.OPAQUE, attachments);
     }
 
-    public PresentationSwapChain(VulkanContext context, ConfigFile config, Window window, RenderPass renderPass, VkFlag<CompositeAlpha> compositeAlpha, AttachmentDescriptor[] descriptors) {
+    public PresentationSwapChain(VulkanContext context, ConfigFile config, Window window, RenderPass renderPass, VkFlag<CompositeAlpha> compositeAlpha, List<Attachment> attachments) {
         super(context, config);
 
         try (var stack = MemoryStack.stackPush()) {
 
             var surfaceHandle = context.getSurface().handle();
-            var logicalDevice = context.getLogicalDevice();
             var physicalDevice = context.getPhysicalDevice();
             var surfaceProperties = physicalDevice.gatherSurfaceProperties(surfaceHandle, stack);
 
@@ -72,52 +76,57 @@ public class PresentationSwapChain extends SwapChain {
 
             create(stack, config, window.getWidth(), window.getHeight());
 
-            var presentationImages = getImages(stack);
+            this.presentationImages = getImages(stack);
             this.imageCount = presentationImages.length;
-            this.attachments = new AttachmentSet(logicalDevice, this, stack, presentationImages, descriptors);
+            
+            /// this.attachments = new AttachmentSet(logicalDevice, this, stack, presentationImages, descriptors);
+            
+            this.framebuffer = new PresentableFrameBuffer(this, presentationImages, attachments, renderPass);
 
-            if (renderPass != null) {
-                this.frameBuffers = new FrameBuffer[presentationImages.length];
-                for (var i = 0; i < presentationImages.length; ++i) {
-                    var pAttachments = attachments.describe(stack, i);
-                    frameBuffers[i] = new FrameBuffer(logicalDevice, renderPass, framebufferExtent, pAttachments);
-                }
-            }
+//            if (renderPass != null) {
+//                this.frameBuffers = new PresentableFrameBuffer[presentationImages.length];
+//                for (var i = 0; i < presentationImages.length; ++i) {
+//                    var pAttachments = attachments.describe(stack, i);
+//                    frameBuffers[i] = new FrameBuffer(logicalDevice, renderPass, framebufferExtent, pAttachments);
+//                }
+//            }
 
             window.resize(framebufferExtent(stack));
         }
     }
     
     @Override
-    public void recreate(Window window, RenderPass renderPass, AttachmentDescriptor[] descriptors) {
+    public void recreate(Window window, RenderPass renderPass, List<Attachment> attachments) {
         try (var stack = MemoryStack.stackPush()) {
             var extent = framebufferExtent(stack);
             create(stack, config, extent.width(), extent.height());
             
-            var presentationImages = getImages(stack);
+            this.presentationImages = getImages(stack);
             this.imageCount = presentationImages.length;
             
-            attachments.destroy();
-            attachments = new AttachmentSet(logicalDevice(), this, stack, presentationImages, descriptors);
+            this.framebuffer = new PresentableFrameBuffer(this, presentationImages, attachments, renderPass);
             
-            if (renderPass != null) {
-                for (var frameBuffer : frameBuffers) {
-                    frameBuffer.getNativeReference().destroy();
-                }
-                
-                this.frameBuffers = new FrameBuffer[presentationImages.length];
-                for (var i = 0; i < presentationImages.length; ++i) {
-                    var pAttachments = attachments.describe(stack, i);
-                    frameBuffers[i] = new FrameBuffer(logicalDevice(), renderPass, framebufferExtent, pAttachments);
-                }
-            }
+//            attachments.destroy();
+//            attachments = new AttachmentSet(logicalDevice(), this, stack, presentationImages, descriptors);
+            
+//            if (renderPass != null) {
+//                for (var frameBuffer : frameBuffers) {
+//                    frameBuffer.getNativeReference().destroy();
+//                }
+//                
+//                this.frameBuffers = new FrameBuffer[presentationImages.length];
+//                for (var i = 0; i < presentationImages.length; ++i) {
+//                    var pAttachments = attachments.describe(stack, i);
+//                    frameBuffers[i] = new FrameBuffer(logicalDevice(), renderPass, framebufferExtent, pAttachments);
+//                }
+//            }
             
             window.resize(framebufferExtent(stack));
         }
     }
 
     protected void create(MemoryStack stack, ConfigFile config, int desiredWidth, int desiredHeight) {
-        var oldSwapchain = handle;
+        var oldSwapchain = handle();
         var surfaceHandle = context.getSurface().handle();
         var logicalDevice = context.getLogicalDevice();
         var physicalDevice = logicalDevice.physicalDevice();
@@ -164,11 +173,14 @@ public class PresentationSwapChain extends SwapChain {
         var err = KHRSwapchain.vkCreateSwapchainKHR(logicalDevice.getNativeObject(), createInfo, null, pHandle);
         VkUtil.throwOnFailure(err, "create a swapchain");
 
-        if (handle != VK10.VK_NULL_HANDLE) {
-            KHRSwapchain.vkDestroySwapchainKHR(logicalDevice.getNativeObject(), handle, null);
+        if (hasAssignedHandle()) {
+            KHRSwapchain.vkDestroySwapchainKHR(logicalDevice.getNativeObject(), handle(), null);
         }
 
-        this.handle = pHandle.get(0);
+        ref = NativeResource.get().register(this);
+        context.getLogicalDevice().getNativeReference().addDependent(ref);
+        context.getSurface().getNativeReference().addDependent(ref);
+        assignHandle(pHandle.get(0));
     }
 
     @Override
@@ -177,7 +189,7 @@ public class PresentationSwapChain extends SwapChain {
             var pImageIndex = stack.mallocInt(1);
             var logicalDevice = context.getLogicalDevice();
             
-            var err = KHRSwapchain.vkAcquireNextImageKHR(logicalDevice.getNativeObject(), handle, NO_TIMEOUT,
+            var err = KHRSwapchain.vkAcquireNextImageKHR(logicalDevice.getNativeObject(), handle(), NO_TIMEOUT,
                     frame.imageAvailableSemaphore().handle(), VK10.VK_NULL_HANDLE, pImageIndex);
             if (err == KHRSwapchain.VK_ERROR_OUT_OF_DATE_KHR) {
                 logger.warning("Swapchain is outdated while acquiring next image!");
@@ -194,6 +206,7 @@ public class PresentationSwapChain extends SwapChain {
             assert imageIndex >= 0 : imageIndex;
             assert imageIndex < imageCount() : imageIndex;
             
+            framebuffer.setCurrentImage(presentationImages[imageIndex]);
             frame.setImageIndex(imageIndex);
             return frame;
         }
@@ -206,7 +219,7 @@ public class PresentationSwapChain extends SwapChain {
                     .sType(KHRSwapchain.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR)
                     .pImageIndices(stack.ints(frame.imageIndex()))
                     .swapchainCount(1)
-                    .pSwapchains(stack.longs(handle))
+                    .pSwapchains(stack.longs(handle()))
                     .pWaitSemaphores(stack.longs(frame.renderCompleteSemaphore().handle()));
 
             var logicalDevice = context.getLogicalDevice();
@@ -233,13 +246,13 @@ public class PresentationSwapChain extends SwapChain {
         // requested).
         var vkDevice =  context.getLogicalDevice().getNativeObject();
         var pCount = stack.mallocInt(1);
-        VkUtil.throwOnFailure(KHRSwapchain.vkGetSwapchainImagesKHR(vkDevice, handle, pCount, null),
+        VkUtil.throwOnFailure(KHRSwapchain.vkGetSwapchainImagesKHR(vkDevice, handle(), pCount, null),
                 "count swap-chain images");
         var numImages = pCount.get(0);
 
         // Enumerate the swap-chain images.
         var pHandles = stack.mallocLong(numImages);
-        VkUtil.throwOnFailure(KHRSwapchain.vkGetSwapchainImagesKHR(vkDevice, handle, pCount, pHandles),
+        VkUtil.throwOnFailure(KHRSwapchain.vkGetSwapchainImagesKHR(vkDevice, handle(), pCount, pHandles),
                 "enumerate swap-chain images");
 
         // Collect the image handles in an array.
@@ -286,29 +299,13 @@ public class PresentationSwapChain extends SwapChain {
         logger.info("Requested " + numImages + " images for the swapchain.");
         return numImages;
     }
-
-    public long handle() {
-        return handle;
-    }
-
+    
     @Override
-    public void destroy() {
-        
-        attachments.destroy();
-
-        if (frameBuffers != null) {
-            for (var frameBuffer : frameBuffers) {
-                frameBuffer.getNativeReference().destroy();
-            }
-        }
-
-        super.destroy();
-
-        if (handle != VK10.VK_NULL_HANDLE) {
-            var logicalDevice = context.getLogicalDevice();
-            KHRSwapchain.vkDestroySwapchainKHR(logicalDevice.getNativeObject(), handle, null);
-            this.handle = VK10.VK_NULL_HANDLE;
-        }
+    public Runnable createDestroyAction() {
+        return () -> {
+            KHRSwapchain.vkDestroySwapchainKHR(getLogicalDevice().getNativeObject(), handle(), null);
+            unassignHandle();
+        };
     }
     
     public enum CompositeAlpha implements VkFlag<CompositeAlpha> {
@@ -357,20 +354,6 @@ public class PresentationSwapChain extends SwapChain {
 
         public int vkEnum() {
             return vkEnum;
-        }
-    }
-
-    class PresentationImage extends BaseVulkanImage {
-
-        PresentationImage(long imageHandle, VkFlag<ImageUsage> usage) {
-            super(logicalDevice(), imageHandle, framebufferExtent.width(), framebufferExtent.height(), imageFormat(),
-                    usage);
-        }
-
-        @Override
-        public Runnable createDestroyAction() {
-            // No need to destroy swap-chain image.
-            return () -> {};
         }
     }
 }

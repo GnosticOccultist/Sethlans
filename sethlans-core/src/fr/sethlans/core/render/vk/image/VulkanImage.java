@@ -23,6 +23,8 @@ public interface VulkanImage extends NativeResource<Long> {
     int height();
 
     VulkanFormat format();
+    
+    int sampleCount();
 
     long handle();
     
@@ -54,14 +56,14 @@ public interface VulkanImage extends NativeResource<Long> {
 
         COLOR_ATTACHMENT_OPTIMAL(VK10.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 VkFlag.of(Access.COLOR_ATTACHMENT_READ, Access.COLOR_ATTACHMENT_WRITE),
-                VkFlag.of(PipelineStage.COLOR_ATTACHMENT_OUTPUT)),
+                VkFlag.of(PipelineStage.COLOR_ATTACHMENT_OUTPUT), VkFlag.of(Aspect.COLOR)),
 
         DEPTH_STENCIL_ATTACHMENT_OPTIMAL(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                 VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ, Access.DEPTH_STENCIL_ATTACHMENT_WRITE),
-                VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS)),
+                VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.DEPTH, Aspect.STENCIL)),
 
         DEPTH_STENCIL_READ_ONLY_OPTIMAL(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
-                VkFlag.of(Access.COLOR_ATTACHMENT_READ), VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS)),
+                VkFlag.of(Access.COLOR_ATTACHMENT_READ), VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.DEPTH, Aspect.STENCIL)),
 
         SHADER_READ_ONLY_OPTIMAL(VK10.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VkFlag.of(Access.SHADER_READ),
                 VkFlag.of(PipelineStage.FRAGMENT_SHADER)),
@@ -77,25 +79,25 @@ public interface VulkanImage extends NativeResource<Long> {
 
         DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL(VK11.VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL,
                 VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ, Access.DEPTH_STENCIL_ATTACHMENT_WRITE),
-                VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS)),
+                VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.DEPTH, Aspect.STENCIL)),
 
         DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL(VK11.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL,
                 VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ, Access.DEPTH_STENCIL_ATTACHMENT_WRITE),
-                VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS)),
+                VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.DEPTH, Aspect.STENCIL)),
 
         DEPTH_ATTACHMENT_OPTIMAL(VK12.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
                 VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ, Access.DEPTH_STENCIL_ATTACHMENT_WRITE),
-                VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS)),
+                VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.DEPTH)),
 
         DEPTH_READ_ONLY_OPTIMAL(VK12.VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL,
-                VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ), VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS)),
+                VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ), VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.DEPTH)),
 
         STENCIL_ATTACHMENT_OPTIMAL(VK12.VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
                 VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ, Access.DEPTH_STENCIL_ATTACHMENT_WRITE),
-                VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS)),
+                VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.STENCIL)),
 
         STENCIL_READ_ONLY_OPTIMAL(VK12.VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL,
-                VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ), VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS)),
+                VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ), VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.STENCIL)),
 
         READ_ONLY_OPTIMAL(VK13.VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, VkFlag.of(Access.SHADER_READ),
                 VkFlag.of(PipelineStage.FRAGMENT_SHADER)),
@@ -113,17 +115,27 @@ public interface VulkanImage extends NativeResource<Long> {
         private final int vkEnum;
         private final VkFlag<Access> access;
         private final VkFlag<PipelineStage> stage;
+        private final VkFlag<Aspect> aspect;
 
         private Layout(int vkEnum) {
             this.vkEnum = vkEnum;
             this.access = VkFlag.empty();
             this.stage = VkFlag.empty();
+            this.aspect = VkFlag.empty();
         }
-
+        
         private Layout(int vkEnum, VkFlag<Access> access, VkFlag<PipelineStage> stage) {
             this.vkEnum = vkEnum;
             this.access = access;
             this.stage = stage;
+            this.aspect = VkFlag.empty();
+        }
+
+        private Layout(int vkEnum, VkFlag<Access> access, VkFlag<PipelineStage> stage, VkFlag<Aspect> aspect) {
+            this.vkEnum = vkEnum;
+            this.access = access;
+            this.stage = stage;
+            this.aspect = aspect;
         }
 
         public int vkEnum() {
@@ -136,6 +148,14 @@ public interface VulkanImage extends NativeResource<Long> {
 
         public VkFlag<PipelineStage> getStage() {
             return stage;
+        }
+        
+        public boolean isDepthLayout() {
+            return aspect.contains(Aspect.DEPTH);
+        }
+
+        public VkFlag<Aspect> getAspect() {
+            return aspect;
         }
     }
 
@@ -166,6 +186,46 @@ public interface VulkanImage extends NativeResource<Long> {
         @Override
         public int bits() {
             return bits;
+        }
+    }
+    
+    public enum Load {
+
+        LOAD(VK10.VK_ATTACHMENT_LOAD_OP_LOAD),
+
+        CLEAR(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR),
+        
+        DONT_CARE(VK10.VK_ATTACHMENT_LOAD_OP_DONT_CARE),
+        
+        NONE(VK14.VK_ATTACHMENT_LOAD_OP_NONE);
+
+        private final int vkEnum;
+
+        private Load(int vkEnum) {
+            this.vkEnum = vkEnum;
+        }
+
+        public int vkEnum() {
+            return vkEnum;
+        }
+    }
+    
+    public enum Store {
+
+        STORE(VK10.VK_ATTACHMENT_STORE_OP_STORE),
+        
+        DONT_CARE(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE),
+        
+        NONE(VK14.VK_ATTACHMENT_STORE_OP_NONE);
+
+        private final int vkEnum;
+
+        private Store(int vkEnum) {
+            this.vkEnum = vkEnum;
+        }
+
+        public int vkEnum() {
+            return vkEnum;
         }
     }
 

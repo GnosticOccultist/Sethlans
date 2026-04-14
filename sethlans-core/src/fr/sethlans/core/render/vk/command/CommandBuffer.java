@@ -9,7 +9,6 @@ import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VK13;
-import org.lwjgl.vulkan.VkClearValue;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkCommandBufferAllocateInfo;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
@@ -17,6 +16,7 @@ import org.lwjgl.vulkan.VkImageSubresourceLayers;
 import org.lwjgl.vulkan.VkOffset2D;
 import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkRenderPassBeginInfo;
+import org.lwjgl.vulkan.VkRenderingInfo;
 import org.lwjgl.vulkan.VkViewport;
 
 import fr.sethlans.core.natives.AbstractNativeResource;
@@ -28,13 +28,12 @@ import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanImage;
 import fr.sethlans.core.render.vk.image.VulkanImage.Filter;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
+import fr.sethlans.core.render.vk.pass.Subpass.SubpassContents;
 import fr.sethlans.core.render.vk.pipeline.AbstractPipeline.BindPoint;
 import fr.sethlans.core.render.vk.shader.ShaderStage;
 import fr.sethlans.core.render.vk.pipeline.Access;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
 import fr.sethlans.core.render.vk.pipeline.PipelineStage;
-import fr.sethlans.core.render.vk.swapchain.FrameBuffer;
-import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.render.vk.sync.Fence;
@@ -166,19 +165,19 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
     }
 
     public CommandBuffer bindPipeline(Pipeline pipeline) {
-        VK10.vkCmdBindPipeline(object, pipeline.getBindPoint().getVkEnum(), pipeline.handle());
+        VK10.vkCmdBindPipeline(object, pipeline.getBindPoint().vkEnum(), pipeline.handle());
         return this;
     }
 
     public CommandBuffer bindDescriptorSets(long pipelineLayoutHandle, BindPoint bindPoint, LongBuffer pDescriptorSets) {
-        VK10.vkCmdBindDescriptorSets(object, bindPoint.getVkEnum(), pipelineLayoutHandle, 0,
+        VK10.vkCmdBindDescriptorSets(object, bindPoint.vkEnum(), pipelineLayoutHandle, 0,
                 pDescriptorSets, null);
         return this;
     }
 
     public CommandBuffer bindDescriptorSets(long pipelineLayoutHandle, BindPoint bindPoint, LongBuffer pDescriptorSets,
             IntBuffer pDynamicOffsets) {
-        VK10.vkCmdBindDescriptorSets(object, bindPoint.getVkEnum(), pipelineLayoutHandle, 0,
+        VK10.vkCmdBindDescriptorSets(object, bindPoint.vkEnum(), pipelineLayoutHandle, 0,
                 pDescriptorSets, pDynamicOffsets);
         return this;
     }
@@ -218,35 +217,15 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
         VK10.vkCmdDrawIndexed(object, indicesCount, 1, 0, 0, 0);
         return this;
     }
-
-    public CommandBuffer beginRenderPass(SwapChain swapChain, FrameBuffer frameBuffer, RenderPass renderPass) {
-        try (var stack = MemoryStack.stackPush()) {
-            var clearValues = VkClearValue.calloc(2, stack);
-            clearValues.apply(0, v -> v.color().float32(0, 0.5f).float32(1, 0.7f).float32(2, 0.9f).float32(3, 1.0f));
-            clearValues.apply(1, v -> v.depthStencil().depth(1.0f));
-
-            var renderArea = VkRect2D.calloc(stack);
-            renderArea.offset(VkOffset2D.calloc(stack).set(0, 0));
-            renderArea.extent(swapChain.framebufferExtent(stack));
-
-            var renderPassInfo = VkRenderPassBeginInfo.calloc(stack)
-                    .sType(VK10.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO)
-                    .framebuffer(frameBuffer.handle())
-                    .pClearValues(clearValues)
-                    .renderArea(renderArea)
-                    .renderPass(renderPass.handle());
-
-            VK10.vkCmdBeginRenderPass(object, renderPassInfo, VK10.VK_SUBPASS_CONTENTS_INLINE);
-            return this;
-        }
+    
+    public CommandBuffer beginRenderPass(VkRenderPassBeginInfo renderPassInfo, SubpassContents contents) {
+        VK10.vkCmdBeginRenderPass(object, renderPassInfo, contents.vkEnum());
+        return this;
     }
-
-    public CommandBuffer beginRendering(SwapChain swapChain, int imageIndex) {
-        try (var stack = MemoryStack.stackPush()) {
-            var renderingInfo = swapChain.getAttachments().createRenderingInfo(stack, swapChain, imageIndex);
-            VK13.vkCmdBeginRendering(object, renderingInfo);
-            return this;
-        }
+    
+    public CommandBuffer beginRendering(VkRenderingInfo renderingInfo) {
+        VK13.vkCmdBeginRendering(object, renderingInfo);
+        return this;
     }
     
     public CommandBuffer setViewport(SwapChain swapChain) {

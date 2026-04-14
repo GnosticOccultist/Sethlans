@@ -8,8 +8,8 @@ import fr.sethlans.core.render.vk.descriptor.DescriptorSetLayout;
 import fr.sethlans.core.render.vk.descriptor.DescriptorType;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.mesh.VulkanMesh;
+import fr.sethlans.core.render.vk.pass.RenderPass;
 import fr.sethlans.core.render.vk.shader.ShaderModule;
-import fr.sethlans.core.render.vk.swapchain.RenderPass;
 import fr.sethlans.core.render.vk.swapchain.SwapChain;
 
 public class PipelineLibrary {

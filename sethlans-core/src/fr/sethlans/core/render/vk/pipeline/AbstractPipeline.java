@@ -85,7 +85,7 @@ public abstract class AbstractPipeline extends AbstractDeviceResource implements
             this.vkEnum = vkEnum;
         }
 
-        public int getVkEnum() {
+        public int vkEnum() {
             return vkEnum;
         }
     }

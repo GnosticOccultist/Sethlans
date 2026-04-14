@@ -5,14 +5,19 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkImageViewCreateInfo;
 
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.image.VulkanImage.Aspect;
 import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.vk.device.AbstractDeviceResource;
+import fr.sethlans.core.render.vk.util.VkFlag;
 import fr.sethlans.core.render.vk.util.VkUtil;
 
 public class ImageView extends AbstractDeviceResource {
-
+    
+    private final VulkanImage image;
+    
     public ImageView(LogicalDevice logicalDevice, VulkanImage image) {
         super(logicalDevice);
+        this.image = image;
         
         try (var stack = MemoryStack.stackPush()) {
             var createInfo = VkImageViewCreateInfo.calloc(stack)
@@ -46,6 +51,14 @@ public class ImageView extends AbstractDeviceResource {
             ref = NativeResource.get().register(this);
             image.getNativeReference().addDependent(ref);
         }
+    }
+
+    public VulkanImage getImage() {
+        return image;
+    }
+    
+    public VkFlag<Aspect> getAspects() {
+        return image.format().getAspects();
     }
 
     @Override

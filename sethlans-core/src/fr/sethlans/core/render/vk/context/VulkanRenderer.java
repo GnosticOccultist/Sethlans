@@ -15,7 +15,8 @@ import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool.Create;
-import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
+import fr.sethlans.core.render.vk.image.VulkanImage.Load;
+import fr.sethlans.core.render.vk.image.VulkanImage.Store;
 import fr.sethlans.core.render.vk.image.VulkanTexture;
 import fr.sethlans.core.render.vk.material.VulkanMaterial;
 import fr.sethlans.core.render.vk.mesh.VulkanMesh;
@@ -106,11 +107,12 @@ public class VulkanRenderer {
             var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
             if (needsSurface) {
-                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionLayout(
-                        Layout.ATTACHMENT_OPTIMAL, Access.NONE, Access.COLOR_ATTACHMENT_WRITE,
-                        PipelineStage.COLOR_ATTACHMENT_OUTPUT, PipelineStage.COLOR_ATTACHMENT_OUTPUT)) {
-
-                }
+                swapChain.getFramebuffer().prepare();
+//                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionLayout(
+//                        Layout.ATTACHMENT_OPTIMAL, Access.NONE, Access.COLOR_ATTACHMENT_WRITE,
+//                        PipelineStage.COLOR_ATTACHMENT_OUTPUT, PipelineStage.COLOR_ATTACHMENT_OUTPUT)) {
+//
+//                }
             }
         }
     }
@@ -119,14 +121,15 @@ public class VulkanRenderer {
         var command = drawCommand.getCommandBuffer();
         command.reset().beginRecording();
 
+        var fb = swapChain.getFramebuffer();
         if (useDynamicRendering) {
-            command.beginRendering(swapChain, currentFrame.imageIndex());
+            fb.beginDynamicRender(command, Load.CLEAR, Store.STORE, Load.CLEAR,
+                    Store.STORE);
         } else {
-            command.beginRenderPass(swapChain, swapChain.frameBuffer(currentFrame.imageIndex()),
-                    context.getBackend().getRenderPass());
+            context.getBackend().getRenderPass().begin(command, fb);
         }
     }
-    
+
     public void prepare(RenderView view) {
         var camera = view.getCamera();
         builtinDescriptorManager.update(camera, getCurrentFrameIndex());
@@ -134,11 +137,13 @@ public class VulkanRenderer {
     
     public void beginRendering(DrawCommand drawCommand) {
         var command = drawCommand.getCommandBuffer();
+        
+        var fb = swapChain.getFramebuffer();
         if (useDynamicRendering) {
-            command.beginRendering(swapChain, currentFrame.imageIndex());
+            fb.beginDynamicRender(command, Load.CLEAR, Store.STORE, Load.CLEAR,
+                    Store.STORE);
         } else {
-            command.beginRenderPass(swapChain, swapChain.frameBuffer(currentFrame.imageIndex()),
-                    context.getBackend().getRenderPass());
+            context.getBackend().getRenderPass().begin(command, fb);
         }
     }
 
@@ -149,11 +154,12 @@ public class VulkanRenderer {
             var needsSurface = renderMode.equals(SethlansApplication.SURFACE_RENDER_MODE);
 
             if (needsSurface) {
-                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionLayout(
-                        Layout.PRESENT_SRC_KHR, Access.COLOR_ATTACHMENT_WRITE.add(Access.COLOR_ATTACHMENT_READ),
-                        Access.NONE, PipelineStage.COLOR_ATTACHMENT_OUTPUT, PipelineStage.BOTTOM_OF_PIPE)) {
-
-                }
+                swapChain.getFramebuffer().end();
+//                try (var _ = swapChain.getPrimaryAttachment(frame.imageIndex()).image().transitionLayout(
+//                        Layout.PRESENT_SRC_KHR, Access.COLOR_ATTACHMENT_WRITE.add(Access.COLOR_ATTACHMENT_READ),
+//                        Access.NONE, PipelineStage.COLOR_ATTACHMENT_OUTPUT, PipelineStage.BOTTOM_OF_PIPE)) {
+//
+//                }
             }
         }
     }

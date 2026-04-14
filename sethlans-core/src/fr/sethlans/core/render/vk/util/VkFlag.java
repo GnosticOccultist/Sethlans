@@ -65,6 +65,23 @@ public interface VkFlag<T extends VkFlag<T>> extends Comparable<T>, Iterable<Int
     default boolean containedIn(int bits) {
         return (bits & bits()) == bits();
     }
+    
+    default boolean containsAny(VkFlag<T> flag) {
+        return containsAny(flag.bits());
+    }
+
+    default boolean containsAny(VkFlag<T>... flags) {
+        for (var f : flags) {
+            if (containsAny(f.bits())) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    default boolean containsAny(int bits) {
+        return (bits() & bits) > 0;
+    }
 
     default boolean is(VkFlag<T> flag) {
         return bits() == flag.bits();
