@@ -163,7 +163,14 @@ public class FrameBuffer implements VulkanFrameBuffer {
     public VkFlag<Create> getFlags() {
         return flags;
     }
-    
+
+    @Override
+    public String toString() {
+        return "FrameBuffer [renderPass=" + renderPass + ", width=" + width + ", height=" + height + ", colorTargets="
+                + colorTargets + ", resolveTargets=" + resolveTargets + ", depthTarget=" + depthTarget + ", flags="
+                + flags + ", handle=" + handle + ", primaryTarget=" + primaryTarget + "]";
+    }
+
     protected class FrameBufferHandle extends AbstractDeviceResource {
 
         protected FrameBufferHandle(LogicalDevice logicalDevice) {

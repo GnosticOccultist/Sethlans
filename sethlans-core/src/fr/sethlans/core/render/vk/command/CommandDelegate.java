@@ -467,6 +467,7 @@ public interface CommandDelegate {
             
             try (var stack = MemoryStack.stackPush()) {
                 var pRegion = VkBufferImageCopy2.calloc(1, stack)
+                        .sType(VK13.VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2)
                         .bufferOffset(0)
                         .bufferRowLength(0)
                         .bufferImageHeight(0)
@@ -529,33 +530,34 @@ public interface CommandDelegate {
 
         @Override
         public CommandBuffer submitFrame(CommandBuffer command, VulkanFrame frame) {
-            var signalHandle = frame.renderCompleteSemaphore() != null ? frame.renderCompleteSemaphore().handle()
-                    : VK10.VK_NULL_HANDLE;
-            var waitHandle = frame.imageAvailableSemaphore() != null ? frame.imageAvailableSemaphore().handle()
-                    : VK10.VK_NULL_HANDLE;
-
             try (var stack = MemoryStack.stackPush()) {
+                // Create submit info 2.
+                var submitInfo = VkSubmitInfo2.calloc(1, stack)
+                        .sType(VK13.VK_STRUCTURE_TYPE_SUBMIT_INFO_2);
+
                 var pCommandBufferInfos = VkCommandBufferSubmitInfo.calloc(1, stack)
                         .sType(VK13.VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO)
                         .deviceMask(0)
                         .commandBuffer(command.getNativeObject());
-                
-                var pWaitSemaphoreInfos = VkSemaphoreSubmitInfo.calloc(1, stack)
-                        .sType(VK13.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO)
-                        .stageMask(VK13.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
-                        .semaphore(waitHandle);
-                
-                var pSignalSemaphoreInfos = VkSemaphoreSubmitInfo.calloc(1, stack)
-                        .sType(VK13.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO)
-                        .stageMask(VK13.VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT)
-                        .semaphore(signalHandle);
-                
-                // Create submit info 2.
-                var submitInfo = VkSubmitInfo2.calloc(1, stack)
-                        .sType(VK13.VK_STRUCTURE_TYPE_SUBMIT_INFO_2)
-                        .pCommandBufferInfos(pCommandBufferInfos)
-                        .pWaitSemaphoreInfos(pWaitSemaphoreInfos)
-                        .pSignalSemaphoreInfos(pSignalSemaphoreInfos);
+                submitInfo.pCommandBufferInfos(pCommandBufferInfos);
+
+                if (frame.imageAvailableSemaphore() != null) {
+                    var waitHandle = frame.imageAvailableSemaphore().handle();
+                    var pWaitSemaphoreInfos = VkSemaphoreSubmitInfo.calloc(1, stack)
+                            .sType(VK13.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO)
+                            .stageMask(VK13.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
+                            .semaphore(waitHandle);
+                    submitInfo.pWaitSemaphoreInfos(pWaitSemaphoreInfos);
+                }
+
+                if (frame.renderCompleteSemaphore() != null) {
+                    var signalHandle = frame.renderCompleteSemaphore().handle();
+                    var pSignalSemaphoreInfos = VkSemaphoreSubmitInfo.calloc(1, stack)
+                            .sType(VK13.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO)
+                            .stageMask(VK13.VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT)
+                            .semaphore(signalHandle);
+                    submitInfo.pSignalSemaphoreInfos(pSignalSemaphoreInfos);
+                }
 
                 frame.fenceReset();
 

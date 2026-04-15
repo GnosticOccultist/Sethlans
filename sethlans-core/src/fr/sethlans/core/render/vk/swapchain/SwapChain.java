@@ -92,10 +92,7 @@ public abstract class SwapChain extends AbstractDeviceResource {
 
     public abstract boolean presentImage(VulkanFrame frame);
 
-    public void captureFrame(int frameIndex) {
-        assert frameIndex >= 0 : frameIndex;
-        assert frameIndex < imageCount() : frameIndex;
-
+    public void captureFrame() {
         var image = framebuffer.getCurrentImage();
         if (!image.getUsage().contains(ImageUsage.TRANSFER_SRC)) {
             throw new IllegalStateException("Surface images doesn't support transferring to a buffer!");

@@ -20,20 +20,22 @@ import fr.sethlans.core.render.vk.pass.Attachment;
 import fr.sethlans.core.render.vk.pass.RenderPass;
 import fr.sethlans.core.render.vk.pipeline.Access;
 import fr.sethlans.core.render.vk.pipeline.PipelineStage;
-import fr.sethlans.core.render.vk.swapchain.PresentationSwapChain;
+import fr.sethlans.core.render.vk.swapchain.SwapChain;
 import fr.sethlans.core.render.vk.swapchain.SwapChain.PresentationImage;
 import fr.sethlans.core.render.vk.util.VkFlag;
 
 public class PresentableFrameBuffer implements VulkanFrameBuffer {
 
-    private final PresentationSwapChain swapchain;
+    private final SwapChain swapchain;
     
     private final Map<PresentationImage, FrameBuffer> frames = new IdentityHashMap<>();
     
     private PresentationImage currentImage;
     
-    public PresentableFrameBuffer(PresentationSwapChain swapchain, PresentationImage[] images, List<Attachment> attachments, RenderPass renderPass) {
+    public PresentableFrameBuffer(SwapChain swapchain, PresentationImage[] images, List<Attachment> attachments, RenderPass renderPass) {
         this.swapchain = swapchain;
+        this.currentImage = images[0];
+        
         try (var stack = MemoryStack.stackPush()) {
             var extent = swapchain.framebufferExtent(stack);
             
@@ -84,6 +86,9 @@ public class PresentableFrameBuffer implements VulkanFrameBuffer {
                             fb.addResolveTarget(resolveTarget);
                         }
                         
+                        if (fb.getPrimaryRenderTarget() == null) {
+                            fb.setPrimaryTarget(target);
+                        }
                         fb.addColorTarget(target);
                         
                         // Transition the image to an optimal layout.

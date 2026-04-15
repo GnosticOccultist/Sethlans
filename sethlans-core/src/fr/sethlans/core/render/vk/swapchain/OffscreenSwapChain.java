@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.VK10;
+
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.render.Window;
@@ -12,8 +14,9 @@ import fr.sethlans.core.render.buffer.MemorySize;
 import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.context.VulkanContext;
-import fr.sethlans.core.render.vk.framebuffer.FrameBuffer;
 import fr.sethlans.core.render.vk.framebuffer.PresentableFrameBuffer;
+import fr.sethlans.core.render.vk.image.BaseVulkanImage;
+import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
 import fr.sethlans.core.render.vk.pass.Attachment;
@@ -27,6 +30,7 @@ public class OffscreenSwapChain extends SwapChain {
     private BaseVulkanBuffer screenBuffer;
 
     private final AtomicBoolean resizeNeeded = new AtomicBoolean(false);
+    private PresentationImage[] presentationImages;
 
     public OffscreenSwapChain(VulkanContext context, ConfigFile config, RenderPass renderPass,
             List<Attachment> attachments, int imageCount) {
@@ -44,13 +48,14 @@ public class OffscreenSwapChain extends SwapChain {
             this.imageFormat = gammaCorrection ? VulkanFormat.B8G8R8A8_SRGB : VulkanFormat.B8G8R8A8_UNORM;
             this.framebufferExtent.set(desiredWidth, desiredHeight);
             
-            this.framebuffer = new PresentableFrameBuffer(this, null, attachments, renderPass);
+            this.presentationImages = getImages(stack);
+            this.framebuffer = new PresentableFrameBuffer(this, presentationImages, attachments, renderPass);
         }
 
         var width = framebufferExtent.width();
         var height = framebufferExtent.height();
         var channels = 4;
-        var size = new MemorySize(width * height, channels);
+        var size = new MemorySize(width * height * channels);
         this.screenBuffer = new BaseVulkanBuffer(getLogicalDevice(), size, BufferUsage.TRANSFER_DST,
                 VkFlag.of(MemoryProperty.HOST_VISIBLE, MemoryProperty.HOST_COHERENT, MemoryProperty.HOST_CACHED));
 
@@ -66,14 +71,15 @@ public class OffscreenSwapChain extends SwapChain {
 
             this.framebufferExtent.set(desiredWidth, desiredHeight);
 
-            this.framebuffer = new PresentableFrameBuffer(this, null, attachments, renderPass);
+            this.presentationImages = getImages(stack);
+            this.framebuffer = new PresentableFrameBuffer(this, presentationImages, attachments, renderPass);
 
             screenBuffer.getNativeReference().destroy();
 
             var width = framebufferExtent.width();
             var height = framebufferExtent.height();
             var channels = 4;
-            var size = new MemorySize(width * height, channels);
+            var size = new MemorySize(width * height * channels);
             this.screenBuffer = new BaseVulkanBuffer(getLogicalDevice(), size, BufferUsage.TRANSFER_DST,
                     VkFlag.of(MemoryProperty.HOST_VISIBLE, MemoryProperty.HOST_COHERENT, MemoryProperty.HOST_CACHED));
 
@@ -84,6 +90,7 @@ public class OffscreenSwapChain extends SwapChain {
     @Override
     public VulkanFrame acquireNextImage(VulkanFrame frame) {
         this.index = (index + 1) % imageCount();
+        framebuffer.setCurrentImage(presentationImages[index]);
         frame.setImageIndex(index);
         return frame;
     }
@@ -91,6 +98,20 @@ public class OffscreenSwapChain extends SwapChain {
     @Override
     public boolean presentImage(VulkanFrame frame) {
         return !resizeNeeded.get();
+    }
+    
+    private PresentationImage[] getImages(MemoryStack stack) {
+        // Collect the image handles in an array.
+        var result = new PresentationImage[imageCount];
+        for (var i = 0; i < imageCount; ++i) {
+            var image = new BaseVulkanImage(getLogicalDevice(), framebufferExtent.width(), framebufferExtent.height(),
+                    imageFormat, 1, VK10.VK_SAMPLE_COUNT_1_BIT,
+                    VkFlag.of(ImageUsage.COLOR_ATTACHMENT, ImageUsage.TRANSFER_SRC), MemoryProperty.DEVICE_LOCAL);
+            ref.addDependent(image.getNativeReference());
+            result[i] = new PresentationImage(image.handle(), VkFlag.of(ImageUsage.COLOR_ATTACHMENT, ImageUsage.TRANSFER_SRC));
+        }
+
+        return result;
     }
 
     public ByteBuffer readImageData(ByteBuffer store) {
