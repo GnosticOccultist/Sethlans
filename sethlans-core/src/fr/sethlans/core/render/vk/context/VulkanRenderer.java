@@ -15,6 +15,7 @@ import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool;
 import fr.sethlans.core.render.vk.descriptor.DescriptorPool.Create;
+import fr.sethlans.core.render.vk.framebuffer.VulkanFrameBuffer;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.VulkanImage.Load;
 import fr.sethlans.core.render.vk.image.VulkanImage.Store;
@@ -132,14 +133,13 @@ public class VulkanRenderer {
         builtinDescriptorManager.update(camera, getCurrentFrameIndex());
     }
 
-    public void beginRendering(DrawCommand drawCommand) {
+    public void beginRendering(DrawCommand drawCommand, VulkanFrameBuffer fbo) {
         var command = drawCommand.getCommandBuffer();
 
-        var fb = swapChain.getFramebuffer();
         if (useDynamicRendering) {
-            fb.beginRendering(command, Load.CLEAR, Store.STORE, Load.CLEAR, Store.STORE);
+            fbo.beginRendering(command, Load.CLEAR, Store.STORE, Load.CLEAR, Store.STORE);
         } else {
-            context.getBackend().getRenderPass().begin(command, fb);
+            context.getBackend().getRenderPass().begin(command, fbo);
         }
     }
 
@@ -157,10 +157,10 @@ public class VulkanRenderer {
         }
     }
     
-    public void endRendering(DrawCommand drawCommand) {
+    public void endRendering(DrawCommand drawCommand, VulkanFrameBuffer fbo) {
         var command = drawCommand.getCommandBuffer();
         if (useDynamicRendering) {
-            command.endRendering();
+            fbo.endRendering(command);
         } else {
             command.endRenderPass();
         }

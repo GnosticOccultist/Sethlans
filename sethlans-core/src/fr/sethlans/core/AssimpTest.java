@@ -59,6 +59,8 @@ public class AssimpTest extends SethlansApplication {
         camera.setAspect((float) getWindow().getWidth() / (float) getWindow().getHeight());
 
         view = new RenderView(camera);
+        view.getViewport().setWidth(800).setHeight(600);
+        view.getScissor().setWidth(800).setHeight(600);
         addView(view);
 
         var vertices = new ArrayList<Vertex>();

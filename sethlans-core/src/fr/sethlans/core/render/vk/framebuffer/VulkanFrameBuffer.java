@@ -5,13 +5,14 @@ import org.lwjgl.vulkan.KHRMaintenance7;
 import org.lwjgl.vulkan.VK12;
 import org.lwjgl.vulkan.VK13;
 
+import fr.sethlans.core.render.view.Framebuffer;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.VulkanImage.Load;
 import fr.sethlans.core.render.vk.image.VulkanImage.Store;
 import fr.sethlans.core.render.vk.util.VkFlag;
 
-public interface VulkanFrameBuffer {
+public interface VulkanFrameBuffer extends Framebuffer {
     
     default void beginRendering(CommandBuffer command, Load colorLoad, Store colorStore, Load depthLoad, Store depthStore) {
         beginRendering(command, colorLoad, colorStore, depthLoad, depthStore, VkFlag.empty());
@@ -26,10 +27,6 @@ public interface VulkanFrameBuffer {
     long getHandle(LogicalDevice logicalDevice);
 
     VkFlag<Create> getFlags();
-    
-    int getWidth();
-
-    int getHeight();
     
     public enum Render implements VkFlag<Render> {
 

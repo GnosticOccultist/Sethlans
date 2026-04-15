@@ -4,8 +4,12 @@ import java.util.Collection;
 
 import fr.sethlans.core.material.MaterialPass;
 import fr.sethlans.core.render.view.RenderView;
+import fr.sethlans.core.render.view.Scissor;
+import fr.sethlans.core.render.view.Viewport;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
+import fr.sethlans.core.render.vk.command.DynamicRenderCache;
 import fr.sethlans.core.render.vk.context.VulkanRenderer;
+import fr.sethlans.core.render.vk.framebuffer.VulkanFrameBuffer;
 import fr.sethlans.core.render.vk.pipeline.DynamicState;
 import fr.sethlans.core.render.vk.pipeline.GraphicsPipeline;
 import fr.sethlans.core.render.vk.pipeline.Pipeline;
@@ -16,6 +20,8 @@ public class DrawCommand {
     private VulkanRenderer renderer;
 
     private CommandBuffer command;
+    
+    private DynamicRenderCache dynamicRender;
 
     private boolean started = false;
 
@@ -24,6 +30,7 @@ public class DrawCommand {
     public DrawCommand(VulkanRenderer renderer, CommandBuffer command) {
         this.renderer = renderer;
         this.command = command;
+        this.dynamicRender = new DynamicRenderCache(command);
     }
 
     public void begin(Geometry geometry, MaterialPass materialPass) {
@@ -64,13 +71,10 @@ public class DrawCommand {
             command.reset().beginRecording();
         }
 
-        renderer.beginRendering(this);
-
         for (var view : views) {
             render(view);
         }
 
-        renderer.endRendering(this);
         command.end();
 
         this.started = false;
@@ -81,11 +85,14 @@ public class DrawCommand {
             return;
         }
 
+        var fbo = (VulkanFrameBuffer) (view.getFramebuffer() == null ? renderer.getSwapChain().getFramebuffer()
+                : view.getFramebuffer());
+        renderer.beginRendering(this, fbo);
         renderer.prepare(view);
 
-        // TODO: Push view settings.
-        command.setViewport(renderer.getSwapChain());
-        command.setScissor(renderer.getSwapChain());
+        dynamicRender.push(view.getViewport());
+        dynamicRender.push(view.getScissor());
+        dynamicRender.applyAll();
 
         for (var geometry : view.getGeometries()) {
 
@@ -96,12 +103,19 @@ public class DrawCommand {
             if (p != pipeline) {
                 pipeline = p;
                 command.bindPipeline(pipeline);
+                
+                // Some drivers require re-emitting dynamic state after pipeline bind.
+                dynamicRender.invalidateAll();
+                dynamicRender.applyAll();
             }
 
             getRenderer().bind(pipeline, geometry, command, renderer.getCurrentFrameIndex());
             vkMesh.render(command);
         }
 
+        dynamicRender.pop(Viewport.class);
+        dynamicRender.pop(Scissor.class);
+        renderer.endRendering(this, fbo);
         pipeline = null;
     }
 

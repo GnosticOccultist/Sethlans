@@ -12,6 +12,7 @@ import org.lwjgl.vulkan.VK13;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkCommandBufferAllocateInfo;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
+import org.lwjgl.vulkan.VkExtent2D;
 import org.lwjgl.vulkan.VkImageSubresourceLayers;
 import org.lwjgl.vulkan.VkOffset2D;
 import org.lwjgl.vulkan.VkRect2D;
@@ -22,6 +23,8 @@ import org.lwjgl.vulkan.VkViewport;
 import fr.sethlans.core.natives.AbstractNativeResource;
 import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.buffer.IndexBuffer;
+import fr.sethlans.core.render.view.Scissor;
+import fr.sethlans.core.render.view.Viewport;
 import fr.sethlans.core.render.vk.buffer.VulkanBuffer;
 import fr.sethlans.core.render.vk.command.CommandPool.Create;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
@@ -228,6 +231,22 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
         return this;
     }
     
+    public CommandBuffer setViewport(Viewport viewport) {
+        try (var stack = MemoryStack.stackPush()) {
+            // Define viewport dimension and origin.
+            var vkViewport = VkViewport.calloc(1, stack);
+            vkViewport.x(viewport.getX());
+            vkViewport.y(viewport.getY());
+            vkViewport.width(viewport.getWidth());
+            vkViewport.height(viewport.getHeight());
+            vkViewport.maxDepth(viewport.getMaxDepth());
+            vkViewport.minDepth(viewport.getMinDepth());
+
+            VK10.vkCmdSetViewport(object, 0, vkViewport);
+            return this;
+        }
+    }
+    
     public CommandBuffer setViewport(SwapChain swapChain) {
         try (var stack = MemoryStack.stackPush()) {
             var framebufferExtent = swapChain.framebufferExtent(stack);
@@ -242,6 +261,18 @@ public class CommandBuffer extends AbstractNativeResource<VkCommandBuffer> {
             viewport.minDepth(0f);
 
             VK10.vkCmdSetViewport(object, 0, viewport);
+            return this;
+        }
+    }
+    
+    public CommandBuffer setScissor(Scissor scissor) {
+        try (var stack = MemoryStack.stackPush()) {
+            // Define scissor to discard pixels outside the framebuffer.
+            var vkScissor = VkRect2D.calloc(1, stack);
+            vkScissor.offset(VkOffset2D.calloc(stack).set(scissor.getX(), scissor.getY()));
+            vkScissor.extent(VkExtent2D.calloc(stack).set(scissor.getWidth(), scissor.getHeight()));
+
+            VK10.vkCmdSetScissor(object, 0, vkScissor);
             return this;
         }
     }

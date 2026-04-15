@@ -14,7 +14,6 @@ import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
-import fr.sethlans.core.natives.NativeResource;
 import fr.sethlans.core.render.Window;
 import fr.sethlans.core.render.vk.context.SurfaceProperties;
 import fr.sethlans.core.render.vk.context.SurfaceProperties.SurfaceFormat;
@@ -73,7 +72,6 @@ public class PresentationSwapChain extends SwapChain {
             this.imageFormat = surfaceFormat.format();
             this.imageUsage = getImageUsage(surfaceProperties);
             this.compositeAlpha = compositeAlpha;
-
             create(stack, config, window.getWidth(), window.getHeight());
 
             this.presentationImages = getImages(stack);
@@ -101,7 +99,7 @@ public class PresentationSwapChain extends SwapChain {
     }
 
     protected void create(MemoryStack stack, ConfigFile config, int desiredWidth, int desiredHeight) {
-        var oldSwapchain = handle();
+        var oldSwapchain = hasAssignedHandle() ? handle() : VK10.VK_NULL_HANDLE;
         var surfaceHandle = context.getSurface().handle();
         var logicalDevice = context.getLogicalDevice();
         var physicalDevice = logicalDevice.physicalDevice();
@@ -143,7 +141,7 @@ public class PresentationSwapChain extends SwapChain {
         if (familyCount == 2) {
             createInfo.pQueueFamilyIndices(queueFamilies);
         }
-
+        
         var pHandle = stack.mallocLong(1);
         var err = KHRSwapchain.vkCreateSwapchainKHR(logicalDevice.getNativeObject(), createInfo, null, pHandle);
         VkUtil.throwOnFailure(err, "create a swapchain");
@@ -151,9 +149,6 @@ public class PresentationSwapChain extends SwapChain {
         if (hasAssignedHandle()) {
             KHRSwapchain.vkDestroySwapchainKHR(logicalDevice.getNativeObject(), handle(), null);
         }
-
-        ref = NativeResource.get().register(this);
-        context.getLogicalDevice().getNativeReference().addDependent(ref);
         context.getSurface().getNativeReference().addDependent(ref);
         assignHandle(pHandle.get(0));
     }

@@ -59,6 +59,8 @@ public class GalaxyTest extends SethlansApplication {
         camera.setRotation(new Quaternionf().rotationXYZ(31, 10, -71));
 
         view = new RenderView(camera);
+        view.getViewport().setWidth(800).setHeight(600);
+        view.getScissor().setWidth(800).setHeight(600);
         addView(view);
 
         var mat = MaterialLoader.load(getConfig(), "resources/materials/gpu-particles.smat");
