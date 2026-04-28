@@ -12,6 +12,7 @@ import fr.sethlans.core.render.state.blend.ColorBlendModeAttachment;
 import fr.sethlans.core.render.state.raster.CullMode;
 import fr.sethlans.core.render.view.PerspectiveCamera;
 import fr.sethlans.core.render.view.RenderView;
+import fr.sethlans.core.render.vk.context.VulkanGraphicsBackend;
 import fr.sethlans.core.render.vk.swapchain.VulkanFrame;
 import fr.sethlans.core.scenegraph.Geometry;
 import fr.sethlans.core.scenegraph.mesh.Mesh;
@@ -55,7 +56,7 @@ public class GalaxyTest extends SethlansApplication {
     protected void initialize() {
         var camera = new PerspectiveCamera();
         camera.setAspect((float) getWindow().getWidth() / (float) getWindow().getHeight());
-        camera.setLocation(-3000.0f, -2500.0f, -3000.0f);
+        camera.setLocation(-2500.0f, -2500.0f, -4000.0f);
         camera.setRotation(new Quaternionf().rotationXYZ(31, 10, -71));
 
         view = new RenderView(camera);
@@ -85,6 +86,20 @@ public class GalaxyTest extends SethlansApplication {
         }
 
         frame.command().render(List.of(view));
+    }
+
+    @Override
+    public void resize() {
+        super.resize();
+        
+        var renderEngine = ((VulkanGraphicsBackend) getRenderEngine().getBackend());
+        var swapChain = renderEngine.getSwapChain();
+
+        var camera = new PerspectiveCamera();
+        camera.setAspect((float) swapChain.width() / (float) swapChain.height());
+
+        view.getViewport().setWidth(swapChain.width()).setHeight(swapChain.height());
+        view.getScissor().setWidth(swapChain.width()).setHeight(swapChain.height());
     }
 
     @Override
