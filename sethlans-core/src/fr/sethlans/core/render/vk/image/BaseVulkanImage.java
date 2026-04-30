@@ -193,6 +193,16 @@ public class BaseVulkanImage extends AbstractDeviceResource implements VulkanIma
             case RGBA8 -> VulkanFormat.R8G8B8A8_UNORM;
             case BGR8 -> VulkanFormat.B8G8R8_UNORM;
             case BGRA8 -> VulkanFormat.B8G8R8A8_UNORM;
+            
+            case R16 -> VulkanFormat.R16_UNORM;
+            case RG16 -> VulkanFormat.R16G16_UNORM;
+            case RGB16 -> VulkanFormat.R16G16B16_UNORM;
+            case RGBA16 -> VulkanFormat.R16G16B16A16_UNORM;
+            
+            case R32F -> VulkanFormat.R32_SFLOAT;
+            case RG32F -> VulkanFormat.R32G32_SFLOAT;
+            case RGB32F -> VulkanFormat.R32G32B32_SFLOAT;
+            case RGBA32F -> VulkanFormat.R32G32B32A32_SFLOAT;
 
             case DEPTH16 -> VulkanFormat.DEPTH16_UNORM;
             case DEPTH24 -> VulkanFormat.DEPTH24_UNORM;

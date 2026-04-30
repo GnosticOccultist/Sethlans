@@ -7,6 +7,7 @@ import org.joml.Vector3f;
 import fr.sethlans.core.app.ConfigFile;
 import fr.sethlans.core.app.SethlansApplication;
 import fr.sethlans.core.asset.MaterialLoader;
+import fr.sethlans.core.asset.StbImageLoader;
 import fr.sethlans.core.asset.TextureLoader;
 import fr.sethlans.core.material.Texture;
 import fr.sethlans.core.render.state.raster.CullMode;
@@ -57,7 +58,7 @@ public class SethlansTest extends SethlansApplication {
         view.getScissor().setWidth(800).setHeight(600);
         addView(view);
 
-        texture = TextureLoader.load(getConfig(), "resources/textures/vulkan-logo.png");
+        texture = StbImageLoader.load(getConfig(), "resources/textures/vulkan-logo.png");
 
         var mat = MaterialLoader.load(getConfig(), "resources/materials/unlit.smat");
         mat.getMaterialPass("forward").getRenderState().getRasterizationState().setCullMode(CullMode.BACK);

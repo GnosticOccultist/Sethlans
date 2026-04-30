@@ -45,21 +45,14 @@ public class BuiltinDescriptorManager {
 
     private Projection projection;
 
-    public Matrix4f viewMatrix;
-
     BuiltinDescriptorManager(DescriptorPool descriptorPool, int width, int height) {
         this.descriptorPool = descriptorPool;
         this.projection = new Projection(width, height);
-        this.viewMatrix = new Matrix4f();
 
         builtinBindings.put("Global", new BuiltinBinding("Global", UpdateRate.STATIC,
                 ForeignStructLayoutGenerator.layoutOf(Global.class, LayoutType.STD140)));
         builtinBindings.put("Dynamic", new BuiltinBinding("Dynamic", UpdateRate.PER_FRAME,
                 ForeignStructLayoutGenerator.layoutOf(Dynamic.class, LayoutType.STD140)));
-        
-        viewMatrix.lookAt(-3000.0f, -2500.0f, -3000.0f, 0, 1200, 0, 0, 1, 0);
-        //viewMatrix.transpose();
-        //viewMatrix.(new Vector3f(-200, -1000, -100), new Vector3f(-200, -500, -100), new Vector3f(0, 1, 0));
     }
 
     void update(Camera camera, int currentFrame) {

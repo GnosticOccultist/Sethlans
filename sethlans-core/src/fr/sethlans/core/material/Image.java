@@ -77,6 +77,30 @@ public class Image {
         BGR8(24),
 
         BGRA8(32),
+        
+        R16(16),
+
+        RG16(32),
+
+        RGB16(48),
+
+        RGBA16(64),
+
+        BGR16(48),
+
+        BGRA16(64),
+        
+        R32F(32),
+
+        RG32F(64),
+
+        RGB32F(96),
+
+        RGBA32F(128),
+
+        BGR32F(96),
+
+        BGRA32F(128),
 
         DEPTH16(16),
 

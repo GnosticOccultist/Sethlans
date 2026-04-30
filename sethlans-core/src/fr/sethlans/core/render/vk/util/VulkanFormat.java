@@ -7,41 +7,53 @@ import fr.sethlans.core.render.vk.image.VulkanImage.Aspect;
 public enum VulkanFormat {
 
     UNDEFINED(VK10.VK_FORMAT_UNDEFINED),
-    
+
     R8_UNORM(VK10.VK_FORMAT_R8_UNORM, VkFlag.of(Aspect.COLOR)),
-    
+
     R8_SRGB(VK10.VK_FORMAT_R8_SRGB, VkFlag.of(Aspect.COLOR)),
-    
+
     R8G8_UNORM(VK10.VK_FORMAT_R8G8_UNORM, VkFlag.of(Aspect.COLOR)),
-    
+
     R8G8_SRGB(VK10.VK_FORMAT_R8G8_SRGB, VkFlag.of(Aspect.COLOR)),
-    
+
     R8G8B8_UNORM(VK10.VK_FORMAT_R8G8B8_UNORM, VkFlag.of(Aspect.COLOR)),
-    
+
     R8G8B8_SRGB(VK10.VK_FORMAT_R8G8B8_SRGB, VkFlag.of(Aspect.COLOR)),
-    
+
     B8G8R8_UNORM(VK10.VK_FORMAT_B8G8R8_UNORM, VkFlag.of(Aspect.COLOR)),
-    
+
     B8G8R8_SRGB(VK10.VK_FORMAT_B8G8R8_SRGB, VkFlag.of(Aspect.COLOR)),
-    
+
     R8G8B8A8_UNORM(VK10.VK_FORMAT_R8G8B8A8_UNORM, VkFlag.of(Aspect.COLOR)),
-    
+
     R8G8B8A8_SRGB(VK10.VK_FORMAT_R8G8B8A8_SRGB, VkFlag.of(Aspect.COLOR)),
 
     B8G8R8A8_UNORM(VK10.VK_FORMAT_B8G8R8A8_UNORM, VkFlag.of(Aspect.COLOR)),
-    
+
     B8G8R8A8_SRGB(VK10.VK_FORMAT_B8G8R8A8_SRGB, VkFlag.of(Aspect.COLOR)),
-    
+
+    R16_UNORM(VK10.VK_FORMAT_R16_UNORM, VkFlag.of(Aspect.COLOR)),
+
+    R16G16_UNORM(VK10.VK_FORMAT_R16G16_UNORM, VkFlag.of(Aspect.COLOR)),
+
+    R16G16B16_UNORM(VK10.VK_FORMAT_R16G16B16_UNORM, VkFlag.of(Aspect.COLOR)),
+
+    R16G16B16A16_UNORM(VK10.VK_FORMAT_R16G16B16A16_UNORM, VkFlag.of(Aspect.COLOR)),
+
+    R32_SFLOAT(VK10.VK_FORMAT_R32_SFLOAT, VkFlag.of(Aspect.COLOR)),
+
+    R32G32_SFLOAT(VK10.VK_FORMAT_R32G32_SFLOAT, VkFlag.of(Aspect.COLOR)),
+
     R32G32B32_SFLOAT(VK10.VK_FORMAT_R32G32B32_SFLOAT, VkFlag.of(Aspect.COLOR)),
-    
+
     R32G32B32A32_SFLOAT(VK10.VK_FORMAT_R32G32B32A32_SFLOAT, VkFlag.of(Aspect.COLOR)),
 
     DEPTH16_UNORM(VK10.VK_FORMAT_D16_UNORM, VkFlag.of(Aspect.DEPTH)),
 
     DEPTH24_UNORM(VK10.VK_FORMAT_X8_D24_UNORM_PACK32, VkFlag.of(Aspect.DEPTH)),
-    
+
     DEPTH32_SFLOAT(VK10.VK_FORMAT_D32_SFLOAT, VkFlag.of(Aspect.DEPTH)),
-    
+
     STENCIL8_UINT(VK10.VK_FORMAT_D32_SFLOAT_S8_UINT, VkFlag.of(Aspect.STENCIL)),
 
     DEPTH16_UNORM_STENCIL8_UINT(VK10.VK_FORMAT_D16_UNORM_S8_UINT, VkFlag.of(Aspect.DEPTH, Aspect.STENCIL)),
@@ -49,11 +61,11 @@ public enum VulkanFormat {
     DEPTH24_UNORM_STENCIL8_UINT(VK10.VK_FORMAT_D24_UNORM_S8_UINT, VkFlag.of(Aspect.DEPTH, Aspect.STENCIL)),
 
     DEPTH32_SFLOAT_STENCIL8_UINT(VK10.VK_FORMAT_D32_SFLOAT_S8_UINT, VkFlag.of(Aspect.DEPTH, Aspect.STENCIL));
-    
+
     private final int vkEnum;
-    
+
     private final VkFlag<Aspect> aspects;
-    
+
     private VulkanFormat(int vkEnum) {
         this.vkEnum = vkEnum;
         this.aspects = VkFlag.empty();
@@ -63,7 +75,7 @@ public enum VulkanFormat {
         this.vkEnum = vkEnum;
         this.aspects = aspects;
     }
-    
+
     public VkFlag<Aspect> getAspects() {
         return aspects;
     }
