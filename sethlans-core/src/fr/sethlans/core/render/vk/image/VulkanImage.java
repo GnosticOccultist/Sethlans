@@ -23,11 +23,11 @@ public interface VulkanImage extends NativeResource<Long> {
     int height();
 
     VulkanFormat format();
-    
+
     int sampleCount();
 
     long handle();
-    
+
     Layout getLayout();
 
     Tiling getTiling();
@@ -37,16 +37,38 @@ public interface VulkanImage extends NativeResource<Long> {
     default SingleUseCommand transitionLayout(Layout dstLayout) {
         return transitionLayout(null, dstLayout);
     }
-    
+
     default SingleUseCommand transitionLayout(SingleUseCommand existingCommand, Layout dstLayout) {
-        return transitionLayout(dstLayout, getLayout().getAccess(), dstLayout.getAccess(), getLayout().getStage(), dstLayout.getStage());
+        return transitionLayout(dstLayout, getLayout().getAccess(), dstLayout.getAccess(), getLayout().getStage(),
+                dstLayout.getStage());
     }
-    
-    default SingleUseCommand transitionLayout(Layout dstLayout, VkFlag<Access> srcAccess, VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage) {
+
+    default SingleUseCommand transitionLayout(Layout dstLayout, VkFlag<Access> srcAccess, VkFlag<Access> dstAccess,
+            VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage) {
         return transitionLayout(null, dstLayout, srcAccess, dstAccess, srcStage, dstStage);
     }
 
-    SingleUseCommand transitionLayout(SingleUseCommand existingCommand, Layout dstLayout, VkFlag<Access> srcAccess, VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage);
+    SingleUseCommand transitionLayout(SingleUseCommand existingCommand, Layout dstLayout, VkFlag<Access> srcAccess,
+            VkFlag<Access> dstAccess, VkFlag<PipelineStage> srcStage, VkFlag<PipelineStage> dstStage);
+
+    public enum Type {
+
+        ONE_DIMENSIONAL(VK10.VK_IMAGE_TYPE_1D),
+
+        TWO_DIMENSIONAL(VK10.VK_IMAGE_TYPE_2D),
+
+        THREE_DIMENSIONAL(VK10.VK_IMAGE_TYPE_3D);
+
+        private final int vkEnum;
+
+        private Type(int vkEnum) {
+            this.vkEnum = vkEnum;
+        }
+
+        public int vkEnum() {
+            return vkEnum;
+        }
+    }
 
     public enum Layout {
 
@@ -63,7 +85,8 @@ public interface VulkanImage extends NativeResource<Long> {
                 VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.DEPTH, Aspect.STENCIL)),
 
         DEPTH_STENCIL_READ_ONLY_OPTIMAL(VK10.VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
-                VkFlag.of(Access.COLOR_ATTACHMENT_READ), VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.DEPTH, Aspect.STENCIL)),
+                VkFlag.of(Access.COLOR_ATTACHMENT_READ), VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS),
+                VkFlag.of(Aspect.DEPTH, Aspect.STENCIL)),
 
         SHADER_READ_ONLY_OPTIMAL(VK10.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VkFlag.of(Access.SHADER_READ),
                 VkFlag.of(PipelineStage.FRAGMENT_SHADER)),
@@ -90,14 +113,16 @@ public interface VulkanImage extends NativeResource<Long> {
                 VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.DEPTH)),
 
         DEPTH_READ_ONLY_OPTIMAL(VK12.VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL,
-                VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ), VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.DEPTH)),
+                VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ), VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS),
+                VkFlag.of(Aspect.DEPTH)),
 
         STENCIL_ATTACHMENT_OPTIMAL(VK12.VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
                 VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ, Access.DEPTH_STENCIL_ATTACHMENT_WRITE),
                 VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.STENCIL)),
 
         STENCIL_READ_ONLY_OPTIMAL(VK12.VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL,
-                VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ), VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS), VkFlag.of(Aspect.STENCIL)),
+                VkFlag.of(Access.DEPTH_STENCIL_ATTACHMENT_READ), VkFlag.of(PipelineStage.EARLY_FRAGMENT_TESTS),
+                VkFlag.of(Aspect.STENCIL)),
 
         READ_ONLY_OPTIMAL(VK13.VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, VkFlag.of(Access.SHADER_READ),
                 VkFlag.of(PipelineStage.FRAGMENT_SHADER)),
@@ -123,7 +148,7 @@ public interface VulkanImage extends NativeResource<Long> {
             this.stage = VkFlag.empty();
             this.aspect = VkFlag.empty();
         }
-        
+
         private Layout(int vkEnum, VkFlag<Access> access, VkFlag<PipelineStage> stage) {
             this.vkEnum = vkEnum;
             this.access = access;
@@ -149,7 +174,7 @@ public interface VulkanImage extends NativeResource<Long> {
         public VkFlag<PipelineStage> getStage() {
             return stage;
         }
-        
+
         public boolean isDepthLayout() {
             return aspect.contains(Aspect.DEPTH);
         }
@@ -188,15 +213,15 @@ public interface VulkanImage extends NativeResource<Long> {
             return bits;
         }
     }
-    
+
     public enum Load {
 
         LOAD(VK10.VK_ATTACHMENT_LOAD_OP_LOAD),
 
         CLEAR(VK10.VK_ATTACHMENT_LOAD_OP_CLEAR),
-        
+
         DONT_CARE(VK10.VK_ATTACHMENT_LOAD_OP_DONT_CARE),
-        
+
         NONE(VK14.VK_ATTACHMENT_LOAD_OP_NONE);
 
         private final int vkEnum;
@@ -209,13 +234,13 @@ public interface VulkanImage extends NativeResource<Long> {
             return vkEnum;
         }
     }
-    
+
     public enum Store {
 
         STORE(VK10.VK_ATTACHMENT_STORE_OP_STORE),
-        
+
         DONT_CARE(VK10.VK_ATTACHMENT_STORE_OP_DONT_CARE),
-        
+
         NONE(VK14.VK_ATTACHMENT_STORE_OP_NONE);
 
         private final int vkEnum;
@@ -247,7 +272,7 @@ public interface VulkanImage extends NativeResource<Long> {
             return vkEnum;
         }
     }
-    
+
     public enum Filter {
 
         NEAREST(VK10.VK_FILTER_NEAREST),

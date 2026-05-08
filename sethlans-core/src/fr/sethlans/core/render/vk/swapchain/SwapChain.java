@@ -49,11 +49,11 @@ public abstract class SwapChain extends AbstractDeviceResource {
     protected static final Logger logger = FactoryLogger.getLogger("sethlans-core.render.vk.swapchain");
 
     protected final VulkanContext context;
-    
+
     protected final ConfigFile config;
 
     protected final VkExtent2D framebufferExtent = VkExtent2D.create();
-    
+
     protected PresentableFrameBuffer framebuffer;
 
     protected VulkanFormat imageFormat;
@@ -61,7 +61,7 @@ public abstract class SwapChain extends AbstractDeviceResource {
     protected VulkanFormat depthFormat;
 
     protected int sampleCount;
-    
+
     protected int imageCount;
 
     protected SwapChain(VulkanContext context, ConfigFile config) {
@@ -72,9 +72,9 @@ public abstract class SwapChain extends AbstractDeviceResource {
         var physicalDevice = context.getPhysicalDevice();
         var logicalDevice = context.getLogicalDevice();
 
-        this.depthFormat = physicalDevice.findSupportedFormat(Tiling.OPTIMAL,
-                FormatFeature.DEPTH_STENCIL_ATTACHMENT, VulkanFormat.DEPTH32_SFLOAT,
-                VulkanFormat.DEPTH32_SFLOAT_STENCIL8_UINT, VulkanFormat.DEPTH24_UNORM_STENCIL8_UINT);
+        this.depthFormat = physicalDevice.findSupportedFormat(Tiling.OPTIMAL, FormatFeature.DEPTH_STENCIL_ATTACHMENT,
+                VulkanFormat.DEPTH32_SFLOAT, VulkanFormat.DEPTH32_SFLOAT_STENCIL8_UINT,
+                VulkanFormat.DEPTH24_UNORM_STENCIL8_UINT);
 
         var requestedSampleCount = config.getInteger(SethlansApplication.MSAA_SAMPLES_PROP,
                 SethlansApplication.DEFAULT_MSSA_SAMPLES);
@@ -83,7 +83,7 @@ public abstract class SwapChain extends AbstractDeviceResource {
         this.sampleCount = Math.max(sampleCount, VK10.VK_SAMPLE_COUNT_1_BIT);
         logger.info("Using " + sampleCount + " samples (requested= " + requestedSampleCount + ", max= " + maxSampleCount
                 + ").");
-        
+
         ref = NativeResource.get().register(this);
         logicalDevice.getNativeReference().addDependent(ref);
     }
@@ -97,7 +97,7 @@ public abstract class SwapChain extends AbstractDeviceResource {
         if (!image.getUsage().contains(ImageUsage.TRANSFER_SRC)) {
             throw new IllegalStateException("Surface images doesn't support transferring to a buffer!");
         }
-        
+
         // Allocate a readable buffer.
         var width = framebufferExtent.width();
         var height = framebufferExtent.height();
@@ -114,7 +114,7 @@ public abstract class SwapChain extends AbstractDeviceResource {
             // Re-transition image layout back for future presentation.
             image.transitionLayout(command, image.getLayout());
         }
-        
+
         var img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 
         // Map buffer memory and decode BGRA pixel data.
@@ -150,9 +150,9 @@ public abstract class SwapChain extends AbstractDeviceResource {
             logger.error("Failed to write PNG image to '" + outputPath + "'!", ex);
         }
     }
-    
+
     public abstract void recreate(Window window, RenderPass renderPass, List<Attachment> attachments);
-    
+
     public PresentableFrameBuffer getFramebuffer() {
         return framebuffer;
     }
@@ -187,9 +187,9 @@ public abstract class SwapChain extends AbstractDeviceResource {
     public VulkanFormat depthFormat() {
         return depthFormat;
     }
-    
+
     public class PresentationImage implements VulkanImage {
-        
+
         private final long imageHandle;
         private final ImageView imageView;
         private final VkFlag<ImageUsage> usage;
@@ -198,7 +198,7 @@ public abstract class SwapChain extends AbstractDeviceResource {
         protected PresentationImage(long imageHandle, VkFlag<ImageUsage> usage) {
             this.imageHandle = imageHandle;
             this.usage = usage;
-            this.imageView = new ImageView(getLogicalDevice(), this);
+            this.imageView = new ImageView(getLogicalDevice(), this, ImageView.Type.TWO_DIMENSIONAL);
         }
 
         @Override
@@ -225,7 +225,7 @@ public abstract class SwapChain extends AbstractDeviceResource {
         public VulkanFormat format() {
             return imageFormat();
         }
-        
+
         @Override
         public int sampleCount() {
             return VK10.VK_SAMPLE_COUNT_1_BIT;
@@ -260,12 +260,12 @@ public abstract class SwapChain extends AbstractDeviceResource {
             if (existingCommand == null) {
                 command.beginRecording();
             }
-            
+
             command.addBarrier(this, layout, dstLayout, srcAccess, dstAccess, srcStage, dstStage);
             this.layout = dstLayout;
             return command;
         }
-        
+
         public ImageView getImageView() {
             return imageView;
         }
@@ -273,7 +273,8 @@ public abstract class SwapChain extends AbstractDeviceResource {
         @Override
         public Runnable createDestroyAction() {
             // No need to destroy swap-chain image.
-            return () -> {};
+            return () -> {
+            };
         }
     }
 }

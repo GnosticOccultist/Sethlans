@@ -8,6 +8,7 @@ import fr.sethlans.core.render.vk.buffer.BaseVulkanBuffer;
 import fr.sethlans.core.render.vk.buffer.BufferUsage;
 import fr.sethlans.core.render.vk.command.CommandBuffer;
 import fr.sethlans.core.render.vk.device.LogicalDevice;
+import fr.sethlans.core.render.vk.image.ImageView.Type;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.VulkanImage.Tiling;
 import fr.sethlans.core.render.vk.memory.MemoryProperty;
@@ -64,7 +65,7 @@ public class VulkanTexture {
         // Destroy the staging buffer.
         stagingBuffer.getNativeReference().destroy();
 
-        this.imageView = new ImageView(device, image);
+        this.imageView = new ImageView(device, image, Type.TWO_DIMENSIONAL);
         this.sampler = new TextureSampler(device, image.mipLevels(), true);
     }
 

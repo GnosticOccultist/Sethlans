@@ -11,6 +11,7 @@ import fr.sethlans.core.render.vk.device.LogicalDevice;
 import fr.sethlans.core.render.vk.image.BaseVulkanImage;
 import fr.sethlans.core.render.vk.image.ImageUsage;
 import fr.sethlans.core.render.vk.image.ImageView;
+import fr.sethlans.core.render.vk.image.ImageView.Type;
 import fr.sethlans.core.render.vk.image.VulkanImage.Aspect;
 import fr.sethlans.core.render.vk.image.VulkanImage.Layout;
 import fr.sethlans.core.render.vk.image.VulkanImage.Load;
@@ -52,7 +53,7 @@ public class PresentableFrameBuffer implements VulkanFrameBuffer {
                         var depth = new BaseVulkanImage(swapchain.getLogicalDevice(), extent.width(), extent.height(),
                                 attachment.getFormat(), 1, swapchain.sampleCount(), ImageUsage.DEPTH_STENCIL_ATTACHMENT,
                                 MemoryProperty.DEVICE_LOCAL);
-                        var view = new ImageView(swapchain.getLogicalDevice(), depth);
+                        var view = new ImageView(swapchain.getLogicalDevice(), depth, Type.TWO_DIMENSIONAL);
                         fb.setDepthTarget(new VulkanRenderTarget(attachment.getFormat().getAspects(), view, attachment.getFinalLayout()));
                         
                         // Transition the image to an optimal layout.
@@ -71,7 +72,7 @@ public class PresentableFrameBuffer implements VulkanFrameBuffer {
                         var color = new BaseVulkanImage(swapchain.getLogicalDevice(), extent.width(), extent.height(),
                                 attachment.getFormat(), 1, swapchain.sampleCount(), ImageUsage.COLOR_ATTACHMENT,
                                 MemoryProperty.DEVICE_LOCAL);
-                        var view = new ImageView(swapchain.getLogicalDevice(), color);
+                        var view = new ImageView(swapchain.getLogicalDevice(), color, Type.TWO_DIMENSIONAL);
                         var target = new VulkanRenderTarget(attachment.getFormat().getAspects(), view, attachment.getFinalLayout());
                         target.setClearColor(attachment.getClearColor());
                         target.setResolveMode(attachment.getResolveMode());
