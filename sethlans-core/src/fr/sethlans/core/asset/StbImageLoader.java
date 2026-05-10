@@ -24,9 +24,13 @@ public class StbImageLoader {
     protected static final Logger logger = FactoryLogger.getLogger("sethlans-core.asset");
 
     public static Texture load(ConfigFile config, String path) {
+        return load(config, path, false);
+    }
+
+    public static Texture load(ConfigFile config, String path, boolean flipY) {
         try (var is = Files.newInputStream(Paths.get(path))) {
 
-            var texture = load(config, is);
+            var texture = load(config, is, flipY);
             return texture;
 
         } catch (IOException ex) {
@@ -34,7 +38,7 @@ public class StbImageLoader {
         }
     }
 
-    public static Texture load(ConfigFile config, InputStream is) {
+    public static Texture load(ConfigFile config, InputStream is, boolean flipY) {
         Texture texture = null;
         int width, height;
 
@@ -53,6 +57,9 @@ public class StbImageLoader {
                 buff.flip();
             }
 
+            STBImage.stbi_set_flip_vertically_on_load(flipY);
+            STBImage.stbi_convert_iphone_png_to_rgb(true);
+            STBImage.stbi_set_unpremultiply_on_load(true);
             STBImage.stbi_info_from_memory(pixels.map().getBytes(), w, h, c);
 
             var is16Bit = STBImage.stbi_is_16_bit_from_memory(pixels.map().getBytes());
